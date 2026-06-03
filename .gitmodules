@@ -1,0 +1,3 @@
+[submodule "extern/ymfm"]
+	path = extern/ymfm
+	url = https://github.com/aaronsgiles/ymfm
