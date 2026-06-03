@@ -1,0 +1,23 @@
+; FmEngineApi.def
+; MSVC リンカ用のエクスポート定義ファイル。
+; 関数名の装飾を防ぎ、バイナリ互換性を保つ。
+; (extern "C" を使っているので通常は不要だが、明示することで
+;  /NODEFAULTLIB 環境でも安全にリンクできる)
+
+LIBRARY "FmEngineApi"
+
+EXPORTS
+    FmEngine_Create
+    FmEngine_Destroy
+    FmEngine_AddChip
+    FmEngine_GetChipName
+    FmEngine_GetNativeRate
+    FmEngine_GetSampleRate
+    FmEngine_Write
+    FmEngine_SetGain
+    FmEngine_GetGain
+    FmEngine_Generate
+    Wasapi_Create
+    Wasapi_Destroy
+    Wasapi_Start
+    Wasapi_Stop
