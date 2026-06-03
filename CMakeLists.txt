@@ -19,6 +19,9 @@ add_library(FmEngineApi SHARED
     ${YMFM_DIR}/ymfm_opl.cpp
     ${YMFM_DIR}/ymfm_opn.cpp
     ${YMFM_DIR}/ymfm_opm.cpp
+    ${YMFM_DIR}/ymfm_ssg.cpp
+    ${YMFM_DIR}/ymfm_pcm.cpp
+    ${YMFM_DIR}/ymfm_opz.cpp
     ${YMFM_DIR}/ymfm_misc.cpp
     ${YMFM_DIR}/ymfm_adpcm.cpp
 )
