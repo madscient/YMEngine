@@ -59,13 +59,27 @@ typedef enum FmResult {
 } FmResult;
 
 // =========================================================
-//  チップ種別 (FmChip.h の ChipType と値を合わせる)
+//  チップ種別
+//  FmChip.h の ChipType と順序・値を完全に一致させること。
+//  新チップを FmChip.h に追加したら必ずここにも追加する。
 // =========================================================
 typedef enum FmChipType {
-    FM_CHIP_OPL2 = 0,
-    FM_CHIP_OPL3 = 1,
-    FM_CHIP_OPN2 = 2,
-    FM_CHIP_OPM  = 3,
+    FM_CHIP_Y8950  =  0,  // Y8950  (MSX-Audio)
+    FM_CHIP_OPL    =  1,  // YM3526 (OPL)
+    FM_CHIP_OPL2   =  2,  // YM3812 (OPL2)
+    FM_CHIP_OPL3   =  3,  // YMF262 (OPL3)
+    FM_CHIP_OPL4   =  4,  // YMF278B (OPL4)
+    FM_CHIP_OPN    =  5,  // YM2203 (OPN)
+    FM_CHIP_OPNA   =  6,  // YM2608 (OPNA)
+    FM_CHIP_OPNB   =  7,  // YM2610 (OPNB)
+    FM_CHIP_OPNBB  =  8,  // YM2610B (OPNBB)
+    FM_CHIP_OPN2   =  9,  // YM2612 (OPN2)
+    FM_CHIP_OPM    = 10,  // YM2151 (OPM)
+    FM_CHIP_OPLL   = 11,  // YM2413 (OPLL)
+    FM_CHIP_OPLLP  = 12,  // YMF281 (OPLL Pachinko)
+    FM_CHIP_OPLLX  = 13,  // YM2423 (OPLLX)
+    FM_CHIP_OPZ    = 14,  // YM2414 (OPZ)
+    FM_CHIP_VRC7   = 15,  // DS1001 (VRC7)
 } FmChipType;
 
 // =========================================================

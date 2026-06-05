@@ -9,24 +9,50 @@
 #include "FmEngine.h"
 #include "WasapiOutput.h"
 
-#include <new>       // std::nothrow
+#include <new>
 #include <stdexcept>
-#include <cstring>
 
 // =========================================================
 //  内部構造体 (ハンドルの実体)
 // =========================================================
 struct FmEngineOpaque {
     FmEngine engine;
-
     explicit FmEngineOpaque(uint32_t sr) : engine(sr) {}
 };
 
 struct WasapiOpaque {
     WasapiOutput output;
-
     WasapiOpaque(FmEngine& e, bool excl) : output(e, excl) {}
 };
+
+// =========================================================
+//  FmChipType → ChipType 変換
+//
+//  FmEngineApi.h の FmChipType と FmChip.h の ChipType は
+//  順序が異なる可能性があるため、switch で明示的にマッピングする。
+//  FmChip.h に新チップが追加された場合はここにも追記すること。
+// =========================================================
+static bool toChipType(FmChipType api_type, ChipType& out) {
+    switch (api_type) {
+        case FM_CHIP_Y8950:  out = ChipType::Y8950;  return true;
+        case FM_CHIP_OPL:    out = ChipType::OPL;    return true;
+        case FM_CHIP_OPL2:   out = ChipType::OPL2;   return true;
+        case FM_CHIP_OPL3:   out = ChipType::OPL3;   return true;
+        case FM_CHIP_OPL4:   out = ChipType::OPL4;   return true;
+        case FM_CHIP_OPN:    out = ChipType::OPN;     return true;
+        case FM_CHIP_OPNA:   out = ChipType::OPNA;   return true;
+        case FM_CHIP_OPNB:   out = ChipType::OPNB;   return true;
+        case FM_CHIP_OPNBB:  out = ChipType::OPNBB;  return true;
+        case FM_CHIP_OPN2:   out = ChipType::OPN2;   return true;
+        case FM_CHIP_OPM:    out = ChipType::OPM;    return true;
+        case FM_CHIP_OPLL:   out = ChipType::OPLL;   return true;
+        case FM_CHIP_OPLLP:  out = ChipType::OPLLP;  return true;
+        case FM_CHIP_OPLLX:  out = ChipType::OPLLX;  return true;
+        case FM_CHIP_OPZ:    out = ChipType::OPZ;    return true;
+        case FM_CHIP_VRC7:   out = ChipType::VRC7;   return true;
+        default:                                       return false;
+    }
+}
 
 // =========================================================
 //  例外を FmResult に変換するヘルパー
@@ -45,11 +71,7 @@ static FmResult safeCall(Fn&& fn) noexcept {
     }
 }
 
-// =========================================================
-//  引数チェックヘルパー
-// =========================================================
-#define REQUIRE(cond) do { if (!(cond)) return FM_ERR_INVALID_ARG; } while(0)
-#define REQUIRE_PTR(p) REQUIRE((p) != nullptr)
+#define REQUIRE_PTR(p) do { if (!(p)) return FM_ERR_INVALID_ARG; } while(0)
 
 // =========================================================
 //  FmEngine API 実装
@@ -57,39 +79,37 @@ static FmResult safeCall(Fn&& fn) noexcept {
 
 FMENGINE_API FmEngineHandle FMENGINE_CALL
 FmEngine_Create(uint32_t sample_rate) {
-    auto* p = new(std::nothrow) FmEngineOpaque(sample_rate);
-    return static_cast<FmEngineHandle>(p);
+    return new(std::nothrow) FmEngineOpaque(sample_rate);
 }
 
 FMENGINE_API void FMENGINE_CALL
-FmEngine_Destroy(FmEngineHandle engine) {
-    delete static_cast<FmEngineOpaque*>(engine);
+FmEngine_Destroy(FmEngineHandle h) {
+    delete static_cast<FmEngineOpaque*>(h);
 }
 
 FMENGINE_API FmResult FMENGINE_CALL
-FmEngine_AddChip(FmEngineHandle h, FmChipType type, uint32_t clock,
+FmEngine_AddChip(FmEngineHandle h, FmChipType api_type, uint32_t clock,
                  uint32_t* out_id) {
     REQUIRE_PTR(h);
     REQUIRE_PTR(out_id);
+    ChipType ct;
+    if (!toChipType(api_type, ct)) return FM_ERR_INVALID_ARG;
     return safeCall([&] {
-        auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
-        *out_id = eng.addChip(static_cast<ChipType>(type), clock);
+        *out_id = static_cast<FmEngineOpaque*>(h)->engine.addChip(ct, clock);
     });
 }
 
 FMENGINE_API const char* FMENGINE_CALL
 FmEngine_GetChipName(FmEngineHandle h, uint32_t chip_id) {
     if (!h) return nullptr;
-    auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
-    const auto* c = eng.chip(chip_id);
+    const auto* c = static_cast<FmEngineOpaque*>(h)->engine.chip(chip_id);
     return c ? c->name() : nullptr;
 }
 
 FMENGINE_API uint32_t FMENGINE_CALL
 FmEngine_GetNativeRate(FmEngineHandle h, uint32_t chip_id) {
     if (!h) return 0;
-    auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
-    const auto* c = eng.chip(chip_id);
+    const auto* c = static_cast<FmEngineOpaque*>(h)->engine.chip(chip_id);
     return c ? c->nativeRate() : 0;
 }
 
@@ -119,14 +139,14 @@ FmEngine_SetGain(FmEngineHandle h, uint32_t chip_id,
 
 FMENGINE_API FmResult FMENGINE_CALL
 FmEngine_GetGain(FmEngineHandle h, uint32_t chip_id,
-                 float* out_gain_l, float* out_gain_r) {
+                 float* out_l, float* out_r) {
     REQUIRE_PTR(h);
-    REQUIRE_PTR(out_gain_l);
-    REQUIRE_PTR(out_gain_r);
+    REQUIRE_PTR(out_l);
+    REQUIRE_PTR(out_r);
     return safeCall([&] {
         auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
-        *out_gain_l = eng.getGainL(chip_id);
-        *out_gain_r = eng.getGainR(chip_id);
+        *out_l = eng.getGainL(chip_id);
+        *out_r = eng.getGainR(chip_id);
     });
 }
 
@@ -149,8 +169,7 @@ FMENGINE_API WasapiHandle FMENGINE_CALL
 Wasapi_Create(FmEngineHandle h, int exclusive) {
     if (!h) return nullptr;
     auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
-    auto* p = new(std::nothrow) WasapiOpaque(eng, exclusive != 0);
-    return static_cast<WasapiHandle>(p);
+    return new(std::nothrow) WasapiOpaque(eng, exclusive != 0);
 }
 
 FMENGINE_API void FMENGINE_CALL
@@ -161,15 +180,11 @@ Wasapi_Destroy(WasapiHandle h) {
 FMENGINE_API FmResult FMENGINE_CALL
 Wasapi_Start(WasapiHandle h) {
     REQUIRE_PTR(h);
-    return safeCall([&] {
-        static_cast<WasapiOpaque*>(h)->output.start();
-    });
+    return safeCall([&] { static_cast<WasapiOpaque*>(h)->output.start(); });
 }
 
 FMENGINE_API FmResult FMENGINE_CALL
 Wasapi_Stop(WasapiHandle h) {
     REQUIRE_PTR(h);
-    return safeCall([&] {
-        static_cast<WasapiOpaque*>(h)->output.stop();
-    });
+    return safeCall([&] { static_cast<WasapiOpaque*>(h)->output.stop(); });
 }
