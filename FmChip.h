@@ -14,6 +14,7 @@
 #include "ymfm_opl.h"
 #include "ymfm_opn.h"
 #include "ymfm_opm.h"
+#include "ymfm_opz.h"
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -25,20 +26,44 @@
 //  チップ種別列挙
 // =========================================================
 enum class ChipType {
-    OPL2,   // YM3812
-    OPL3,   // YMF262
-    OPN2,   // YM2612  (Mega Drive)
-    OPM,    // YM2151  (arcade)
+    Y8950,   // Y8950 (OPL expansion for MSX)
+    OPL,    // YM3526  (OPL, used in early Adlib cards)
+    OPL2,   // YM3812  (Adlib, Sound Blaster 1.x, etc.)
+    OPL3,   // YMF262  (Sound Blaster 16, etc.)
+    OPL4,   // YMF278B (OPL4)
+    OPN,    // YM2203  (NEC PC-8801mkIISR, PC-9801, etc.)
+    OPNA,   // YM2608  (NEC PC-8801mkIISR, PC-9801, etc.)
+    OPNB,   // YM2610  (NEO GEO, etc.)
+    OPNBB,  // YM2610B (TAITO)
+    OPN2,   // YM2612  (Mega Drive, FM TOWNS, etc.)
+    OPM,    // YM2151  (SFG-01/05, arcade)
+    OPLL,   // YM2413  (MSX2+, Sega Master System, etc.)
+    OPLLP,  // YMF281  (Pachinko, Pachislo)
+    OPLLX,  // YM2423  (FM Melody Maker, PMC100, etc.)
+    OPZ,    // YM2414  (TX81Z)
+    VRC7,   // DS1001  (Lagrange Point)
 };
 
 // =========================================================
 //  標準クロック定数
 // =========================================================
 namespace FmClock {
+    constexpr uint32_t Y8950 = 3'579'545;   // 3.58 MHz (MSX)
+    constexpr uint32_t OPL   = 3'579'545;   // 3.58 MHz (early Adlib cards)
+    constexpr uint32_t OPLL  = 3'579'545;   // 3.58 MHz (MSX2+)
+    constexpr uint32_t OPLLP = 3'579'545;   // 3.58 MHz (Pachinko, Pachislo)
+    constexpr uint32_t OPLLX = 3'579'545;   // 3.58 MHz (FM Melody Maker, PMC100, etc.)
+    constexpr uint32_t VRC7  = 3'579'545;   // 3.58 MHz (Lagrange Point)
     constexpr uint32_t OPL2  = 3'579'545;   // 3.58 MHz (NTSC)
-    constexpr uint32_t OPL3  = 14'318'180;  // 14.3 MHz
-    constexpr uint32_t OPN2  = 7'670'453;   // Mega Drive
-    constexpr uint32_t OPM   = 3'579'545;   // arcade board
+    constexpr uint32_t OPL3  = 14'318'180;  // 14.3 MHz (Sound Blaster 16, etc.)
+    constexpr uint32_t OPL4  = 16'934'400;  // 16.93 MHz (OPL4)
+    constexpr uint32_t OPN   = 3'993'600;   // 3.99 MHz (NEC PC-8801mkIISR, PC-9801, etc.)
+    constexpr uint32_t OPNA  = 7'987'200;   // 7.99 MHz (NEC PC-8801mkIISR, PC-9801, etc.)
+    constexpr uint32_t OPNB  = 8'000'000;   // 8 MHz (NEO GEO, etc.)
+    constexpr uint32_t OPNBB = 8'000'000;   // 8 MHz (TAITO)
+    constexpr uint32_t OPN2  = 7'670'453;   // 7.67 MHz (Mega Drive)
+    constexpr uint32_t OPM   = 3'579'545;   // 3.48 MHz (SFG-01/05)
+    constexpr uint32_t OPZ   = 3'579'545;   // 3.58 MHz (TX81Z)
 }
 
 // =========================================================
@@ -246,10 +271,22 @@ private:
 // =========================================================
 //  name() 特殊化
 // =========================================================
+template<> inline const char* FmChipImpl<ymfm::ym3812, ChipType::Y8950>::name() const { return "Y8950 (YM3801)"; }
+template<> inline const char* FmChipImpl<ymfm::ym3812, ChipType::OPL2>::name() const { return "OPL (YM3526)"; }
 template<> inline const char* FmChipImpl<ymfm::ym3812, ChipType::OPL2>::name() const { return "OPL2 (YM3812)"; }
 template<> inline const char* FmChipImpl<ymfm::ymf262, ChipType::OPL3>::name() const { return "OPL3 (YMF262)"; }
+template<> inline const char* FmChipImpl<ymfm::ymf262, ChipType::OPL4>::name() const { return "OPL4 (YMF278B)"; }
+template<> inline const char* FmChipImpl<ymfm::ym3812, ChipType::OPN>::name() const { return "OPN (YM2203)"; }
+template<> inline const char* FmChipImpl<ymfm::ym3812, ChipType::OPNA>::name() const { return "OPNA (YM2608)"; }
+template<> inline const char* FmChipImpl<ymfm::ym2610, ChipType::OPNB>::name() const { return "OPNB (YM2610)"; }
+template<> inline const char* FmChipImpl<ymfm::ym2610b, ChipType::OPNBB>::name() const { return "OPNBB (YM2610B)"; }
 template<> inline const char* FmChipImpl<ymfm::ym2612, ChipType::OPN2>::name() const { return "OPN2 (YM2612)"; }
 template<> inline const char* FmChipImpl<ymfm::ym2151, ChipType::OPM>::name()  const { return "OPM (YM2151)";  }
+template<> inline const char* FmChipImpl<ymfm::ym2414, ChipType::OPZ>::name() const { return "OPZ (YM2414)"; }
+template<> inline const char* FmChipImpl<ymfm::ym2413, ChipType::OPLL>::name() const { return "OPLL (YM2413)"; }
+template<> inline const char* FmChipImpl<ymfm::ymf281, ChipType::OPLLP>::name() const { return "OPLLP (YMF281)"; }
+template<> inline const char* FmChipImpl<ymfm::ym2423, ChipType::OPLLX>::name() const { return "OPLLX (YM2423)"; }
+template<> inline const char* FmChipImpl<ymfm::ds1001, ChipType::VRC7>::name() const { return "VRC7 (DS1001)"; }
 
 // =========================================================
 //  ファクトリ関数
@@ -258,18 +295,54 @@ template<> inline const char* FmChipImpl<ymfm::ym2151, ChipType::OPM>::name()  c
 inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock = 0) {
     auto resolve = [](uint32_t c, uint32_t def) { return c ? c : def; };
     switch (type) {
+        case ChipType::Y8950:
+            return std::make_unique<FmChipImpl<ymfm::y8950, ChipType::Y8950>>(
+                resolve(clock, FmClock::Y8950));
+        case ChipType::OPL:
+            return std::make_unique<FmChipImpl<ymfm::ym3526, ChipType::OPL>>(
+                resolve(clock, FmClock::OPL));
         case ChipType::OPL2:
             return std::make_unique<FmChipImpl<ymfm::ym3812, ChipType::OPL2>>(
                 resolve(clock, FmClock::OPL2));
         case ChipType::OPL3:
             return std::make_unique<FmChipImpl<ymfm::ymf262, ChipType::OPL3>>(
                 resolve(clock, FmClock::OPL3));
+        case ChipType::OPL4:
+            return std::make_unique<FmChipImpl<ymfm::ymf278b, ChipType::OPL4>>(
+                resolve(clock, FmClock::OPL4));
+        case ChipType::OPN:
+            return std::make_unique<FmChipImpl<ymfm::ym2203, ChipType::OPN>>(
+                resolve(clock, FmClock::OPN));
+        case ChipType::OPNA:
+            return std::make_unique<FmChipImpl<ymfm::ym2608, ChipType::OPNA>>(
+                resolve(clock, FmClock::OPNA));
+        case ChipType::OPNB:
+            return std::make_unique<FmChipImpl<ymfm::ym2610, ChipType::OPNB>>(
+                resolve(clock, FmClock::OPNB));
+        case ChipType::OPNBB:
+            return std::make_unique<FmChipImpl<ymfm::ym2610b, ChipType::OPNBB>>(
+                resolve(clock, FmClock::OPNBB));
         case ChipType::OPN2:
             return std::make_unique<FmChipImpl<ymfm::ym2612, ChipType::OPN2>>(
                 resolve(clock, FmClock::OPN2));
         case ChipType::OPM:
             return std::make_unique<FmChipImpl<ymfm::ym2151, ChipType::OPM>>(
                 resolve(clock, FmClock::OPM));
+        case ChipType::OPZ:
+            return std::make_unique<FmChipImpl<ymfm::ym2414, ChipType::OPZ>>(
+                resolve(clock, FmClock::OPZ));
+        case ChipType::OPLL:
+            return std::make_unique<FmChipImpl<ymfm::ym2413, ChipType::OPLL>>(
+                resolve(clock, FmClock::OPLL));
+        case ChipType::OPLLP:
+            return std::make_unique<FmChipImpl<ymfm::ymf281, ChipType::OPLLP>>(
+                resolve(clock, FmClock::OPLLP));
+        case ChipType::OPLLX:
+            return std::make_unique<FmChipImpl<ymfm::ym2423, ChipType::OPLLX>>(
+                resolve(clock, FmClock::OPLLX));
+        case ChipType::VRC7:
+            return std::make_unique<FmChipImpl<ymfm::ds1001, ChipType::VRC7>>(
+                resolve(clock, FmClock::VRC7));
     }
     return nullptr;
 }
