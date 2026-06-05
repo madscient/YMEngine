@@ -1,31 +1,33 @@
-# ymfm_engine
+# YMEngine
 
 **ymfm** をコアとした Windows 向け FM 音源エンジン。  
-複数チップ (OPL2/OPL3/OPN2/OPM) を同時に扱い、WASAPI でリアルタイム再生します。
+16種類のチップに対応し、WASAPI でリアルタイム再生します。
 
 ## ファイル構成
 
 ```
-ymfm_engine/
+YMEngine/
 ├── CMakeLists.txt
 ├── extern/
-│   └── ymfm/                   ← git submodule
-└── src/
-    ├── FmChip.h                ymfm ラッパー・LinearResampler
-    ├── FmEngine.h              複数チップ管理・SPSC キュー・ゲイン
-    ├── WasapiOutput.h          WASAPI リアルタイム出力
-    ├── FmEngineApi.h      ★   DLL 公開用 C ファサード (宣言)
-    ├── FmEngineApi.cpp    ★   DLL 公開用 C ファサード (実装)
-    ├── FmEngineApi.def    ★   MSVC エクスポート定義
-    ├── FmEngineApi.rc     ★   DLL バージョン情報リソース
-    └── main.cpp                使用例 (FmEngineApi.h のみ使用)
+│   └── ymfm/              ← git submodule (aaronsgiles/ymfm)
+├── FmChip.h               ymfm ラッパー・LinearResampler
+├── FmEngine.h             複数チップ管理・SPSC キュー・ゲイン
+├── WasapiOutput.h         WASAPI リアルタイム出力
+├── FmEngineApi.h     ★   DLL 公開用 C ファサード (宣言)
+├── FmEngineApi.cpp   ★   DLL 公開用 C ファサード (実装)
+├── FmEngineApi.def   ★   MSVC エクスポート定義
+├── FmEngineApi.rc    ★   DLL バージョン情報リソース
+├── main.cpp               使用例 (FmEngineApi.h のみ使用)
+├── README.md
+└── README_ymfm.md         内部 C++ API リファレンス
 ```
 
 ## セットアップ
 
 ```bash
-git init ymfm_engine && cd ymfm_engine
-git submodule add https://github.com/aaronsgiles/ymfm extern/ymfm
+git clone https://github.com/madscient/YMEngine
+cd YMEngine
+git submodule update --init --recursive
 ```
 
 ## ビルド (Visual Studio 2022)
@@ -51,24 +53,24 @@ cmake --build build --config Release
 
 ```c
 #include "FmEngineApi.h"
-#pragma comment(lib, "FmEngineApi.lib")  // または CMake で target_link_libraries
+#pragma comment(lib, "FmEngineApi.lib")
 
 // エンジン作成
 FmEngineHandle eng = FmEngine_Create(48000);
 
 // チップ追加 (clock=0 で標準クロック自動選択)
-uint32_t opl3Id;
-FmEngine_AddChip(eng, FM_CHIP_OPL3, 0, &opl3Id);
+uint32_t opnaId;
+FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
 
 // ゲイン設定 (1.0 = 0 dB)
-FmEngine_SetGain(eng, opl3Id, 1.0f, 1.0f);
+FmEngine_SetGain(eng, opnaId, 1.0f, 1.0f);
 
 // WASAPI 再生
 WasapiHandle wasapi = Wasapi_Create(eng, 0 /*Shared mode*/);
 Wasapi_Start(wasapi);
 
 // レジスタ書き込み (任意スレッドから安全)
-FmEngine_Write(eng, opl3Id, 0xB0, 0x34, 0); // Key-on
+FmEngine_Write(eng, opnaId, 0xB4, 0xC0, 0); // CH0 L/R ON
 
 // 停止・解放
 Wasapi_Stop(wasapi);
@@ -98,20 +100,32 @@ static class FmEngineApi {
     [DllImport(DLL)] public static extern int    Wasapi_Stop(IntPtr wasapi);
 }
 
-var eng    = FmEngineApi.FmEngine_Create(48000);
-FmEngineApi.FmEngine_AddChip(eng, 1 /*OPL3*/, 0, out uint id);
+var eng = FmEngineApi.FmEngine_Create(48000);
+FmEngineApi.FmEngine_AddChip(eng, 6 /*FM_CHIP_OPNA*/, 0, out uint id);
 var wasapi = FmEngineApi.Wasapi_Create(eng, 0);
 FmEngineApi.Wasapi_Start(wasapi);
 ```
 
 ## 対応チップ
 
-| 定数 | チップ | 標準クロック |
-|---|---|---|
-| `FM_CHIP_OPL2` | YM3812 | 3.58 MHz |
-| `FM_CHIP_OPL3` | YMF262 | 14.3 MHz |
-| `FM_CHIP_OPN2` | YM2612 | 7.67 MHz |
-| `FM_CHIP_OPM`  | YM2151 | 3.58 MHz |
+| C 定数 (FmChipType) | C++ 列挙 (ChipType) | チップ | 標準クロック | 主な用途 |
+|---|---|---|---|---|
+| `FM_CHIP_Y8950`  | `ChipType::Y8950`  | Y8950    | 3.58 MHz  | MSX-Audio |
+| `FM_CHIP_OPL`    | `ChipType::OPL`    | YM3526   | 3.58 MHz  | 初期 AdLib カード |
+| `FM_CHIP_OPL2`   | `ChipType::OPL2`   | YM3812   | 3.58 MHz  | AdLib, Sound Blaster |
+| `FM_CHIP_OPL3`   | `ChipType::OPL3`   | YMF262   | 14.3 MHz  | Sound Blaster 16 |
+| `FM_CHIP_OPL4`   | `ChipType::OPL4`   | YMF278B  | 16.93 MHz | OPL4 (ROM/RAM PCM 付き) |
+| `FM_CHIP_OPN`    | `ChipType::OPN`    | YM2203   | 3.99 MHz  | PC-8801, PC-9801 |
+| `FM_CHIP_OPNA`   | `ChipType::OPNA`   | YM2608   | 7.99 MHz  | PC-8801mkIISR, PC-9801 |
+| `FM_CHIP_OPNB`   | `ChipType::OPNB`   | YM2610   | 8.00 MHz  | NEO GEO |
+| `FM_CHIP_OPNBB`  | `ChipType::OPNBB`  | YM2610B  | 8.00 MHz  | TAITO アーケード |
+| `FM_CHIP_OPN2`   | `ChipType::OPN2`   | YM2612   | 7.67 MHz  | Mega Drive, FM TOWNS |
+| `FM_CHIP_OPM`    | `ChipType::OPM`    | YM2151   | 3.58 MHz  | SFG-01/05, アーケード |
+| `FM_CHIP_OPLL`   | `ChipType::OPLL`   | YM2413   | 3.58 MHz  | MSX2+, Sega Master System |
+| `FM_CHIP_OPLLP`  | `ChipType::OPLLP`  | YMF281   | 3.58 MHz  | パチンコ・パチスロ |
+| `FM_CHIP_OPLLX`  | `ChipType::OPLLX`  | YM2423   | 3.58 MHz  | FM Melody Maker, PMC100 |
+| `FM_CHIP_OPZ`    | `ChipType::OPZ`    | YM2414   | 3.58 MHz  | TX81Z |
+| `FM_CHIP_VRC7`   | `ChipType::VRC7`   | DS1001   | 3.58 MHz  | Lagrange Point (FC) |
 
 ## ライセンス
 
