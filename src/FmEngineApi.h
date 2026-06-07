@@ -1,15 +1,24 @@
 #pragma once
-// FmEngineApi.h  — DLL 公開 C ファサード
+// FmEngineApi.h
+// DLL として公開する C 互換ファサード API。
 //
-// MSVC 対応のポイント:
-//   - FmResult / FmChipType の typedef enum は extern "C" の外で定義する。
-//     extern "C" ブロック内で enum を定義すると C2143/C2059 が発生する (MSVC)。
-//   - すべての関数宣言のみ extern "C" に入れる。
+// 設計方針:
+//   - 不透明ポインタ (FmEngineHandle / WasapiHandle) で実装を隠蔽する。
+//     呼び出し側は C++ヘッダ (FmEngine.h 等) を一切 include しなくてよい。
+//   - すべての関数は extern "C" + __cdecl。
+//     C# (P/Invoke)、Python (ctypes)、VB、Delphi 等から直接呼べる。
+//   - エラーは戻り値 (0=成功, 負値=エラーコード) で返す。例外は DLL 境界を越えない。
+//   - CRT / STL を ABI 境界に出さない。文字列は const char* のみ。
+//
+// ビルド定義:
+//   FMENGINE_EXPORTS が定義されているとき → dllexport  (DLL 自身のビルド)
+//   それ以外                              → dllimport  (利用側のビルド)
+//   FMENGINE_STATIC が定義されているとき  → 属性なし   (静的リンク)
 
 #ifndef FMENGINE_API_H
 #define FMENGINE_API_H
 
-#include <stdint.h>
+#include <stdint.h>  // C ヘッダのみ使用
 
 // =========================================================
 //  エクスポート属性マクロ
@@ -30,48 +39,6 @@
 
 // =========================================================
 //  不透明ハンドル型
-//  extern "C" の外で前方宣言し、typedef だけを extern "C" 内に置く。
-//  これにより MSVC の enum/struct 解析の問題を回避する。
-// =========================================================
-struct FmEngineOpaque;
-struct WasapiOpaque;
-
-// =========================================================
-//  エラーコード  ※ extern "C" の外で定義 (MSVC C2143 回避)
-// =========================================================
-typedef enum FmResult {
-    FM_OK               =  0,
-    FM_ERR_INVALID_ARG  = -1,
-    FM_ERR_COM          = -2,
-    FM_ERR_AUDIO        = -3,
-    FM_ERR_EXCEPTION    = -4,
-} FmResult;
-
-// =========================================================
-//  チップ種別  ※ extern "C" の外で定義 (MSVC C2143 回避)
-//  FmChip.h の ChipType と順序・値を完全に一致させること。
-// =========================================================
-typedef enum FmChipType {
-    FM_CHIP_Y8950  =  0,
-    FM_CHIP_OPL    =  1,
-    FM_CHIP_OPL2   =  2,
-    FM_CHIP_OPL3   =  3,
-    FM_CHIP_OPL4   =  4,
-    FM_CHIP_OPN    =  5,
-    FM_CHIP_OPNA   =  6,
-    FM_CHIP_OPNB   =  7,
-    FM_CHIP_OPNBB  =  8,
-    FM_CHIP_OPN2   =  9,
-    FM_CHIP_OPM    = 10,
-    FM_CHIP_OPLL   = 11,
-    FM_CHIP_OPLLP  = 12,
-    FM_CHIP_OPLLX  = 13,
-    FM_CHIP_OPZ    = 14,
-    FM_CHIP_VRC7   = 15,
-} FmChipType;
-
-// =========================================================
-//  ハンドル typedef  ※ 関数宣言と同じ extern "C" ブロックに入れる
 // =========================================================
 #ifdef __cplusplus
 extern "C" {
@@ -81,44 +48,111 @@ typedef struct FmEngineOpaque*  FmEngineHandle;
 typedef struct WasapiOpaque*    WasapiHandle;
 
 // =========================================================
+//  エラーコード
+// =========================================================
+typedef enum FmResult {
+    FM_OK               =  0,
+    FM_ERR_INVALID_ARG  = -1,  // NULL ハンドル・範囲外 ID 等
+    FM_ERR_COM          = -2,  // COM / WASAPI の初期化失敗
+    FM_ERR_AUDIO        = -3,  // IAudioClient エラー
+    FM_ERR_EXCEPTION    = -4,  // 予期しない例外
+} FmResult;
+
+// =========================================================
+//  チップ種別
+//  FmChip.h の ChipType と順序・値を完全に一致させること。
+//  新チップを FmChip.h に追加したら必ずここにも追加する。
+// =========================================================
+typedef enum FmChipType {
+    FM_CHIP_Y8950  =  0,  // Y8950  (MSX-Audio)
+    FM_CHIP_OPL    =  1,  // YM3526 (OPL)
+    FM_CHIP_OPL2   =  2,  // YM3812 (OPL2)
+    FM_CHIP_OPL3   =  3,  // YMF262 (OPL3)
+    FM_CHIP_OPL4   =  4,  // YMF278B (OPL4)
+    FM_CHIP_OPN    =  5,  // YM2203 (OPN)
+    FM_CHIP_OPNA   =  6,  // YM2608 (OPNA)
+    FM_CHIP_OPNB   =  7,  // YM2610 (OPNB)
+    FM_CHIP_OPNBB  =  8,  // YM2610B (OPNBB)
+    FM_CHIP_OPN2   =  9,  // YM2612 (OPN2)
+    FM_CHIP_OPM    = 10,  // YM2151 (OPM)
+    FM_CHIP_OPLL   = 11,  // YM2413 (OPLL)
+    FM_CHIP_OPLLP  = 12,  // YMF281 (OPLL Pachinko)
+    FM_CHIP_OPLLX  = 13,  // YM2423 (OPLLX)
+    FM_CHIP_OPZ    = 14,  // YM2414 (OPZ)
+    FM_CHIP_VRC7   = 15,  // DS1001 (VRC7)
+} FmChipType;
+
+// =========================================================
 //  FmEngine API
 // =========================================================
-FMENGINE_API FmEngineHandle FMENGINE_CALL FmEngine_Create(uint32_t sample_rate);
-FMENGINE_API void           FMENGINE_CALL FmEngine_Destroy(FmEngineHandle engine);
 
-FMENGINE_API FmResult       FMENGINE_CALL FmEngine_AddChip(
-    FmEngineHandle engine, FmChipType type, uint32_t clock, uint32_t* out_id);
+// エンジン生成。sample_rate: 出力サンプルレート (例: 44100, 48000)
+FMENGINE_API FmEngineHandle FMENGINE_CALL
+FmEngine_Create(uint32_t sample_rate);
 
-FMENGINE_API const char*    FMENGINE_CALL FmEngine_GetChipName(
-    FmEngineHandle engine, uint32_t chip_id);
+// エンジン破棄
+FMENGINE_API void FMENGINE_CALL
+FmEngine_Destroy(FmEngineHandle engine);
 
-FMENGINE_API uint32_t       FMENGINE_CALL FmEngine_GetNativeRate(
-    FmEngineHandle engine, uint32_t chip_id);
+// チップ追加。clock=0 で各チップの標準クロックを使用。
+// 成功時: 0 以上の chip_id を *out_id に書き込む
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_AddChip(FmEngineHandle engine, FmChipType type, uint32_t clock,
+                 uint32_t* out_id);
 
-FMENGINE_API uint32_t       FMENGINE_CALL FmEngine_GetSampleRate(
-    FmEngineHandle engine);
+// チップ名を取得 (静的文字列、解放不要)
+FMENGINE_API const char* FMENGINE_CALL
+FmEngine_GetChipName(FmEngineHandle engine, uint32_t chip_id);
 
-FMENGINE_API FmResult       FMENGINE_CALL FmEngine_Write(
-    FmEngineHandle engine, uint32_t chip_id, uint8_t reg, uint8_t value, uint32_t port);
+// チップのネイティブサンプルレートを取得
+FMENGINE_API uint32_t FMENGINE_CALL
+FmEngine_GetNativeRate(FmEngineHandle engine, uint32_t chip_id);
 
-FMENGINE_API FmResult       FMENGINE_CALL FmEngine_SetGain(
-    FmEngineHandle engine, uint32_t chip_id, float gain_l, float gain_r);
+// エンジンのターゲットサンプルレートを取得
+FMENGINE_API uint32_t FMENGINE_CALL
+FmEngine_GetSampleRate(FmEngineHandle engine);
 
-FMENGINE_API FmResult       FMENGINE_CALL FmEngine_GetGain(
-    FmEngineHandle engine, uint32_t chip_id, float* out_gain_l, float* out_gain_r);
+// レジスタ書き込み (任意スレッドから安全)
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_Write(FmEngineHandle engine, uint32_t chip_id,
+               uint8_t reg, uint8_t value, uint32_t port);
 
-FMENGINE_API FmResult       FMENGINE_CALL FmEngine_Generate(
-    FmEngineHandle engine, float* out_l, float* out_r, uint32_t samples);
+// ゲイン設定 (線形スケール。1.0 = 0 dB)
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_SetGain(FmEngineHandle engine, uint32_t chip_id,
+                 float gain_l, float gain_r);
+
+// ゲイン取得
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_GetGain(FmEngineHandle engine, uint32_t chip_id,
+                 float* out_gain_l, float* out_gain_r);
+
+// サンプル生成 (オーディオスレッドから呼ぶ)
+// out_l, out_r: float[samples] の呼び出し側バッファ (上書き)
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_Generate(FmEngineHandle engine,
+                  float* out_l, float* out_r, uint32_t samples);
 
 // =========================================================
 //  WasapiOutput API
 // =========================================================
-FMENGINE_API WasapiHandle   FMENGINE_CALL Wasapi_Create(
-    FmEngineHandle engine, int exclusive);
 
-FMENGINE_API void           FMENGINE_CALL Wasapi_Destroy(WasapiHandle wasapi);
-FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Start(WasapiHandle wasapi);
-FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Stop(WasapiHandle wasapi);
+// WASAPI 出力を作成して FmEngine と紐付ける
+// exclusive: 0=Shared mode, 1=Exclusive mode
+FMENGINE_API WasapiHandle FMENGINE_CALL
+Wasapi_Create(FmEngineHandle engine, int exclusive);
+
+// 破棄 (stop() も内部で呼ばれる)
+FMENGINE_API void FMENGINE_CALL
+Wasapi_Destroy(WasapiHandle wasapi);
+
+// 再生開始
+FMENGINE_API FmResult FMENGINE_CALL
+Wasapi_Start(WasapiHandle wasapi);
+
+// 再生停止
+FMENGINE_API FmResult FMENGINE_CALL
+Wasapi_Stop(WasapiHandle wasapi);
 
 #ifdef __cplusplus
 } // extern "C"

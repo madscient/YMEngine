@@ -111,16 +111,16 @@ static void setupOpna(FmEngineHandle eng, uint32_t id) {
         {0x33, 0x1F, 0x9F, 0x05, 0x02, 0x11},  // OP3
         {0x01, 0x00, 0x9F, 0x07, 0x02, 0x11},  // OP4
     };
-    const uint8_t op_offset[4] = { 0x00, 0x08, 0x04, 0x0C };
+    const uint8_t op_offset[4] = {0x00, 0x08, 0x04, 0x0C};
 
     for (int i = 0; i < 4; ++i) {
         uint8_t b = op_offset[i]; // ch0 なのでそのまま
-        FmEngine_Write(eng, id, 0x30 + b, ops[i].dt_mul, 0);
-        FmEngine_Write(eng, id, 0x40 + b, ops[i].tl, 0);
-        FmEngine_Write(eng, id, 0x50 + b, ops[i].rs_ar, 0);
-        FmEngine_Write(eng, id, 0x60 + b, ops[i].am_d1r, 0);
-        FmEngine_Write(eng, id, 0x70 + b, ops[i].d2r, 0);
-        FmEngine_Write(eng, id, 0x80 + b, ops[i].sl_rr, 0);
+        FmEngine_Write(eng, id, 0x30 + b, ops[i].dt_mul,  0);
+        FmEngine_Write(eng, id, 0x40 + b, ops[i].tl,      0);
+        FmEngine_Write(eng, id, 0x50 + b, ops[i].rs_ar,   0);
+        FmEngine_Write(eng, id, 0x60 + b, ops[i].am_d1r,  0);
+        FmEngine_Write(eng, id, 0x70 + b, ops[i].d2r,     0);
+        FmEngine_Write(eng, id, 0x80 + b, ops[i].sl_rr,   0);
     }
 
     // CH0 周波数: A4 (440 Hz) Block=4
@@ -182,9 +182,9 @@ int main() {
     // ===================================================
     //  Section 3: ゲイン設定
     // ===================================================
-    check(FmEngine_SetGain(eng, opl3Id, 1.0f, 1.0f), "SetGain OPL3");
-    check(FmEngine_SetGain(eng, opnaId, dBToLinear(-3.0f), dBToLinear(-3.0f)), "SetGain OPNA");
-    check(FmEngine_SetGain(eng, opllId, dBToLinear(-6.0f), dBToLinear(-6.0f)), "SetGain OPLL");
+    check(FmEngine_SetGain(eng, opl3Id, 1.0f,                1.0f),                "SetGain OPL3");
+    check(FmEngine_SetGain(eng, opnaId, dBToLinear(-3.0f),   dBToLinear(-3.0f)),   "SetGain OPNA");
+    check(FmEngine_SetGain(eng, opllId, dBToLinear(-6.0f),   dBToLinear(-6.0f)),   "SetGain OPLL");
 
     printf("=== Initial gains ===\n");
     float gl, gr;
