@@ -58,7 +58,7 @@ endif()
 # MSVC 最適化・警告設定
 if (MSVC)
     target_compile_options(FmEngineApi PRIVATE
-        /Oi /GL /W4
+        /Oi /GL /W4 /utf-8
         /wd4100   # unreferenced formal parameter (ymfm 内)
         /wd4244   # narrowing conversion (ymfm 内)
         /wd4251   # dll-interface warning (内部クラスに不要)
