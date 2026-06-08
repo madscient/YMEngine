@@ -179,12 +179,9 @@ public:
 template<typename ChipImpl, ChipType TType>
 class FmChipImpl final : public FmChip {
 public:
-    explicit FmChipImpl(uint32_t clock)
-        : m_chip(m_iface, clock), m_clock(clock)
-    {
-        m_chip.reset();
-        m_native_rate = m_chip.sample_rate(clock);
-    }
+    // コンストラクタ本体は全チップ分を下部で完全特殊化して定義する。
+    // 汎用版は定義しない (全チップが特殊化されるため instantiate されない)。
+    explicit FmChipImpl(uint32_t clock);
 
     void write(uint32_t port, uint8_t reg, uint8_t value) override {
         // namespace detail の型トレイトを使用 (MSVC C3856 回避)
@@ -214,10 +211,14 @@ private:
     void generateNative(float* out_l, float* out_r, uint32_t n) {
         typename ChipImpl::output_data out_data{};
         constexpr float kScale = 1.0f / 32768.0f;
+        // ymfm_output<N> には outputs という静的メンバーが存在しない (MSVC C2039)。
+        // sizeof で出力チャンネル数を判定する。
+        constexpr bool isStereo =
+            (sizeof(out_data.data) / sizeof(out_data.data[0])) >= 2;
         for (uint32_t i = 0; i < n; ++i) {
             m_chip.generate(&out_data);
             out_l[i] = static_cast<float>(out_data.data[0]) * kScale;
-            if constexpr (ChipImpl::output_data::outputs >= 2)
+            if constexpr (isStereo)
                 out_r[i] = static_cast<float>(out_data.data[1]) * kScale;
             else
                 out_r[i] = out_l[i];
@@ -255,6 +256,75 @@ template<> inline const char* FmChipImpl<ymfm::ymf281,  ChipType::OPLLP >::name(
 template<> inline const char* FmChipImpl<ymfm::ym2423,  ChipType::OPLLX >::name() const { return "OPLLX (YM2423)"; }
 template<> inline const char* FmChipImpl<ymfm::ym2414,  ChipType::OPZ   >::name() const { return "OPZ (YM2414)";   }
 template<> inline const char* FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >::name() const { return "VRC7 (DS1001)";  }
+
+// =========================================================
+//  コンストラクタ完全特殊化
+//
+//  ymfm の全チップを調査した結果、(interface&, uint32_t clock) を取る
+//  チップは存在しない。全16チップに特殊化が必要。
+//
+//  パターン A: (interface&) のみ
+//    y8950, ym3526, ym3812, ymf262, ymf278b,
+//    ym2203, ym2608, ym2610b, ym2612, ym2414
+//
+//  パターン B: (interface&, const uint8_t* instrument_data = nullptr)
+//    ym2413, ym2423, ymf281, ds1001
+//
+//  パターン C: (interface&, opm_variant)
+//    ym2151
+//
+//  パターン D: (interface&, uint8_t channel_mask = 0x36)
+//    ym2610
+// =========================================================
+
+// マクロで繰り返しを省略
+#define FMCHIP_SPEC_A(Cls, TType, Clk) \
+template<> inline FmChipImpl<ymfm::Cls, ChipType::TType>::FmChipImpl(uint32_t clock) \
+    : m_chip(m_iface), m_clock(clock ? clock : FmClock::Clk) \
+{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
+
+#define FMCHIP_SPEC_B(Cls, TType, Clk) \
+template<> inline FmChipImpl<ymfm::Cls, ChipType::TType>::FmChipImpl(uint32_t clock) \
+    : m_chip(m_iface, static_cast<uint8_t const*>(nullptr)) \
+    , m_clock(clock ? clock : FmClock::Clk) \
+{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
+
+// パターン A
+FMCHIP_SPEC_A(y8950,   Y8950,  Y8950)
+FMCHIP_SPEC_A(ym3526,  OPL,    OPL)
+FMCHIP_SPEC_A(ym3812,  OPL2,   OPL2)
+FMCHIP_SPEC_A(ymf262,  OPL3,   OPL3)
+FMCHIP_SPEC_A(ymf278b, OPL4,   OPL4)
+FMCHIP_SPEC_A(ym2203,  OPN,    OPN)
+FMCHIP_SPEC_A(ym2608,  OPNA,   OPNA)
+FMCHIP_SPEC_A(ym2610b, OPNBB,  OPNBB)
+FMCHIP_SPEC_A(ym2612,  OPN2,   OPN2)
+FMCHIP_SPEC_A(ym2414,  OPZ,    OPZ)
+
+// パターン B
+FMCHIP_SPEC_B(ym2413, OPLL,  OPLL)
+FMCHIP_SPEC_B(ym2423, OPLLX, OPLLX)
+FMCHIP_SPEC_B(ymf281, OPLLP, OPLLP)
+FMCHIP_SPEC_B(ds1001, VRC7,  VRC7)
+
+#undef FMCHIP_SPEC_A
+#undef FMCHIP_SPEC_B
+
+// パターン C: ym2151 (interface&) — public コンストラクタを使う
+// (interface&, opm_variant) は protected のため直接呼べない
+template<>
+inline FmChipImpl<ymfm::ym2151, ChipType::OPM>::FmChipImpl(uint32_t clock)
+    : m_chip(m_iface)
+    , m_clock(clock ? clock : FmClock::OPM)
+{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
+
+// パターン D: ym2610 (interface&, uint8_t channel_mask = 0x36)
+// clock を channel_mask として渡さないようデフォルト値で構築
+template<>
+inline FmChipImpl<ymfm::ym2610, ChipType::OPNB>::FmChipImpl(uint32_t clock)
+    : m_chip(m_iface)
+    , m_clock(clock ? clock : FmClock::OPNB)
+{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
 
 // =========================================================
 //  ファクトリ関数
