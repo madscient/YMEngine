@@ -93,6 +93,7 @@ target_include_directories(sample_app PRIVATE src/)
 target_link_libraries(sample_app PRIVATE FmEngineApi)
 
 if (MSVC)
+    target_compile_options(sample_app PRIVATE /utf-8)
     set_target_properties(sample_app PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
