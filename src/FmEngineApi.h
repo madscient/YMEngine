@@ -128,6 +128,7 @@ FMENGINE_API int            FMENGINE_CALL Wasapi_IsDefaultDevice(uint32_t index)
 FMENGINE_API void           FMENGINE_CALL Wasapi_Destroy(WasapiHandle wasapi);
 FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Start(WasapiHandle wasapi);
 FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Stop(WasapiHandle wasapi);
+FMENGINE_API uint32_t       FMENGINE_CALL Wasapi_GetSampleRate(WasapiHandle wasapi);
 
 #ifdef __cplusplus
 } // extern "C"

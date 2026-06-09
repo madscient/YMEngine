@@ -244,3 +244,9 @@ Wasapi_Stop(WasapiHandle h) {
     REQUIRE_PTR(h);
     return safeCall([&] { static_cast<WasapiOpaque*>(h)->output.stop(); });
 }
+
+FMENGINE_API uint32_t FMENGINE_CALL
+Wasapi_GetSampleRate(WasapiHandle h) {
+    if (!h) return 0;
+    return static_cast<WasapiOpaque*>(h)->output.sampleRate();
+}
