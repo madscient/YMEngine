@@ -22,7 +22,10 @@ struct FmEngineOpaque {
 
 struct WasapiOpaque {
     WasapiOutput output;
-    WasapiOpaque(FmEngine& e, bool excl) : output(e, excl) {}
+    WasapiOpaque(FmEngine& e, bool excl)
+        : output(e, excl) {}
+    WasapiOpaque(FmEngine& e, bool excl, const std::wstring& device_id)
+        : output(e, excl, device_id) {}
 };
 
 // =========================================================
@@ -170,6 +173,59 @@ Wasapi_Create(FmEngineHandle h, int exclusive) {
     if (!h) return nullptr;
     auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
     return new(std::nothrow) WasapiOpaque(eng, exclusive != 0);
+}
+
+// =========================================================
+//  デバイスキャッシュ (Wasapi_GetDevice* 系の内部状態)
+//  Wasapi_GetDeviceCount() を呼ぶたびに列挙し直す。
+// =========================================================
+static std::vector<WasapiDeviceInfo> s_deviceCache;
+
+FMENGINE_API WasapiHandle FMENGINE_CALL
+Wasapi_CreateWithDevice(FmEngineHandle h, int exclusive, const wchar_t* device_id) {
+    if (!h || !device_id) return nullptr;
+    auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
+    try {
+        auto* p = new(std::nothrow) WasapiOpaque(eng, exclusive != 0,
+                                                  std::wstring(device_id));
+        return static_cast<WasapiHandle>(p);
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+FMENGINE_API uint32_t FMENGINE_CALL
+Wasapi_GetDeviceCount(void) {
+    try {
+        s_deviceCache = enumerateWasapiDevices();
+    } catch (...) {
+        s_deviceCache.clear();
+    }
+    return static_cast<uint32_t>(s_deviceCache.size());
+}
+
+FMENGINE_API FmResult FMENGINE_CALL
+Wasapi_GetDeviceId(uint32_t index, wchar_t* buf, uint32_t buf_len) {
+    if (!buf || index >= s_deviceCache.size()) return FM_ERR_INVALID_ARG;
+    const std::wstring& id = s_deviceCache[index].id;
+    if (buf_len == 0) return FM_ERR_INVALID_ARG;
+    wcsncpy_s(buf, buf_len, id.c_str(), _TRUNCATE);
+    return FM_OK;
+}
+
+FMENGINE_API FmResult FMENGINE_CALL
+Wasapi_GetDeviceName(uint32_t index, wchar_t* buf, uint32_t buf_len) {
+    if (!buf || index >= s_deviceCache.size()) return FM_ERR_INVALID_ARG;
+    const std::wstring& name = s_deviceCache[index].name;
+    if (buf_len == 0) return FM_ERR_INVALID_ARG;
+    wcsncpy_s(buf, buf_len, name.c_str(), _TRUNCATE);
+    return FM_OK;
+}
+
+FMENGINE_API int FMENGINE_CALL
+Wasapi_IsDefaultDevice(uint32_t index) {
+    if (index >= s_deviceCache.size()) return 0;
+    return s_deviceCache[index].isDefault ? 1 : 0;
 }
 
 FMENGINE_API void FMENGINE_CALL
