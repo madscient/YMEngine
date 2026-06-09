@@ -113,12 +113,12 @@ int main() {
     setupOpn2(eng, opn2Id);
 
     printf("Playing 2 seconds...\n");
-    Sleep(1000);
+    Sleep(2000);
 
     // ゲインをリアルタイム変更
     printf("Fade OPN2 to -12 dB\n");
     FmEngine_SetGain(eng, opn2Id, dBToLinear(-12.0f), dBToLinear(-12.0f));
-    Sleep(1000);
+    Sleep(2000);
 
     // ⑥ 停止・解放
     Wasapi_Stop(wasapi);
