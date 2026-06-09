@@ -139,6 +139,13 @@ int main() {
         : Wasapi_Create(eng, 0);
     if (!wasapi) { fputs("Wasapi_Create failed\n", stderr); FmEngine_Destroy(eng); return 1; }
 
+    printf("Engine sample rate : %u Hz\n", FmEngine_GetSampleRate(eng));
+    printf("Device sample rate : %u Hz\n", Wasapi_GetSampleRate(wasapi));
+    if (FmEngine_GetSampleRate(eng) != Wasapi_GetSampleRate(wasapi)) {
+        printf("  (rates differ — WasapiOutput will resample internally)\n");
+    }
+    printf("\n");
+
     check(Wasapi_Start(wasapi), "Wasapi_Start");
 
     // ⑤ レジスタ設定

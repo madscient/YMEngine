@@ -264,7 +264,11 @@ private:
 
         m_workL.resize(m_bufferFrames);
         m_workR.resize(m_bufferFrames);
-        m_sampleRate = m_engine.sampleRate();
+        // エンジンのサンプルレートはそのまま維持し、
+        // renderLoop 内でデバイスフレーム数に対応したエンジンフレーム数を計算する。
+        // デバイスレートとエンジンレートが一致しない場合の変換比率を保持する。
+        m_engRate   = m_engine.sampleRate();
+        m_sampleRate = m_devSampleRate;
     }
 
     // -------------------------------------------------------
@@ -300,13 +304,13 @@ private:
         return v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
     }
 
-    void writeToBuffer(BYTE* pData, UINT32 frames) {
+    void writeToBuffer(BYTE* pData, UINT32 frames, const float* srcL, const float* srcR) {
         switch (m_devFmt) {
         case DevFmt::Float32: {
             float* dst = reinterpret_cast<float*>(pData);
             for (UINT32 i = 0; i < frames; ++i) {
-                dst[i * m_devChannels + 0] = clamp1(m_workL[i]);
-                dst[i * m_devChannels + 1] = clamp1(m_workR[i]);
+                dst[i * m_devChannels + 0] = clamp1(srcL[i]);
+                dst[i * m_devChannels + 1] = clamp1(srcR[i]);
                 for (UINT32 ch = 2; ch < m_devChannels; ++ch)
                     dst[i * m_devChannels + ch] = 0.0f;
             }
@@ -315,8 +319,8 @@ private:
         case DevFmt::Int16: {
             int16_t* dst = reinterpret_cast<int16_t*>(pData);
             for (UINT32 i = 0; i < frames; ++i) {
-                dst[i * m_devChannels + 0] = static_cast<int16_t>(clamp1(m_workL[i]) * 32767.0f);
-                dst[i * m_devChannels + 1] = static_cast<int16_t>(clamp1(m_workR[i]) * 32767.0f);
+                dst[i * m_devChannels + 0] = static_cast<int16_t>(clamp1(srcL[i]) * 32767.0f);
+                dst[i * m_devChannels + 1] = static_cast<int16_t>(clamp1(srcR[i]) * 32767.0f);
                 for (UINT32 ch = 2; ch < m_devChannels; ++ch)
                     dst[i * m_devChannels + ch] = 0;
             }
@@ -334,8 +338,8 @@ private:
                     p[1] = static_cast<BYTE>((s >>  8) & 0xFF);
                     p[2] = static_cast<BYTE>((s >> 16) & 0xFF);
                 };
-                write24(frame + 0 * bytesPerSample, m_workL[i]);
-                write24(frame + 1 * bytesPerSample, m_workR[i]);
+                write24(frame + 0 * bytesPerSample, srcL[i]);
+                write24(frame + 1 * bytesPerSample, srcR[i]);
                 for (UINT32 ch = 2; ch < m_devChannels; ++ch)
                     memset(frame + ch * bytesPerSample, 0, 3);
             }
@@ -344,8 +348,8 @@ private:
         case DevFmt::Int32: {
             int32_t* dst = reinterpret_cast<int32_t*>(pData);
             for (UINT32 i = 0; i < frames; ++i) {
-                dst[i * m_devChannels + 0] = static_cast<int32_t>(clamp1(m_workL[i]) * 2147483647.0f);
-                dst[i * m_devChannels + 1] = static_cast<int32_t>(clamp1(m_workR[i]) * 2147483647.0f);
+                dst[i * m_devChannels + 0] = static_cast<int32_t>(clamp1(srcL[i]) * 2147483647.0f);
+                dst[i * m_devChannels + 1] = static_cast<int32_t>(clamp1(srcR[i]) * 2147483647.0f);
                 for (UINT32 ch = 2; ch < m_devChannels; ++ch)
                     dst[i * m_devChannels + ch] = 0;
             }
@@ -372,16 +376,45 @@ private:
             if (!m_exclusive) {
                 if (FAILED(m_audioClient->GetCurrentPadding(&padding))) break;
             }
-            const UINT32 available = m_bufferFrames - padding;
-            if (available == 0) continue;
+            const UINT32 devFrames = m_bufferFrames - padding;
+            if (devFrames == 0) continue;
 
-            m_engine.generate(m_workL.data(), m_workR.data(), available);
+            // デバイスフレーム数に対応するエンジンフレーム数を計算する。
+            // デバイスレートとエンジンレートが一致する場合はそのまま使う。
+            UINT32 engFrames = devFrames;
+            if (m_engRate != m_devSampleRate) {
+                engFrames = static_cast<UINT32>(
+                    static_cast<uint64_t>(devFrames) * m_engRate / m_devSampleRate) + 1;
+            }
+
+            // エンジンバッファをエンジンフレーム数で確保・生成
+            if (m_workL.size() < engFrames) m_workL.resize(engFrames);
+            if (m_workR.size() < engFrames) m_workR.resize(engFrames);
+            m_engine.generate(m_workL.data(), m_workR.data(), engFrames);
+
+            // レート変換が必要な場合は線形補間でリサンプリング
+            if (m_engRate != m_devSampleRate) {
+                if (m_resampledL.size() < devFrames) m_resampledL.resize(devFrames);
+                if (m_resampledR.size() < devFrames) m_resampledR.resize(devFrames);
+                const double ratio = static_cast<double>(m_engRate) / m_devSampleRate;
+                for (UINT32 i = 0; i < devFrames; ++i) {
+                    const double pos   = i * ratio;
+                    const UINT32 idx   = static_cast<UINT32>(pos);
+                    const float  frac  = static_cast<float>(pos - idx);
+                    const UINT32 idx1  = (idx + 1 < engFrames) ? idx + 1 : idx;
+                    m_resampledL[i] = m_workL[idx] + (m_workL[idx1] - m_workL[idx]) * frac;
+                    m_resampledR[i] = m_workR[idx] + (m_workR[idx1] - m_workR[idx]) * frac;
+                }
+            }
+
+            const float* srcL = (m_engRate != m_devSampleRate) ? m_resampledL.data() : m_workL.data();
+            const float* srcR = (m_engRate != m_devSampleRate) ? m_resampledR.data() : m_workR.data();
 
             BYTE* pData = nullptr;
-            if (FAILED(m_renderClient->GetBuffer(available, &pData))) break;
+            if (FAILED(m_renderClient->GetBuffer(devFrames, &pData))) break;
 
-            writeToBuffer(pData, available);
-            m_renderClient->ReleaseBuffer(available, 0);
+            writeToBuffer(pData, devFrames, srcL, srcR);
+            m_renderClient->ReleaseBuffer(devFrames, 0);
         }
     }
 
@@ -390,7 +423,8 @@ private:
     // -------------------------------------------------------
     FmEngine&                  m_engine;
     bool                       m_exclusive;
-    uint32_t                   m_sampleRate       = 44100;
+    uint32_t                   m_sampleRate       = 44100;  // デバイスのサンプルレート
+    uint32_t                   m_engRate          = 44100;  // エンジンのサンプルレート
     UINT32                     m_bufferFrames     = 0;
 
     DevFmt                     m_devFmt           = DevFmt::Float32;
@@ -411,6 +445,8 @@ private:
 
     std::vector<float>         m_workL;
     std::vector<float>         m_workR;
+    std::vector<float>         m_resampledL;  // レート変換後バッファ (L)
+    std::vector<float>         m_resampledR;  // レート変換後バッファ (R)
 };
 
 #undef CHECK_HR

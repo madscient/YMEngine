@@ -26,3 +26,4 @@ EXPORTS
     Wasapi_Destroy
     Wasapi_Start
     Wasapi_Stop
+    Wasapi_GetSampleRate
