@@ -184,11 +184,15 @@ public:
     explicit FmChipImpl(uint32_t clock);
 
     void write(uint32_t port, uint8_t reg, uint8_t value) override {
-        // namespace detail の型トレイトを使用 (MSVC C3856 回避)
-        if constexpr (detail::has_write_address_hi<ChipImpl>::value) {
-            m_chip.write_address_hi(port != 0 ? 1 : 0);
-        }
-        m_chip.write(reg, value);
+        // ymfm の write(offset, data) は offset でアドレス/データポートを切り替える。
+        //   OPL系  : offset=0 → アドレスポート、offset=1 → データポート
+        //   OPN2系 : offset=0 → アドレス(low)、 offset=1 → データ(low)
+        //            offset=2 → アドレス(hi)、   offset=3 → データ(hi)
+        // port=0 → bank0 (offset 0/1)、port!=0 → bank1 (offset 2/3)
+        const uint32_t addr_offset = (port != 0) ? 2 : 0;
+        const uint32_t data_offset = addr_offset + 1;
+        m_chip.write(addr_offset, reg);
+        m_chip.write(data_offset, value);
     }
 
     void generate(float* out_l, float* out_r, uint32_t dst_samples) override {
