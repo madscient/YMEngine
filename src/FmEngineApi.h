@@ -102,6 +102,29 @@ FMENGINE_API FmResult       FMENGINE_CALL FmEngine_Generate(
 
 FMENGINE_API WasapiHandle   FMENGINE_CALL Wasapi_Create(
     FmEngineHandle engine, int exclusive);
+
+// デバイスIDを明示指定して WASAPI 出力を作成する
+// device_id: Wasapi_GetDeviceId() で取得した文字列 (UTF-16LE、ワイド文字)
+FMENGINE_API WasapiHandle   FMENGINE_CALL Wasapi_CreateWithDevice(
+    FmEngineHandle engine, int exclusive, const wchar_t* device_id);
+
+// 利用可能な再生デバイスの数を返す
+// CoInitialize 済みのスレッドから呼ぶこと
+FMENGINE_API uint32_t       FMENGINE_CALL Wasapi_GetDeviceCount(void);
+
+// index 番目のデバイスIDを buf に書き込む (ワイド文字列)
+// buf_len: バッファの wchar_t 単位のサイズ (128以上推奨)
+// 戻り値: FM_OK、FM_ERR_INVALID_ARG (index 範囲外 / buf NULL)
+FMENGINE_API FmResult       FMENGINE_CALL Wasapi_GetDeviceId(
+    uint32_t index, wchar_t* buf, uint32_t buf_len);
+
+// index 番目のデバイス表示名を buf に書き込む (ワイド文字列)
+FMENGINE_API FmResult       FMENGINE_CALL Wasapi_GetDeviceName(
+    uint32_t index, wchar_t* buf, uint32_t buf_len);
+
+// index 番目のデバイスがデフォルトデバイスかどうかを返す (1=デフォルト, 0=その他)
+FMENGINE_API int            FMENGINE_CALL Wasapi_IsDefaultDevice(uint32_t index);
+
 FMENGINE_API void           FMENGINE_CALL Wasapi_Destroy(WasapiHandle wasapi);
 FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Start(WasapiHandle wasapi);
 FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Stop(WasapiHandle wasapi);

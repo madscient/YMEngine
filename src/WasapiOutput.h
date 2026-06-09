@@ -7,6 +7,11 @@
 //   GetMixFormat でデバイスのネイティブフォーマットを取得して Initialize し、
 //   renderLoop 内で FmEngine の float32 出力をデバイスフォーマットに自前変換する。
 //   これにより複数デバイス環境や AUTOCONVERTPCM 非対応環境でも確実に動作する。
+//
+// デバイス選択:
+//   WasapiOutput(engine, exclusive)            → デフォルトデバイス
+//   WasapiOutput(engine, exclusive, device_id) → デバイスIDで明示指定
+//   enumerateDevices()                         → 利用可能デバイス一覧を取得
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -35,12 +40,100 @@ using Microsoft::WRL::ComPtr;
     if (FAILED(hr)) throw std::runtime_error(std::string(msg) \
         + " (HRESULT=0x" + toHex(static_cast<uint32_t>(hr)) + ")")
 
-static std::string toHex(uint32_t v) {
+static inline std::string toHex(uint32_t v) {
     char buf[16];
     snprintf(buf, sizeof(buf), "%08X", v);
     return std::string(buf);
 }
 
+// =========================================================
+//  デバイス情報構造体
+// =========================================================
+struct WasapiDeviceInfo {
+    std::wstring id;    // デバイスID (Wasapi_CreateWithDevice / WasapiOutput コンストラクタに渡す)
+    std::wstring name;  // 表示名
+    bool isDefault;     // デフォルトデバイスか
+};
+
+// =========================================================
+//  デバイス列挙ユーティリティ
+//  COM の初期化を内部で行うため、CoInitialize 済みかどうかを問わず呼べる。
+// =========================================================
+inline std::vector<WasapiDeviceInfo> enumerateWasapiDevices() {
+    std::vector<WasapiDeviceInfo> result;
+
+    // COM をこの関数のスコープ内で初期化する。
+    // 呼び出し元スレッドが既に初期化済みの場合 (S_FALSE) は Uninitialize が必要。
+    // RPC_E_CHANGED_MODE (アパートメント競合) の場合は既存の COM 環境をそのまま使う。
+    HRESULT hrCo = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    const bool needUninit = (hrCo == S_OK || hrCo == S_FALSE);
+
+    auto cleanup = [&]() { if (needUninit) CoUninitialize(); };
+
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                IID_PPV_ARGS(&enumerator)))) {
+        cleanup();
+        return result;
+    }
+
+    // デフォルトデバイスのIDを取得
+    ComPtr<IMMDevice> pDefault;
+    std::wstring defaultId;
+    if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDefault))) {
+        LPWSTR pwszId = nullptr;
+        if (SUCCEEDED(pDefault->GetId(&pwszId)) && pwszId) {
+            defaultId = pwszId;
+            CoTaskMemFree(pwszId);
+        }
+    }
+
+    // 全再生デバイスを列挙
+    ComPtr<IMMDeviceCollection> collection;
+    if (FAILED(enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &collection))) {
+        cleanup();
+        return result;
+    }
+
+    UINT count = 0;
+    collection->GetCount(&count);
+
+    for (UINT i = 0; i < count; ++i) {
+        ComPtr<IMMDevice> pDevice;
+        if (FAILED(collection->Item(i, &pDevice))) continue;
+
+        WasapiDeviceInfo info;
+
+        // デバイスID
+        LPWSTR pwszId = nullptr;
+        if (SUCCEEDED(pDevice->GetId(&pwszId)) && pwszId) {
+            info.id = pwszId;
+            CoTaskMemFree(pwszId);
+        }
+
+        // 表示名 (IPropertyStore → PKEY_Device_FriendlyName)
+        ComPtr<IPropertyStore> props;
+        if (SUCCEEDED(pDevice->OpenPropertyStore(STGM_READ, &props))) {
+            PROPVARIANT var;
+            PropVariantInit(&var);
+            if (SUCCEEDED(props->GetValue(PKEY_Device_FriendlyName, &var))
+                && var.vt == VT_LPWSTR && var.pwszVal) {
+                info.name = var.pwszVal;
+            }
+            PropVariantClear(&var);
+        }
+
+        info.isDefault = (!defaultId.empty() && info.id == defaultId);
+        result.push_back(std::move(info));
+    }
+
+    cleanup();
+    return result;
+}
+
+// =========================================================
+//  WasapiOutput
+// =========================================================
 class WasapiOutput {
 public:
     struct HandleDeleter {
@@ -50,12 +143,24 @@ public:
     };
     using UniqueHandle = std::unique_ptr<std::remove_pointer<HANDLE>::type, HandleDeleter>;
 
+    // デフォルトデバイスで初期化
     explicit WasapiOutput(FmEngine& engine, bool exclusive = false)
         : m_engine(engine), m_exclusive(exclusive)
     {
         HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         if (hr != RPC_E_CHANGED_MODE) CHECK_HR(hr, "CoInitialize");
         openDefaultDevice();
+        initAudioClient();
+    }
+
+    // デバイスIDを明示指定して初期化
+    // device_id: enumerateWasapiDevices() で取得した WasapiDeviceInfo::id
+    WasapiOutput(FmEngine& engine, bool exclusive, const std::wstring& device_id)
+        : m_engine(engine), m_exclusive(exclusive)
+    {
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        if (hr != RPC_E_CHANGED_MODE) CHECK_HR(hr, "CoInitialize");
+        openDeviceById(device_id);
         initAudioClient();
     }
 
@@ -84,64 +189,64 @@ public:
     uint32_t sampleRate() const { return m_sampleRate; }
 
 private:
-    // -------------------------------------------------------
-    //  デバイスフォーマット種別
-    // -------------------------------------------------------
     enum class DevFmt { Float32, Int16, Int24, Int32, Unknown };
 
+    // -------------------------------------------------------
+    //  デバイスオープン
+    // -------------------------------------------------------
     void openDefaultDevice() {
         ComPtr<IMMDeviceEnumerator> enumerator;
-        CHECK_HR(
-            CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                             IID_PPV_ARGS(&enumerator)),
-            "MMDeviceEnumerator");
-        CHECK_HR(
-            enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &m_device),
-            "GetDefaultAudioEndpoint");
+        CHECK_HR(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                  IID_PPV_ARGS(&enumerator)),
+                 "MMDeviceEnumerator");
+        CHECK_HR(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &m_device),
+                 "GetDefaultAudioEndpoint");
     }
 
-    void initAudioClient() {
-        CHECK_HR(
-            m_device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-                               reinterpret_cast<void**>(m_audioClient.GetAddressOf())),
-            "Activate IAudioClient");
+    void openDeviceById(const std::wstring& device_id) {
+        ComPtr<IMMDeviceEnumerator> enumerator;
+        CHECK_HR(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                  IID_PPV_ARGS(&enumerator)),
+                 "MMDeviceEnumerator");
+        CHECK_HR(enumerator->GetDevice(device_id.c_str(), &m_device),
+                 "IMMDeviceEnumerator::GetDevice");
+    }
 
-        // GetMixFormat でデバイスのネイティブフォーマットを取得する。
-        // Exclusive / Shared どちらも基本フォーマットはここから得る。
+    // -------------------------------------------------------
+    //  IAudioClient 初期化
+    // -------------------------------------------------------
+    void initAudioClient() {
+        CHECK_HR(m_device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                                    reinterpret_cast<void**>(m_audioClient.GetAddressOf())),
+                 "Activate IAudioClient");
+
         WAVEFORMATEX* pMixFormat = nullptr;
         CHECK_HR(m_audioClient->GetMixFormat(&pMixFormat), "GetMixFormat");
 
-        m_devChannels  = pMixFormat->nChannels;
-        m_devSampleRate = pMixFormat->nSamplesPerSec;
+        m_devChannels      = pMixFormat->nChannels;
+        m_devSampleRate    = pMixFormat->nSamplesPerSec;
         m_devBitsPerSample = pMixFormat->wBitsPerSample;
-        m_devBlockAlign = pMixFormat->nBlockAlign;
-
-        // サブフォーマットを判定する
-        m_devFmt = detectFormat(pMixFormat);
+        m_devBlockAlign    = pMixFormat->nBlockAlign;
+        m_devFmt           = detectFormat(pMixFormat);
 
         const DWORD flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK;
 
         if (m_exclusive) {
-            // Exclusive mode: デバイスフォーマットで IsFormatSupported を確認してから Initialize
             HRESULT hrSup = m_audioClient->IsFormatSupported(
                 AUDCLNT_SHAREMODE_EXCLUSIVE, pMixFormat, nullptr);
-            if (FAILED(hrSup)) {
-                // 排他モード非対応 → Shared mode に降格
-                m_exclusive = false;
-            }
+            if (FAILED(hrSup))
+                m_exclusive = false; // 非対応なら Shared に降格
         }
 
         HRESULT hr;
         if (m_exclusive) {
             REFERENCE_TIME minPeriod = 0;
             m_audioClient->GetDevicePeriod(nullptr, &minPeriod);
-            hr = m_audioClient->Initialize(
-                AUDCLNT_SHAREMODE_EXCLUSIVE, flags,
-                minPeriod, minPeriod, pMixFormat, nullptr);
+            hr = m_audioClient->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE, flags,
+                                           minPeriod, minPeriod, pMixFormat, nullptr);
         } else {
-            hr = m_audioClient->Initialize(
-                AUDCLNT_SHAREMODE_SHARED, flags,
-                20 * 10000, 0, pMixFormat, nullptr);
+            hr = m_audioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags,
+                                           20 * 10000, 0, pMixFormat, nullptr);
         }
 
         CoTaskMemFree(pMixFormat);
@@ -189,7 +294,7 @@ private:
     }
 
     // -------------------------------------------------------
-    //  float32 [-1,1] → デバイスフォーマットへの変換書き込み
+    //  float32 → デバイスフォーマット変換書き込み
     // -------------------------------------------------------
     static float clamp1(float v) {
         return v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
@@ -218,16 +323,15 @@ private:
             break;
         }
         case DevFmt::Int24: {
-            // 24bit は 3バイト/サンプル。ブロックアライメントから計算する
-            const UINT32 bytesPerFrame = m_devBlockAlign;
+            const UINT32 bytesPerFrame  = m_devBlockAlign;
             const UINT32 bytesPerSample = bytesPerFrame / m_devChannels;
             for (UINT32 i = 0; i < frames; ++i) {
                 BYTE* frame = pData + i * bytesPerFrame;
                 auto write24 = [](BYTE* p, float v) {
                     int32_t s = static_cast<int32_t>(
-                        std::max(-1.0f, std::min(1.0f, v)) * 8388607.0f);
-                    p[0] = static_cast<BYTE>(s & 0xFF);
-                    p[1] = static_cast<BYTE>((s >> 8) & 0xFF);
+                        (v < -1.0f ? -1.0f : v > 1.0f ? 1.0f : v) * 8388607.0f);
+                    p[0] = static_cast<BYTE>( s        & 0xFF);
+                    p[1] = static_cast<BYTE>((s >>  8) & 0xFF);
                     p[2] = static_cast<BYTE>((s >> 16) & 0xFF);
                 };
                 write24(frame + 0 * bytesPerSample, m_workL[i]);
@@ -286,15 +390,14 @@ private:
     // -------------------------------------------------------
     FmEngine&                  m_engine;
     bool                       m_exclusive;
-    uint32_t                   m_sampleRate    = 44100;
-    UINT32                     m_bufferFrames  = 0;
+    uint32_t                   m_sampleRate       = 44100;
+    UINT32                     m_bufferFrames     = 0;
 
-    // デバイスフォーマット情報
-    DevFmt                     m_devFmt        = DevFmt::Float32;
-    UINT32                     m_devChannels   = 2;
-    UINT32                     m_devSampleRate = 44100;
+    DevFmt                     m_devFmt           = DevFmt::Float32;
+    UINT32                     m_devChannels      = 2;
+    UINT32                     m_devSampleRate    = 44100;
     UINT32                     m_devBitsPerSample = 32;
-    UINT32                     m_devBlockAlign = 8;
+    UINT32                     m_devBlockAlign    = 8;
 
     ComPtr<IMMDevice>          m_device;
     ComPtr<IAudioClient>       m_audioClient;

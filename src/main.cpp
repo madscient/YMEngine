@@ -6,7 +6,8 @@
 #include "FmEngineApi.h"
 #include <cstdio>
 #include <cmath>
-#include <windows.h>   // Sleep()
+#include <string>
+#include <windows.h>   // Sleep(), WideCharToMultiByte()
 
 // -------------------------------------------------------
 //  エラーチェックヘルパー
@@ -102,8 +103,40 @@ int main() {
     FmEngine_GetGain(eng, opn2Id, &gl, &gr);
     printf("OPN2 gain: L=%.3f  R=%.3f\n", gl, gr);
 
-    // ④ WASAPI 出力 (Shared mode)
-    WasapiHandle wasapi = Wasapi_Create(eng, 0);
+    // ④ オーディオデバイス列挙・選択
+    // Wasapi_GetDeviceCount() を呼ぶとデバイスリストが更新される。
+    // 明示的に別デバイスを使いたい場合は selectedDeviceId を書き換える。
+    const uint32_t deviceCount = Wasapi_GetDeviceCount();
+    printf("=== Audio Devices (%u found) ===\n", deviceCount);
+    wchar_t selectedDeviceId[256] = {};
+
+    // ワイド文字列 → アクティブコードページ変換ヘルパー
+    auto toMB = [](const wchar_t* wstr) -> std::string {
+        if (!wstr || wstr[0] == L'\0') return {};
+        const UINT cp = GetACP();
+        const int len = WideCharToMultiByte(cp, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
+        if (len <= 0) return {};
+        std::string buf(len, '\0');
+        WideCharToMultiByte(cp, 0, wstr, -1, buf.data(), len, nullptr, nullptr);
+        buf.resize(len - 1); // 終端 '\0' を除く
+        return buf;
+    };
+
+    for (uint32_t i = 0; i < deviceCount; ++i) {
+        wchar_t id[256] = {}, name[256] = {};
+        Wasapi_GetDeviceId(i, id, 256);
+        Wasapi_GetDeviceName(i, name, 256);
+        int isDef = Wasapi_IsDefaultDevice(i);
+        printf("  [%u] %s%s\n", i, toMB(name).c_str(), isDef ? " (default)" : "");
+        if (isDef && selectedDeviceId[0] == L'\0')
+            wcscpy_s(selectedDeviceId, id);
+    }
+    printf("\n");
+
+    // ⑤ WASAPI 出力 (selectedDeviceId のデバイスを使用)
+    WasapiHandle wasapi = (selectedDeviceId[0] != L'\0')
+        ? Wasapi_CreateWithDevice(eng, 0, selectedDeviceId)
+        : Wasapi_Create(eng, 0);
     if (!wasapi) { fputs("Wasapi_Create failed\n", stderr); FmEngine_Destroy(eng); return 1; }
 
     check(Wasapi_Start(wasapi), "Wasapi_Start");
@@ -113,12 +146,12 @@ int main() {
     setupOpn2(eng, opn2Id);
 
     printf("Playing 2 seconds...\n");
-    Sleep(2000);
+    Sleep(1000);
 
     // ゲインをリアルタイム変更
     printf("Fade OPN2 to -12 dB\n");
     FmEngine_SetGain(eng, opn2Id, dBToLinear(-12.0f), dBToLinear(-12.0f));
-    Sleep(2000);
+    Sleep(1000);
 
     // ⑥ 停止・解放
     Wasapi_Stop(wasapi);
