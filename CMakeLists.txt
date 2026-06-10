@@ -39,10 +39,11 @@ if (EXISTS "${SAASOUND_DIR}/CMakeLists.txt")
     # SAASound の CMake 変数を事前設定
     set(SAMPLE_RATE_HZ  "44100"   CACHE STRING "SAASound output sample rate" FORCE)
     set(EXTERNAL_CLK_HZ "8000000" CACHE STRING "SAASound external clock Hz"  FORCE)
-    set(USE_CONFIG_FILE OFF CACHE BOOL "SAASound config file support" FORCE)
-    add_subdirectory(${SAASOUND_DIR} ${CMAKE_BINARY_DIR}/SAASound EXCLUDE_FROM_ALL)
+    # USE_CONFIG_FILE はデフォルト ON のまま使う。
+    # OFF にすると SAAImpl.h の m_output_bitmask 宣言が除外され
+    # SAAImpl.cpp がコンパイルエラーになる (SAASound リポジトリの既知の問題)。
+    add_subdirectory(${SAASOUND_DIR} ${CMAKE_BINARY_DIR}/SAASound)
 
-    # ビルド後に SAASound.dll を bin/ にコピーする
     if (TARGET SAASound)
         if (MSVC)
             set_target_properties(SAASound PROPERTIES
@@ -161,12 +162,21 @@ if (MSVC)
 endif()
 
 # test_patches.json をビルド出力ディレクトリにコピー
-add_custom_command(TARGET sample_app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/src/test_patches.json"
-        "$<TARGET_FILE_DIR:sample_app>/test_patches.json"
-    COMMENT "Copying test_patches.json"
-)
+# configure_file: cmake 構成時にビルドツリーへコピー (ファイルが存在する場合)
+set(TEST_PATCHES_SRC "${CMAKE_SOURCE_DIR}/src/test_patches.json")
+if (EXISTS "${TEST_PATCHES_SRC}")
+    # 構成時コピー (cmake -B build 時)
+    configure_file("${TEST_PATCHES_SRC}" "${CMAKE_BINARY_DIR}/bin/test_patches.json" COPYONLY)
+    # ビルド時コピー (ファイルが更新された場合)
+    add_custom_command(TARGET sample_app POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${TEST_PATCHES_SRC}"
+            "$<TARGET_FILE_DIR:sample_app>/test_patches.json"
+        COMMENT "Copying test_patches.json"
+    )
+else()
+    message(WARNING "test_patches.json not found at ${TEST_PATCHES_SRC} -- skipping copy")
+endif()
 
 # =======================================================
 #  インストール規則 (任意)

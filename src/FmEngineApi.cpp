@@ -165,6 +165,24 @@ FmEngine_GetGain(FmEngineHandle h, uint32_t chip_id,
 }
 
 FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_SetMemory(FmEngineHandle h, uint32_t chip_id,
+                   FmMemoryType mem_type, const uint8_t* data, uint32_t size) {
+    REQUIRE_PTR(h);
+    REQUIRE_PTR(data);
+    return safeCall([&] {
+        auto ac = static_cast<ymfm::access_class>(mem_type);
+        static_cast<FmEngineOpaque*>(h)->engine.setMemory(chip_id, ac, data, size);
+    });
+}
+
+FMENGINE_API uint32_t FMENGINE_CALL
+FmEngine_GetMemorySize(FmEngineHandle h, uint32_t chip_id, FmMemoryType mem_type) {
+    if (!h) return 0;
+    auto ac = static_cast<ymfm::access_class>(mem_type);
+    return static_cast<FmEngineOpaque*>(h)->engine.memorySize(chip_id, ac);
+}
+
+FMENGINE_API FmResult FMENGINE_CALL
 FmEngine_Generate(FmEngineHandle h,
                   float* out_l, float* out_r, uint32_t samples) {
     REQUIRE_PTR(h);

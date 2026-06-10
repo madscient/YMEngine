@@ -17,6 +17,8 @@ EXPORTS
     FmEngine_Write
     FmEngine_SetGain
     FmEngine_GetGain
+    FmEngine_SetMemory
+    FmEngine_GetMemorySize
     FmEngine_Generate
     Wasapi_Create
     Wasapi_CreateWithDevice

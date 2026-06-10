@@ -185,3 +185,43 @@ uint32_t id = engine.addChip(ChipType::OPN2, 7'600'489u); // PAL Mega Drive
 - **SAASound**: GPL-2.0 (stripwax) — 配布時はライセンス条件を確認してください
 - **nlohmann/json**: MIT (nlohmann)
 - **このエンジンコード**: MIT
+
+## 外部メモリ (ADPCM/PCM ROM)
+
+ADPCM・PCM を内蔵するチップは ymfm の `ymfm_external_read()` コールバック経由で外部メモリを参照します。`FmChipImpl` の `m_iface` は `MemoryYmfmInterface` として実装されており、3 種のメモリ領域を保持します。
+
+### メモリ種別
+
+| `ymfm::access_class` | `FmMemoryType` (C API) | 対象チップ |
+|---|---|---|
+| `ACCESS_ADPCM_A` | `FM_MEM_ADPCM_A` | OPNB (YM2610), OPNBB (YM2610B) |
+| `ACCESS_ADPCM_B` | `FM_MEM_ADPCM_B` | OPNA (YM2608), OPNB, OPNBB, Y8950 |
+| `ACCESS_PCM`     | `FM_MEM_PCM`     | OPL4 (YMF278B) |
+
+### C++ API
+
+```cpp
+// ROM データを設定 (Wasapi 起動前に呼ぶこと)
+engine.setMemory(opnaId, ymfm::ACCESS_ADPCM_B, romData, romSize);
+
+// 設定済みサイズの確認
+uint32_t sz = engine.memorySize(opnaId, ymfm::ACCESS_ADPCM_B);
+```
+
+### 内部実装 (`MemoryYmfmInterface`)
+
+`MemoryYmfmInterface` は `BasicYmfmInterface` の代わりに `FmChipImpl::m_iface` として使われます。
+
+```cpp
+// 外部 ROM ポインタを渡す (寿命は呼び出し元管理)
+m_iface.setMemory(ymfm::ACCESS_ADPCM_B, romPtr, romSize);
+
+// 書き込み可能 RAM を内部確保 (ADPCM-B の RAM 録音用)
+m_iface.allocMemory(ymfm::ACCESS_ADPCM_B, 512 * 1024);
+```
+
+`setMemory()` は読み取り専用 ROM を想定しています。書き込み可能 RAM が必要な場合 (ADPCM-B の RAM モード等) は `allocMemory()` を使って内部バッファを確保してください。
+
+### 注意事項
+
+`setMemory()` はスレッドセーフではありません。`WasapiOutput::start()` より前に設定してください。設定した `data` ポインタが指すバッファは再生終了まで解放しないでください。

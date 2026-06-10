@@ -113,6 +113,23 @@ public:
         return m_gains[chip_id].gain_r.load(std::memory_order_relaxed);
     }
 
+    // 外部メモリ設定 (ADPCM/PCM ROM/RAM)
+    // chip_id: addChip() で取得した ID
+    // access_type: ymfm::ACCESS_ADPCM_A / ACCESS_ADPCM_B / ACCESS_PCM
+    // data: ROM データへのポインタ (呼び出し元が寿命を管理すること)
+    // size: データサイズ (バイト)
+    // ※ オーディオスレッド起動前に呼ぶこと (スレッドセーフではない)
+    void setMemory(uint32_t chip_id, ymfm::access_class access_type,
+                   const uint8_t* data, uint32_t size) {
+        assert(chip_id < m_chips.size());
+        m_chips[chip_id]->setMemory(access_type, data, size);
+    }
+
+    uint32_t memorySize(uint32_t chip_id, ymfm::access_class access_type) const {
+        if (chip_id >= m_chips.size()) return 0;
+        return m_chips[chip_id]->memorySize(access_type);
+    }
+
     // レジスタ書き込み (任意スレッドから呼べる)
     void write(uint32_t chip_id, uint8_t reg, uint8_t value, uint32_t port = 0) {
         assert(chip_id < m_chips.size());
