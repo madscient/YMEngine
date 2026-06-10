@@ -1,0 +1,305 @@
+{
+  "_comment": "YMEngine チップテスト用レジスタパッチ定義",
+  "_format": {
+    "chips": "チップ種別ごとのパッチ定義",
+    "channels": "チャンネルごとのレジスタ書き込みリスト",
+    "key_on": "KeyOn レジスタ書き込み (発音)",
+    "key_off": "KeyOff レジスタ書き込み (消音)",
+    "reg": "レジスタアドレス (16進数文字列または10進数)",
+    "val": "書き込む値 (16進数文字列または10進数)",
+    "port": "バンク/ポート番号 (省略時0)",
+    "note_ms": "発音時間 (ms)",
+    "rest_ms": "消音後の待機時間 (ms)"
+  },
+  "global": {
+    "note_ms": 800,
+    "rest_ms": 200
+  },
+  "chips": {
+    "OPL2": {
+      "_comment": "YM3812 9ch FM. CH0-8. 各chはOP1(MOD)+OP2(CAR)で構成",
+      "init": [
+        {"reg": "0x01", "val": "0x00"}
+      ],
+      "channels": [
+        {
+          "ch": 0,
+          "init": [
+            {"reg": "0x20", "val": "0x01"},
+            {"reg": "0x40", "val": "0x28"},
+            {"reg": "0x60", "val": "0xF0"},
+            {"reg": "0x80", "val": "0x77"},
+            {"reg": "0x23", "val": "0x01"},
+            {"reg": "0x43", "val": "0x00"},
+            {"reg": "0x63", "val": "0xF0"},
+            {"reg": "0x83", "val": "0x55"},
+            {"reg": "0xC0", "val": "0x31"},
+            {"reg": "0xA0", "val": "0x6A"}
+          ],
+          "key_on":  [{"reg": "0xB0", "val": "0x34"}],
+          "key_off": [{"reg": "0xB0", "val": "0x14"}]
+        },
+        {
+          "ch": 1,
+          "init": [
+            {"reg": "0x21", "val": "0x01"},
+            {"reg": "0x41", "val": "0x28"},
+            {"reg": "0x61", "val": "0xF0"},
+            {"reg": "0x81", "val": "0x77"},
+            {"reg": "0x24", "val": "0x01"},
+            {"reg": "0x44", "val": "0x00"},
+            {"reg": "0x64", "val": "0xF0"},
+            {"reg": "0x84", "val": "0x55"},
+            {"reg": "0xC1", "val": "0x31"},
+            {"reg": "0xA1", "val": "0x81"}
+          ],
+          "key_on":  [{"reg": "0xB1", "val": "0x34"}],
+          "key_off": [{"reg": "0xB1", "val": "0x14"}]
+        },
+        {
+          "ch": 2,
+          "init": [
+            {"reg": "0x22", "val": "0x01"},
+            {"reg": "0x42", "val": "0x28"},
+            {"reg": "0x62", "val": "0xF0"},
+            {"reg": "0x82", "val": "0x77"},
+            {"reg": "0x25", "val": "0x01"},
+            {"reg": "0x45", "val": "0x00"},
+            {"reg": "0x65", "val": "0xF0"},
+            {"reg": "0x85", "val": "0x55"},
+            {"reg": "0xC2", "val": "0x31"},
+            {"reg": "0xA2", "val": "0x9A"}
+          ],
+          "key_on":  [{"reg": "0xB2", "val": "0x34"}],
+          "key_off": [{"reg": "0xB2", "val": "0x14"}]
+        }
+      ]
+    },
+    "OPN2": {
+      "_comment": "YM2612 6ch FM. CH0-2はport0、CH3-5はport1",
+      "init": [
+        {"reg": "0x22", "val": "0x00"},
+        {"reg": "0x27", "val": "0x00"},
+        {"reg": "0x2B", "val": "0x00"}
+      ],
+      "channels": [
+        {
+          "ch": 0, "port": 0,
+          "init": [
+            {"reg": "0xB0", "val": "0x04"},
+            {"reg": "0xB4", "val": "0xC0"},
+            {"reg": "0x30", "val": "0x71"}, {"reg": "0x40", "val": "0x23"},
+            {"reg": "0x50", "val": "0x9F"}, {"reg": "0x60", "val": "0x05"},
+            {"reg": "0x70", "val": "0x02"}, {"reg": "0x80", "val": "0x11"},
+            {"reg": "0x34", "val": "0x0D"}, {"reg": "0x44", "val": "0x2D"},
+            {"reg": "0x54", "val": "0x9F"}, {"reg": "0x64", "val": "0x05"},
+            {"reg": "0x74", "val": "0x02"}, {"reg": "0x84", "val": "0x11"},
+            {"reg": "0x38", "val": "0x33"}, {"reg": "0x48", "val": "0x26"},
+            {"reg": "0x58", "val": "0x9F"}, {"reg": "0x68", "val": "0x05"},
+            {"reg": "0x78", "val": "0x02"}, {"reg": "0x88", "val": "0x11"},
+            {"reg": "0x3C", "val": "0x01"}, {"reg": "0x4C", "val": "0x00"},
+            {"reg": "0x5C", "val": "0x9F"}, {"reg": "0x6C", "val": "0x07"},
+            {"reg": "0x7C", "val": "0x02"}, {"reg": "0x8C", "val": "0x11"},
+            {"reg": "0xA4", "val": "0x22"}, {"reg": "0xA0", "val": "0x8A"}
+          ],
+          "key_on":  [{"reg": "0x28", "val": "0xF0"}],
+          "key_off": [{"reg": "0x28", "val": "0x00"}]
+        },
+        {
+          "ch": 1, "port": 0,
+          "init": [
+            {"reg": "0xB1", "val": "0x04"},
+            {"reg": "0xB5", "val": "0xC0"},
+            {"reg": "0x31", "val": "0x71"}, {"reg": "0x41", "val": "0x23"},
+            {"reg": "0x51", "val": "0x9F"}, {"reg": "0x61", "val": "0x05"},
+            {"reg": "0x71", "val": "0x02"}, {"reg": "0x81", "val": "0x11"},
+            {"reg": "0x35", "val": "0x0D"}, {"reg": "0x45", "val": "0x2D"},
+            {"reg": "0x55", "val": "0x9F"}, {"reg": "0x65", "val": "0x05"},
+            {"reg": "0x75", "val": "0x02"}, {"reg": "0x85", "val": "0x11"},
+            {"reg": "0x39", "val": "0x33"}, {"reg": "0x49", "val": "0x26"},
+            {"reg": "0x59", "val": "0x9F"}, {"reg": "0x69", "val": "0x05"},
+            {"reg": "0x79", "val": "0x02"}, {"reg": "0x89", "val": "0x11"},
+            {"reg": "0x3D", "val": "0x01"}, {"reg": "0x4D", "val": "0x00"},
+            {"reg": "0x5D", "val": "0x9F"}, {"reg": "0x6D", "val": "0x07"},
+            {"reg": "0x7D", "val": "0x02"}, {"reg": "0x8D", "val": "0x11"},
+            {"reg": "0xA5", "val": "0x1E"}, {"reg": "0xA1", "val": "0x34"}
+          ],
+          "key_on":  [{"reg": "0x28", "val": "0xF1"}],
+          "key_off": [{"reg": "0x28", "val": "0x01"}]
+        },
+        {
+          "ch": 2, "port": 0,
+          "init": [
+            {"reg": "0xB2", "val": "0x04"},
+            {"reg": "0xB6", "val": "0xC0"},
+            {"reg": "0x32", "val": "0x71"}, {"reg": "0x42", "val": "0x23"},
+            {"reg": "0x52", "val": "0x9F"}, {"reg": "0x62", "val": "0x05"},
+            {"reg": "0x72", "val": "0x02"}, {"reg": "0x82", "val": "0x11"},
+            {"reg": "0x36", "val": "0x0D"}, {"reg": "0x46", "val": "0x2D"},
+            {"reg": "0x56", "val": "0x9F"}, {"reg": "0x66", "val": "0x05"},
+            {"reg": "0x76", "val": "0x02"}, {"reg": "0x86", "val": "0x11"},
+            {"reg": "0x3A", "val": "0x33"}, {"reg": "0x4A", "val": "0x26"},
+            {"reg": "0x5A", "val": "0x9F"}, {"reg": "0x6A", "val": "0x05"},
+            {"reg": "0x7A", "val": "0x02"}, {"reg": "0x8A", "val": "0x11"},
+            {"reg": "0x3E", "val": "0x01"}, {"reg": "0x4E", "val": "0x00"},
+            {"reg": "0x5E", "val": "0x9F"}, {"reg": "0x6E", "val": "0x07"},
+            {"reg": "0x7E", "val": "0x02"}, {"reg": "0x8E", "val": "0x11"},
+            {"reg": "0xA6", "val": "0x1A"}, {"reg": "0xA2", "val": "0xA2"}
+          ],
+          "key_on":  [{"reg": "0x28", "val": "0xF2"}],
+          "key_off": [{"reg": "0x28", "val": "0x02"}]
+        }
+      ]
+    },
+    "PSG": {
+      "_comment": "YM2149 3ch PSG. CH A=0,B=1,C=2",
+      "init": [
+        {"reg": "0x07", "val": "0x38"}
+      ],
+      "channels": [
+        {
+          "ch": 0,
+          "init": [
+            {"reg": "0x00", "val": "0x6A"},
+            {"reg": "0x01", "val": "0x00"},
+            {"reg": "0x08", "val": "0x0F"}
+          ],
+          "key_on":  [{"reg": "0x07", "val": "0x3E"}],
+          "key_off": [{"reg": "0x08", "val": "0x00"}, {"reg": "0x07", "val": "0x3F"}]
+        },
+        {
+          "ch": 1,
+          "init": [
+            {"reg": "0x02", "val": "0x81"},
+            {"reg": "0x03", "val": "0x00"},
+            {"reg": "0x09", "val": "0x0F"}
+          ],
+          "key_on":  [{"reg": "0x07", "val": "0x3D"}],
+          "key_off": [{"reg": "0x09", "val": "0x00"}, {"reg": "0x07", "val": "0x3F"}]
+        },
+        {
+          "ch": 2,
+          "init": [
+            {"reg": "0x04", "val": "0x9A"},
+            {"reg": "0x05", "val": "0x00"},
+            {"reg": "0x0A", "val": "0x0F"}
+          ],
+          "key_on":  [{"reg": "0x07", "val": "0x3B"}],
+          "key_off": [{"reg": "0x0A", "val": "0x00"}, {"reg": "0x07", "val": "0x3F"}]
+        }
+      ]
+    },
+    "SN76489": {
+      "_comment": "SN76489 3tone+noise. writeIOに直接バイトを送る (reg無視、valがシリアルデータ)",
+      "init": [],
+      "channels": [
+        {
+          "ch": 0,
+          "init":    [{"reg": "0x00", "val": "0x81"}, {"reg": "0x00", "val": "0x0D"}],
+          "key_on":  [{"reg": "0x00", "val": "0x90"}],
+          "key_off": [{"reg": "0x00", "val": "0x9F"}]
+        },
+        {
+          "ch": 1,
+          "init":    [{"reg": "0x00", "val": "0xA1"}, {"reg": "0x00", "val": "0x10"}],
+          "key_on":  [{"reg": "0x00", "val": "0xB0"}],
+          "key_off": [{"reg": "0x00", "val": "0xBF"}]
+        },
+        {
+          "ch": 2,
+          "init":    [{"reg": "0x00", "val": "0xC1"}, {"reg": "0x00", "val": "0x13"}],
+          "key_on":  [{"reg": "0x00", "val": "0xD0"}],
+          "key_off": [{"reg": "0x00", "val": "0xDF"}]
+        },
+        {
+          "ch": 3, "_comment": "noise ch",
+          "init":    [{"reg": "0x00", "val": "0xE3"}],
+          "key_on":  [{"reg": "0x00", "val": "0xF0"}],
+          "key_off": [{"reg": "0x00", "val": "0xFF"}]
+        }
+      ]
+    },
+    "SCC": {
+      "_comment": "SCC 5ch. 波形テーブル(32バイト) + 周波数 + ボリューム + チャンネルイネーブル",
+      "init": [
+        {"reg": "0x9800", "val": "0x00"}
+      ],
+      "channels": [
+        {
+          "ch": 0,
+          "init": [
+            {"reg": "0x9800", "val": "0x7F"}, {"reg": "0x9801", "val": "0x7F"},
+            {"reg": "0x9802", "val": "0x7F"}, {"reg": "0x9803", "val": "0x7F"},
+            {"reg": "0x9804", "val": "0x7F"}, {"reg": "0x9805", "val": "0x7F"},
+            {"reg": "0x9806", "val": "0x7F"}, {"reg": "0x9807", "val": "0x7F"},
+            {"reg": "0x9808", "val": "0x00"}, {"reg": "0x9809", "val": "0x00"},
+            {"reg": "0x980A", "val": "0x00"}, {"reg": "0x980B", "val": "0x00"},
+            {"reg": "0x980C", "val": "0x80"}, {"reg": "0x980D", "val": "0x80"},
+            {"reg": "0x980E", "val": "0x80"}, {"reg": "0x980F", "val": "0x80"},
+            {"reg": "0x9820", "val": "0x6A"}, {"reg": "0x9821", "val": "0x00"},
+            {"reg": "0x9828", "val": "0x0F"}
+          ],
+          "key_on":  [{"reg": "0x982F", "val": "0x01"}],
+          "key_off": [{"reg": "0x982F", "val": "0x00"}]
+        },
+        {
+          "ch": 1,
+          "init": [
+            {"reg": "0x9820", "val": "0x81"}, {"reg": "0x9821", "val": "0x00"},
+            {"reg": "0x9829", "val": "0x0F"}
+          ],
+          "key_on":  [{"reg": "0x982F", "val": "0x03"}],
+          "key_off": [{"reg": "0x982F", "val": "0x01"}]
+        },
+        {
+          "ch": 2,
+          "init": [
+            {"reg": "0x9822", "val": "0x9A"}, {"reg": "0x9823", "val": "0x00"},
+            {"reg": "0x982A", "val": "0x0F"}
+          ],
+          "key_on":  [{"reg": "0x982F", "val": "0x07"}],
+          "key_off": [{"reg": "0x982F", "val": "0x03"}]
+        }
+      ]
+    },
+    "SAA1099": {
+      "_comment": "SAA1099 6ch. WriteAddressData(reg, val) 形式",
+      "init": [
+        {"reg": "0x1C", "val": "0x02"}
+      ],
+      "channels": [
+        {
+          "ch": 0,
+          "init": [
+            {"reg": "0x00", "val": "0x19"},
+            {"reg": "0x02", "val": "0x19"},
+            {"reg": "0x14", "val": "0x00"},
+            {"reg": "0x15", "val": "0x00"}
+          ],
+          "key_on":  [{"reg": "0x18", "val": "0x01"}, {"reg": "0x1C", "val": "0x02"}],
+          "key_off": [{"reg": "0x18", "val": "0x00"}]
+        },
+        {
+          "ch": 1,
+          "init": [
+            {"reg": "0x01", "val": "0x19"},
+            {"reg": "0x03", "val": "0x19"},
+            {"reg": "0x14", "val": "0x00"}
+          ],
+          "key_on":  [{"reg": "0x18", "val": "0x03"}],
+          "key_off": [{"reg": "0x18", "val": "0x01"}]
+        },
+        {
+          "ch": 2,
+          "init": [
+            {"reg": "0x04", "val": "0x19"},
+            {"reg": "0x06", "val": "0x19"},
+            {"reg": "0x15", "val": "0x00"}
+          ],
+          "key_on":  [{"reg": "0x18", "val": "0x05"}],
+          "key_off": [{"reg": "0x18", "val": "0x00"}]
+        }
+      ]
+    }
+  }
+}

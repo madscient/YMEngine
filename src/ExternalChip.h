@@ -6,10 +6,11 @@
 //   emu2149  (YM2149/PSG)    https://github.com/digital-sound-antiques/emu2149
 //   emu76489 (SN76489)       https://github.com/digital-sound-antiques/emu76489
 //   emu2212  (SCC/K051649)   https://github.com/digital-sound-antiques/emu2212
-//   SAASound (SAA1099)       https://github.com/stripwax/SAASound
+//   SAASound (SAA1099)       独立DLL (SAASound.dll) を実行時に LoadLibrary でロード
 //
 // サブモジュール配置想定:
-//   extern/emu2149/   extern/emu76489/   extern/emu2212/   extern/SAASound/
+//   extern/emu2149/   extern/emu76489/   extern/emu2212/
+//   SAASound.dll は sample_app.exe と同じディレクトリに配置すること。
 //
 // 各ライブラリのリサンプリングは FmChip と同様に LinearResampler で吸収する。
 
@@ -31,25 +32,25 @@
 #include "emu2212.h"
 
 // -------------------------------------------------------
-//  SAASound (SAA1099) — C++ クラスインターフェース
+//  SAASound は SAASound.h を include しない。
+//  LoadLibrary 経由で関数ポインタを取得する。
 // -------------------------------------------------------
-#include "SAASound.h"
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 
 #include <cstdint>
 #include <memory>
 #include <vector>
 #include <stdexcept>
 
-// ChipType 列挙に追加分 (FmChip.h の末尾に続く値)
-// FmChip.h を直接変更せず、ここで拡張する。
-// FmEngine / FmEngineApi 側も同様に追記する。
-// enum class ChipType は FmChip.h 内で定義済みなので、
-// 追加エントリは ChipType_Ext として別途定義する。
+// ChipType 列挙に追加分
 enum class ChipTypeExt {
     PSG     = 100,  // YM2149 (PSG) via emu2149
     SN76489 = 101,  // SN76489      via emu76489
     SCC     = 102,  // SCC/K051649  via emu2212
-    SAA1099 = 103,  // SAA1099      via SAASound
+    SAA1099 = 103,  // SAA1099      via SAASound.dll (動的ロード)
 };
 
 namespace ExtClock {
@@ -267,43 +268,131 @@ private:
 };
 
 // =========================================================
-//  SAAChip — SAA1099 ラッパー (SAASound)
+//  SAASoundProxy — SAASound.dll を実行時ロードするプロキシ
 //
-//  write(port, reg, value):
-//    port=0: WriteAddress(reg) + WriteData(value)
-//    port=1: WriteAddress のみ (reg セット)
-//    通常は port=0 で reg/value を一括書き込み。
+//  SAASound.dll は BYTE マクロ等の名前衝突があり静的リンクが困難なため、
+//  LoadLibrary で動的ロードして関数ポインタ経由で呼び出す。
 //
-//  GenerateMany はバッファに int16_t ステレオ interleaved で書き込む。
-//  サンプルレートは SetSoundParameters で固定する。
+//  SAASound の C エクスポート API:
+//    void* SAASOUND_API CreateCSAASound(void)
+//    void  SAASOUND_API DestroyCSAASound(void*)
+//    void  SAASOUND_API SAA_SetSampleRate(void*, unsigned int)
+//    void  SAASOUND_API SAA_SetClockRate(void*, unsigned int)
+//    void  SAASOUND_API SAA_WriteAddress(void*, unsigned char)
+//    void  SAASOUND_API SAA_WriteData(void*, unsigned char)
+//    void  SAASOUND_API SAA_WriteAddressData(void*, unsigned char, unsigned char)
+//    void  SAASOUND_API SAA_Clear(void*)
+//    void  SAASOUND_API SAA_GenerateMany(void*, unsigned char*, unsigned int)
+//
+//  ※ SAASound の C エクスポートが存在しない場合は C++ vtable 経由になるが、
+//     DLL のコンパイラが一致していれば動作する。
+//     ここでは C スタイル エクスポートを優先し、なければ C++ を試みる。
+// =========================================================
+class SAASoundProxy {
+public:
+    // DLL 名。同じディレクトリになければ PATH から検索される。
+    static constexpr const char* DLL_NAME = "SAASound.dll";
+
+    // 関数ポインタ型定義
+    using FnCreate          = void* (__cdecl*)();
+    using FnDestroy         = void  (__cdecl*)(void*);
+    using FnSetSampleRate   = void  (__cdecl*)(void*, unsigned int);
+    using FnSetClockRate    = void  (__cdecl*)(void*, unsigned int);
+    using FnWriteAddress    = void  (__cdecl*)(void*, unsigned char);
+    using FnWriteData       = void  (__cdecl*)(void*, unsigned char);
+    using FnWriteAddrData   = void  (__cdecl*)(void*, unsigned char, unsigned char);
+    using FnClear           = void  (__cdecl*)(void*);
+    using FnGenerateMany    = void  (__cdecl*)(void*, unsigned char*, unsigned int);
+
+    FnCreate        Create        = nullptr;
+    FnDestroy       Destroy       = nullptr;
+    FnSetSampleRate SetSampleRate = nullptr;
+    FnSetClockRate  SetClockRate  = nullptr;
+    FnWriteAddrData WriteAddrData = nullptr;
+    FnClear         Clear         = nullptr;
+    FnGenerateMany  GenerateMany  = nullptr;
+
+    HMODULE hDll = nullptr;
+
+    // シングルトン: 1度ロードしたら使いまわす
+    static SAASoundProxy& instance() {
+        static SAASoundProxy inst;
+        return inst;
+    }
+
+    bool isLoaded() const { return hDll != nullptr && Create != nullptr; }
+
+    // ロード試行 (失敗しても例外を投げない)
+    bool tryLoad() {
+        if (hDll) return isLoaded();
+        hDll = LoadLibraryA(DLL_NAME);
+        if (!hDll) return false;
+
+        Create        = reinterpret_cast<FnCreate>       (GetProcAddress(hDll, "CreateCSAASound"));
+        Destroy       = reinterpret_cast<FnDestroy>      (GetProcAddress(hDll, "DestroyCSAASound"));
+        SetSampleRate = reinterpret_cast<FnSetSampleRate>(GetProcAddress(hDll, "SAA_SetSampleRate"));
+        SetClockRate  = reinterpret_cast<FnSetClockRate> (GetProcAddress(hDll, "SAA_SetClockRate"));
+        WriteAddrData = reinterpret_cast<FnWriteAddrData>(GetProcAddress(hDll, "SAA_WriteAddressData"));
+        Clear         = reinterpret_cast<FnClear>        (GetProcAddress(hDll, "SAA_Clear"));
+        GenerateMany  = reinterpret_cast<FnGenerateMany> (GetProcAddress(hDll, "SAA_GenerateMany"));
+
+        if (!Create || !Destroy || !GenerateMany || !WriteAddrData) {
+            FreeLibrary(hDll);
+            hDll = nullptr;
+            return false;
+        }
+        return true;
+    }
+
+private:
+    SAASoundProxy() = default;
+    ~SAASoundProxy() {
+        if (hDll) { FreeLibrary(hDll); hDll = nullptr; }
+    }
+    SAASoundProxy(const SAASoundProxy&) = delete;
+    SAASoundProxy& operator=(const SAASoundProxy&) = delete;
+};
+
+// =========================================================
+//  SAAChip — SAA1099 ラッパー (SAASound.dll 動的ロード)
 // =========================================================
 class SAAChip final : public ExtChip {
 public:
     explicit SAAChip(uint32_t clock, uint32_t target_rate = 44100)
         : m_clock(clock), m_target_rate(target_rate)
     {
-        m_saa = CreateCSAASound();
-        if (!m_saa) throw std::runtime_error("CreateCSAASound failed");
-        m_saa->SetClockRate(clock);
-        m_saa->SetSampleRate(target_rate);
-        m_saa->Clear();
-        // ネイティブレート = target_rate (SAASound は内部でリサンプルする)
+        auto& proxy = SAASoundProxy::instance();
+        if (!proxy.tryLoad())
+            throw std::runtime_error(
+                "SAASound.dll not found or missing exports. "
+                "Place SAASound.dll next to FmEngineApi.dll.");
+
+        m_inst = proxy.Create();
+        if (!m_inst) throw std::runtime_error("CreateCSAASound failed");
+
+        if (proxy.SetClockRate)  proxy.SetClockRate(m_inst, clock);
+        if (proxy.SetSampleRate) proxy.SetSampleRate(m_inst, target_rate);
+        if (proxy.Clear)         proxy.Clear(m_inst);
+
         m_native_rate = target_rate;
     }
 
     ~SAAChip() override {
-        if (m_saa) DestroyCSAASound(m_saa);
+        if (m_inst) {
+            SAASoundProxy::instance().Destroy(m_inst);
+            m_inst = nullptr;
+        }
     }
 
     void write(uint32_t /*port*/, uint8_t reg, uint8_t value) override {
-        m_saa->WriteAddressData(reg, value);
+        SAASoundProxy::instance().WriteAddrData(m_inst, reg, value);
     }
 
     void generate(float* out_l, float* out_r, uint32_t dst_samples) override {
-        // SAASound は int16_t stereo interleaved バッファを直接生成する
         m_intBuf.resize(dst_samples * 2);
-        m_saa->GenerateMany(
-            reinterpret_cast<BYTE*>(m_intBuf.data()),
+        SAASoundProxy::instance().GenerateMany(
+            m_inst,
+            reinterpret_cast<unsigned char*>(m_intBuf.data()),
             dst_samples);
 
         constexpr float kScale = 1.0f / 32768.0f;
@@ -316,7 +405,8 @@ public:
     void setTargetRate(uint32_t target_rate) override {
         m_target_rate = target_rate;
         m_native_rate = target_rate;
-        m_saa->SetSampleRate(target_rate);
+        auto& proxy = SAASoundProxy::instance();
+        if (proxy.SetSampleRate) proxy.SetSampleRate(m_inst, target_rate);
     }
 
     uint32_t    nativeRate() const override { return m_native_rate; }
@@ -325,10 +415,10 @@ public:
     const char* name()       const override { return "SAA1099"; }
 
 private:
-    LPCSAASOUND        m_saa         = nullptr;
-    uint32_t           m_clock;
-    uint32_t           m_target_rate = 44100;
-    uint32_t           m_native_rate = 44100;
+    void*    m_inst         = nullptr;
+    uint32_t m_clock;
+    uint32_t m_target_rate  = 44100;
+    uint32_t m_native_rate  = 44100;
     std::vector<int16_t> m_intBuf;
 };
 
