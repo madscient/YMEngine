@@ -24,7 +24,7 @@ set(YMFM_DIR "${CMAKE_SOURCE_DIR}/extern/ymfm/src" CACHE PATH "ymfm src dir")
 set(EMU2149_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2149"  CACHE PATH "emu2149 dir")
 set(EMU76489_DIR "${CMAKE_SOURCE_DIR}/extern/emu76489" CACHE PATH "emu76489 dir")
 set(EMU2212_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2212"  CACHE PATH "emu2212 dir")
-set(NLOHMANN_DIR "${CMAKE_SOURCE_DIR}/extern/nlohmann" CACHE PATH "nlohmann/json dir")
+set(NLOHMANN_DIR "${CMAKE_SOURCE_DIR}/extern/nlohmann_json/single_include" CACHE PATH "nlohmann/json include dir")
 
 # =======================================================
 #  ターゲット 1: FmEngineApi.dll
@@ -123,11 +123,10 @@ target_include_directories(sample_app PRIVATE
 target_link_libraries(sample_app PRIVATE FmEngineApi)
 
 if (MSVC)
-    target_compile_options(sample_app PRIVATE /utf8)
     set_target_properties(sample_app PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
-    target_compile_options(sample_app PRIVATE /W4 /wd4100)
+    target_compile_options(sample_app PRIVATE /W4 /wd4100 /utf-8)
 endif()
 
 # test_patches.json をビルド出力ディレクトリにコピー
