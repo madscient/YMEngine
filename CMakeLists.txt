@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(FmEngineApi VERSION 2.0.0 LANGUAGES CXX)
+project(FmEngineApi VERSION 2.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 17)
@@ -44,6 +44,14 @@ add_library(FmEngineApi SHARED
     ${EMU2149_DIR}/emu2149.c
     ${EMU76489_DIR}/emu76489.c
     ${EMU2212_DIR}/emu2212.c
+)
+
+# .c ファイルを C として明示コンパイル (MSVC は混在プロジェクトでも C++ 扱いになる場合がある)
+set_source_files_properties(
+    ${EMU2149_DIR}/emu2149.c
+    ${EMU76489_DIR}/emu76489.c
+    ${EMU2212_DIR}/emu2212.c
+    PROPERTIES LANGUAGE C
 )
 
 target_include_directories(FmEngineApi PRIVATE
