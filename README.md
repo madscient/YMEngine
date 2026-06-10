@@ -245,7 +245,7 @@ sample_app.exe my_patches.json
 
 | C 定数 | チップ | 標準クロック | ライブラリ | JSON キー |
 |---|---|---|---|---|
-| `FM_CHIP_EXT_PSG`     | YM2149 (PSG) | 3.58 MHz | emu2149   | `"PSG"` |
+| `FM_CHIP_EXT_SSG`     | YM2149 (SSG) | 3.58 MHz | emu2149   | `"PSG"` |
 | `FM_CHIP_EXT_DCSG`    | SN76489      | 3.58 MHz | emu76489  | `"SN76489"` |
 | `FM_CHIP_EXT_SCC`     | SCC/K051649  | 3.58 MHz | emu2212   | `"SCC"` |
 | `FM_CHIP_EXT_SAA`     | SAA1099      | 8.00 MHz | SAASound.dll (動的ロード) | `"SAA1099"` |
