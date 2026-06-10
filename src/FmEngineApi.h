@@ -76,6 +76,18 @@ typedef enum FmChipTypeExt {
 } FmChipTypeExt;
 
 // =========================================================
+//  外部メモリアクセス種別
+//  ymfm::access_class と値を一致させる
+//  ※ extern "C" の外で定義 (MSVC C2143 回避)
+// =========================================================
+typedef enum FmMemoryType {
+    FM_MEM_IO      = 0,  // 汎用 I/O (通常は使わない)
+    FM_MEM_ADPCM_A = 1,  // ADPCM-A ROM (OPNB/OPNBB)
+    FM_MEM_ADPCM_B = 2,  // ADPCM-B ROM/RAM (OPNA/OPNB/OPNBB/Y8950)
+    FM_MEM_PCM     = 3,  // PCM ROM (OPL4)
+} FmMemoryType;
+
+// =========================================================
 //  不透明ハンドル前方宣言
 //  ※ extern "C" の外に置く
 // =========================================================
@@ -112,6 +124,19 @@ FMENGINE_API FmResult       FMENGINE_CALL FmEngine_SetGain(
     FmEngineHandle engine, uint32_t chip_id, float gain_l, float gain_r);
 FMENGINE_API FmResult       FMENGINE_CALL FmEngine_GetGain(
     FmEngineHandle engine, uint32_t chip_id, float* out_gain_l, float* out_gain_r);
+
+// 外部メモリ設定 (ADPCM/PCM ROM/RAM)
+// mem_type : FM_MEM_ADPCM_A / FM_MEM_ADPCM_B / FM_MEM_PCM
+// data     : ROM データへのポインタ (呼び出し元が寿命を管理すること)
+// size     : データサイズ (バイト)
+// オーディオ再生開始前 (Wasapi_Start より前) に呼ぶこと。
+FMENGINE_API FmResult       FMENGINE_CALL FmEngine_SetMemory(
+    FmEngineHandle engine, uint32_t chip_id,
+    FmMemoryType mem_type, const uint8_t* data, uint32_t size);
+
+// 設定済みメモリサイズを取得 (未設定の場合は 0)
+FMENGINE_API uint32_t       FMENGINE_CALL FmEngine_GetMemorySize(
+    FmEngineHandle engine, uint32_t chip_id, FmMemoryType mem_type);
 FMENGINE_API FmResult       FMENGINE_CALL FmEngine_Generate(
     FmEngineHandle engine, float* out_l, float* out_r, uint32_t samples);
 

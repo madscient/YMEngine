@@ -158,11 +158,93 @@ public:
     virtual ChipType    type()  const = 0;
     virtual const char* name()  const = 0;
     virtual uint32_t    clock() const = 0;
+
+    // 外部メモリの設定
+    // access_type: ymfm::ACCESS_ADPCM_A / ACCESS_ADPCM_B / ACCESS_PCM
+    // data: メモリデータへのポインタ (呼び出し元が寿命を管理すること)
+    // size: データサイズ (バイト)
+    virtual void        setMemory(ymfm::access_class access_type,
+                                  const uint8_t* data, uint32_t size) {}
+    virtual uint32_t    memorySize(ymfm::access_class access_type) const { return 0; }
 };
 
 // =========================================================
-//  ymfm_interface 実装 (no-op)
+//  MemoryYmfmInterface
+//  外部メモリアクセスを実装した ymfm_interface。
+//  ADPCM_A / ADPCM_B / PCM の 3種のメモリ領域を保持する。
 // =========================================================
+class MemoryYmfmInterface : public ymfm::ymfm_interface {
+public:
+    void    ymfm_set_timer(uint32_t, int32_t) override {}
+    void    ymfm_sync_mode_write(uint8_t)     override {}
+    void    ymfm_sync_check_interrupts()      override {}
+    void    ymfm_update_irq(bool)             override {}
+
+    uint8_t ymfm_external_read(ymfm::access_class type, uint32_t address) override {
+        const auto& mem = getRegion(type);
+        if (mem.data && address < mem.size)
+            return mem.data[address];
+        return 0;
+    }
+
+    void ymfm_external_write(ymfm::access_class type,
+                             uint32_t address, uint8_t data) override {
+        auto& mem = getRegion(type);
+        if (mem.writeable && mem.owned && address < mem.size)
+            const_cast<uint8_t*>(mem.data)[address] = data;
+    }
+
+    // 外部 ROM/RAM をポインタで設定 (寿命は呼び出し元管理)
+    void setMemory(ymfm::access_class type,
+                   const uint8_t* data, uint32_t size) {
+        auto& mem = getRegion(type);
+        mem.data     = data;
+        mem.size     = size;
+        mem.owned    = false;
+        mem.writeable = false;
+    }
+
+    // 書き込み可能 RAM を内部確保
+    void allocMemory(ymfm::access_class type, uint32_t size) {
+        auto& mem = getRegion(type);
+        mem.buf.assign(size, 0);
+        mem.data      = mem.buf.data();
+        mem.size      = size;
+        mem.owned     = true;
+        mem.writeable = true;
+    }
+
+    uint32_t memorySize(ymfm::access_class type) const {
+        return getRegion(type).size;
+    }
+
+private:
+    struct MemRegion {
+        const uint8_t*      data      = nullptr;
+        uint32_t            size      = 0;
+        bool                owned     = false;
+        bool                writeable = false;
+        std::vector<uint8_t> buf;
+    };
+
+    MemRegion m_adpcm_a;
+    MemRegion m_adpcm_b;
+    MemRegion m_pcm;
+
+    MemRegion& getRegion(ymfm::access_class type) {
+        switch (type) {
+            case ymfm::ACCESS_ADPCM_A: return m_adpcm_a;
+            case ymfm::ACCESS_ADPCM_B: return m_adpcm_b;
+            case ymfm::ACCESS_PCM:     return m_pcm;
+            default:                   return m_adpcm_b; // fallback
+        }
+    }
+    const MemRegion& getRegion(ymfm::access_class type) const {
+        return const_cast<MemoryYmfmInterface*>(this)->getRegion(type);
+    }
+};
+
+// BasicYmfmInterface: メモリアクセス不要なチップ用の軽量版 (従来通り)
 class BasicYmfmInterface : public ymfm::ymfm_interface {
 public:
     void    ymfm_set_timer(uint32_t, int32_t) override {}
@@ -184,11 +266,6 @@ public:
     explicit FmChipImpl(uint32_t clock);
 
     void write(uint32_t port, uint8_t reg, uint8_t value) override {
-        // ymfm の write(offset, data) は offset でアドレス/データポートを切り替える。
-        //   OPL系  : offset=0 → アドレスポート、offset=1 → データポート
-        //   OPN2系 : offset=0 → アドレス(low)、 offset=1 → データ(low)
-        //            offset=2 → アドレス(hi)、   offset=3 → データ(hi)
-        // port=0 → bank0 (offset 0/1)、port!=0 → bank1 (offset 2/3)
         const uint32_t addr_offset = (port != 0) ? 2 : 0;
         const uint32_t data_offset = addr_offset + 1;
         m_chip.write(addr_offset, reg);
@@ -204,6 +281,16 @@ public:
     void setTargetRate(uint32_t target_rate) override {
         m_target_rate = target_rate;
         m_resampler.setup(m_native_rate, target_rate);
+    }
+
+    // 外部メモリ設定 (ROM/RAM ポインタを渡す場合)
+    void setMemory(ymfm::access_class access_type,
+                   const uint8_t* data, uint32_t size) override {
+        m_iface.setMemory(access_type, data, size);
+    }
+
+    uint32_t memorySize(ymfm::access_class access_type) const override {
+        return m_iface.memorySize(access_type);
     }
 
     uint32_t    nativeRate() const override { return m_native_rate; }
@@ -232,7 +319,7 @@ private:
     // ※ has_write_address_hi はクラス外 (namespace detail) で定義
     //    ここには型トレイトを一切書かない (MSVC C3856 回避)
 
-    BasicYmfmInterface m_iface;
+    MemoryYmfmInterface m_iface;  // 外部メモリアクセス対応インターフェース
     ChipImpl           m_chip;
     uint32_t           m_clock;
     uint32_t           m_native_rate = 0;

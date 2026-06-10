@@ -260,3 +260,46 @@ sample_app.exe my_patches.json
 - **SAASound**: GPL-2.0 (stripwax) — 配布時はライセンス条件を確認してください
 - **nlohmann/json**: MIT (nlohmann)
 - **このエンジンコード**: MIT
+
+## 外部メモリ (ADPCM/PCM ROM)
+
+ADPCM や PCM を内蔵するチップは外部 ROM/RAM からサンプルデータを読み取ります。  
+`FmEngine_SetMemory` で ROM データを設定してください。
+
+| チップ | 必要なメモリ種別 | 用途 |
+|---|---|---|
+| OPNA (YM2608)  | `FM_MEM_ADPCM_B` | ADPCM-B サンプル |
+| OPNB (YM2610)  | `FM_MEM_ADPCM_A`, `FM_MEM_ADPCM_B` | ADPCM-A / ADPCM-B サンプル |
+| OPNBB (YM2610B)| `FM_MEM_ADPCM_A`, `FM_MEM_ADPCM_B` | ADPCM-A / ADPCM-B サンプル |
+| Y8950          | `FM_MEM_ADPCM_B` | ADPCM-B サンプル |
+| OPL4 (YMF278B) | `FM_MEM_PCM`     | PCM サンプル ROM |
+
+```c
+// ROM ファイルを読み込む
+FILE* f = fopen("adpcm_rom.bin", "rb");
+fseek(f, 0, SEEK_END);
+uint32_t romSize = (uint32_t)ftell(f);
+rewind(f);
+uint8_t* romData = (uint8_t*)malloc(romSize);
+fread(romData, 1, romSize, f);
+fclose(f);
+
+// チップ追加後、Wasapi_Start() より前に設定する
+uint32_t opnaId;
+FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
+FmEngine_SetMemory(eng, opnaId, FM_MEM_ADPCM_B, romData, romSize);
+
+// 設定済みサイズの確認
+uint32_t sz = FmEngine_GetMemorySize(eng, opnaId, FM_MEM_ADPCM_B);
+printf("ADPCM-B ROM: %u bytes\n", sz);
+
+// 再生開始
+WasapiHandle wasapi = Wasapi_Create(eng, 0);
+Wasapi_Start(wasapi);
+
+// romData は Wasapi_Stop() まで解放しないこと
+Wasapi_Stop(wasapi);
+free(romData);
+```
+
+> **注意**: `FmEngine_SetMemory` はスレッドセーフではありません。`Wasapi_Start()` より前に呼んでください。
