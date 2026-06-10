@@ -102,6 +102,17 @@ FmEngine_AddChip(FmEngineHandle h, FmChipType api_type, uint32_t clock,
     });
 }
 
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_AddExtChip(FmEngineHandle h, FmChipTypeExt api_type, uint32_t clock,
+                    uint32_t* out_id) {
+    REQUIRE_PTR(h);
+    REQUIRE_PTR(out_id);
+    return safeCall([&] {
+        auto ct = static_cast<ChipTypeExt>(api_type);
+        *out_id = static_cast<FmEngineOpaque*>(h)->engine.addExtChip(ct, clock);
+    });
+}
+
 FMENGINE_API const char* FMENGINE_CALL
 FmEngine_GetChipName(FmEngineHandle h, uint32_t chip_id) {
     if (!h) return nullptr;
