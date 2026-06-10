@@ -17,14 +17,45 @@ set(YMFM_DIR "${CMAKE_SOURCE_DIR}/extern/ymfm/src" CACHE PATH "ymfm src dir")
 #  git submodule add https://github.com/digital-sound-antiques/emu2149  extern/emu2149
 #  git submodule add https://github.com/digital-sound-antiques/emu76489 extern/emu76489
 #  git submodule add https://github.com/digital-sound-antiques/emu2212  extern/emu2212
+#  git submodule add https://github.com/stripwax/SAASound               extern/SAASound
+#  git submodule add https://github.com/nlohmann/json                   extern/nlohmann_json
 #
 #  SAASound は独立 DLL としてビルドし実行時に LoadLibrary でロードする。
-#  FmEngineApi には含めない。SAASound.dll を出力ディレクトリに配置すること。
+#  FmEngineApi とは別ターゲットとして add_subdirectory で追加する。
 # -------------------------------------------------------
 set(EMU2149_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2149"  CACHE PATH "emu2149 dir")
 set(EMU76489_DIR "${CMAKE_SOURCE_DIR}/extern/emu76489" CACHE PATH "emu76489 dir")
 set(EMU2212_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2212"  CACHE PATH "emu2212 dir")
 set(NLOHMANN_DIR "${CMAKE_SOURCE_DIR}/extern/nlohmann_json/single_include" CACHE PATH "nlohmann/json include dir")
+set(SAASOUND_DIR "${CMAKE_SOURCE_DIR}/extern/SAASound" CACHE PATH "SAASound dir")
+
+# -------------------------------------------------------
+#  SAASound サブプロジェクト
+#  EXCLUDE_FROM_ALL で cmake --build . 時は除外し、
+#  SAASound ターゲットを明示的にビルドする必要がある場合のみビルドされる。
+#  Visual Studio では .sln に SAASound プロジェクトが追加される。
+# -------------------------------------------------------
+if (EXISTS "${SAASOUND_DIR}/CMakeLists.txt")
+    # SAASound の CMake 変数を事前設定
+    set(SAMPLE_RATE_HZ  "44100"   CACHE STRING "SAASound output sample rate" FORCE)
+    set(EXTERNAL_CLK_HZ "8000000" CACHE STRING "SAASound external clock Hz"  FORCE)
+    set(USE_CONFIG_FILE OFF CACHE BOOL "SAASound config file support" FORCE)
+    add_subdirectory(${SAASOUND_DIR} ${CMAKE_BINARY_DIR}/SAASound EXCLUDE_FROM_ALL)
+
+    # ビルド後に SAASound.dll を bin/ にコピーする
+    if (TARGET SAASound)
+        if (MSVC)
+            set_target_properties(SAASound PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+                PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
+            )
+        endif()
+        message(STATUS "SAASound subproject added from ${SAASOUND_DIR}")
+    endif()
+else()
+    message(STATUS "SAASound not found at ${SAASOUND_DIR} -- SAA1099 disabled.")
+    message(STATUS "  Run: git submodule add https://github.com/stripwax/SAASound extern/SAASound")
+endif()
 
 # =======================================================
 #  ターゲット 1: FmEngineApi.dll
