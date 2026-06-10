@@ -1,3 +1,15 @@
 [submodule "extern/ymfm"]
 	path = extern/ymfm
 	url = https://github.com/aaronsgiles/ymfm
+[submodule "extern/emu2149"]
+	path = extern/emu2149
+	url = https://github.com/digital-sound-antiques/emu2149
+[submodule "extern/emu76489"]
+	path = extern/emu76489
+	url = https://github.com/digital-sound-antiques/emu76489
+[submodule "extern/emu2212"]
+	path = extern/emu2212
+	url = https://github.com/digital-sound-antiques/emu2212
+[submodule "extern/SAASound"]
+	path = extern/SAASound
+	url = https://github.com/stripwax/SAASound
