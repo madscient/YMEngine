@@ -262,73 +262,64 @@ private:
 // =========================================================
 //  SAASoundProxy — SAASound.dll を実行時ロードするプロキシ
 //
-//  SAASound.dll は BYTE マクロ等の名前衝突があり静的リンクが困難なため、
-//  LoadLibrary で動的ロードして関数ポインタ経由で呼び出す。
+//  SAASound の C エクスポート API (SAASndC.h より):
+//    void* WINAPI newSAASND(void)
+//    void  WINAPI deleteSAASND(void*)
+//    void  WINAPI SAASNDSetSoundParameters(void*, unsigned long)
+//    void  WINAPI SAASNDSetClockRate(void*, unsigned int)
+//    void  WINAPI SAASNDSetSampleRate(void*, unsigned int)
+//    void  WINAPI SAASNDWriteAddressData(void*, unsigned char, unsigned char)
+//    void  WINAPI SAASNDClear(void*)
+//    void  WINAPI SAASNDGenerateMany(void*, unsigned char*, unsigned long)
 //
-//  SAASound の C エクスポート API:
-//    void* SAASOUND_API CreateCSAASound(void)
-//    void  SAASOUND_API DestroyCSAASound(void*)
-//    void  SAASOUND_API SAA_SetSampleRate(void*, unsigned int)
-//    void  SAASOUND_API SAA_SetClockRate(void*, unsigned int)
-//    void  SAASOUND_API SAA_WriteAddress(void*, unsigned char)
-//    void  SAASOUND_API SAA_WriteData(void*, unsigned char)
-//    void  SAASOUND_API SAA_WriteAddressData(void*, unsigned char, unsigned char)
-//    void  SAASOUND_API SAA_Clear(void*)
-//    void  SAASOUND_API SAA_GenerateMany(void*, unsigned char*, unsigned int)
-//
-//  ※ SAASound の C エクスポートが存在しない場合は C++ vtable 経由になるが、
-//     DLL のコンパイラが一致していれば動作する。
-//     ここでは C スタイル エクスポートを優先し、なければ C++ を試みる。
+//  呼び出し規約は __stdcall (WINAPI) であることに注意。
 // =========================================================
 class SAASoundProxy {
 public:
-    // DLL 名。同じディレクトリになければ PATH から検索される。
     static constexpr const char* DLL_NAME = "SAASound.dll";
 
-    // 関数ポインタ型定義
-    using FnCreate          = void* (__cdecl*)();
-    using FnDestroy         = void  (__cdecl*)(void*);
-    using FnSetSampleRate   = void  (__cdecl*)(void*, unsigned int);
-    using FnSetClockRate    = void  (__cdecl*)(void*, unsigned int);
-    using FnWriteAddress    = void  (__cdecl*)(void*, unsigned char);
-    using FnWriteData       = void  (__cdecl*)(void*, unsigned char);
-    using FnWriteAddrData   = void  (__cdecl*)(void*, unsigned char, unsigned char);
-    using FnClear           = void  (__cdecl*)(void*);
-    using FnGenerateMany    = void  (__cdecl*)(void*, unsigned char*, unsigned int);
+    using FnNew             = void* (__stdcall*)();
+    using FnDelete          = void  (__stdcall*)(void*);
+    using FnSetSoundParams  = void  (__stdcall*)(void*, unsigned long);
+    using FnSetClockRate    = void  (__stdcall*)(void*, unsigned int);
+    using FnSetSampleRate   = void  (__stdcall*)(void*, unsigned int);
+    using FnWriteAddrData   = void  (__stdcall*)(void*, unsigned char, unsigned char);
+    using FnClear           = void  (__stdcall*)(void*);
+    using FnGenerateMany    = void  (__stdcall*)(void*, unsigned char*, unsigned long);
 
-    FnCreate        Create        = nullptr;
-    FnDestroy       Destroy       = nullptr;
-    FnSetSampleRate SetSampleRate = nullptr;
-    FnSetClockRate  SetClockRate  = nullptr;
-    FnWriteAddrData WriteAddrData = nullptr;
-    FnClear         Clear         = nullptr;
-    FnGenerateMany  GenerateMany  = nullptr;
+    FnNew            New             = nullptr;
+    FnDelete         Delete          = nullptr;
+    FnSetSoundParams SetSoundParams  = nullptr;
+    FnSetClockRate   SetClockRate    = nullptr;
+    FnSetSampleRate  SetSampleRate   = nullptr;
+    FnWriteAddrData  WriteAddrData   = nullptr;
+    FnClear          Clear           = nullptr;
+    FnGenerateMany   GenerateMany    = nullptr;
 
     HMODULE hDll = nullptr;
 
-    // シングルトン: 1度ロードしたら使いまわす
     static SAASoundProxy& instance() {
         static SAASoundProxy inst;
         return inst;
     }
 
-    bool isLoaded() const { return hDll != nullptr && Create != nullptr; }
+    bool isLoaded() const { return hDll != nullptr && New != nullptr; }
 
-    // ロード試行 (失敗しても例外を投げない)
     bool tryLoad() {
         if (hDll) return isLoaded();
         hDll = LoadLibraryA(DLL_NAME);
         if (!hDll) return false;
 
-        Create        = reinterpret_cast<FnCreate>       (GetProcAddress(hDll, "CreateCSAASound"));
-        Destroy       = reinterpret_cast<FnDestroy>      (GetProcAddress(hDll, "DestroyCSAASound"));
-        SetSampleRate = reinterpret_cast<FnSetSampleRate>(GetProcAddress(hDll, "SAA_SetSampleRate"));
-        SetClockRate  = reinterpret_cast<FnSetClockRate> (GetProcAddress(hDll, "SAA_SetClockRate"));
-        WriteAddrData = reinterpret_cast<FnWriteAddrData>(GetProcAddress(hDll, "SAA_WriteAddressData"));
-        Clear         = reinterpret_cast<FnClear>        (GetProcAddress(hDll, "SAA_Clear"));
-        GenerateMany  = reinterpret_cast<FnGenerateMany> (GetProcAddress(hDll, "SAA_GenerateMany"));
+        New            = reinterpret_cast<FnNew>           (GetProcAddress(hDll, "newSAASND"));
+        Delete         = reinterpret_cast<FnDelete>        (GetProcAddress(hDll, "deleteSAASND"));
+        SetSoundParams = reinterpret_cast<FnSetSoundParams>(GetProcAddress(hDll, "SAASNDSetSoundParameters"));
+        SetClockRate   = reinterpret_cast<FnSetClockRate>  (GetProcAddress(hDll, "SAASNDSetClockRate"));
+        SetSampleRate  = reinterpret_cast<FnSetSampleRate> (GetProcAddress(hDll, "SAASNDSetSampleRate"));
+        WriteAddrData  = reinterpret_cast<FnWriteAddrData> (GetProcAddress(hDll, "SAASNDWriteAddressData"));
+        Clear          = reinterpret_cast<FnClear>         (GetProcAddress(hDll, "SAASNDClear"));
+        GenerateMany   = reinterpret_cast<FnGenerateMany>  (GetProcAddress(hDll, "SAASNDGenerateMany"));
 
-        if (!Create || !Destroy || !GenerateMany || !WriteAddrData) {
+        if (!New || !Delete || !GenerateMany || !WriteAddrData) {
             FreeLibrary(hDll);
             hDll = nullptr;
             return false;
@@ -338,9 +329,7 @@ public:
 
 private:
     SAASoundProxy() = default;
-    ~SAASoundProxy() {
-        if (hDll) { FreeLibrary(hDll); hDll = nullptr; }
-    }
+    ~SAASoundProxy() { if (hDll) { FreeLibrary(hDll); hDll = nullptr; } }
     SAASoundProxy(const SAASoundProxy&) = delete;
     SAASoundProxy& operator=(const SAASoundProxy&) = delete;
 };
@@ -359,9 +348,10 @@ public:
                 "SAASound.dll not found or missing exports. "
                 "Place SAASound.dll next to FmEngineApi.dll.");
 
-        m_inst = proxy.Create();
-        if (!m_inst) throw std::runtime_error("CreateCSAASound failed");
+        m_inst = proxy.New();
+        if (!m_inst) throw std::runtime_error("newSAASND failed");
 
+        // クロックとサンプルレートを設定
         if (proxy.SetClockRate)  proxy.SetClockRate(m_inst, clock);
         if (proxy.SetSampleRate) proxy.SetSampleRate(m_inst, target_rate);
         if (proxy.Clear)         proxy.Clear(m_inst);
@@ -371,7 +361,7 @@ public:
 
     ~SAAChip() override {
         if (m_inst) {
-            SAASoundProxy::instance().Destroy(m_inst);
+            SAASoundProxy::instance().Delete(m_inst);
             m_inst = nullptr;
         }
     }
@@ -381,6 +371,7 @@ public:
     }
 
     void generate(float* out_l, float* out_r, uint32_t dst_samples) override {
+        // SAASNDGenerateMany は int16_t stereo interleaved を生成する
         m_intBuf.resize(dst_samples * 2);
         SAASoundProxy::instance().GenerateMany(
             m_inst,
