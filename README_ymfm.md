@@ -173,7 +173,7 @@ uint32_t id = engine.addChip(ChipType::OPN2, 7'600'489u); // PAL Mega Drive
 
 | 列挙値 (ChipTypeExt) | チップ | 標準クロック | ライブラリ |
 |---|---|---|---|
-| `ChipTypeExt::PSG`     | YM2149 (PSG) | 3.58 MHz | emu2149 (静的リンク) |
+| `ChipTypeExt::SSG`     | YM2149 (SSG) | 3.58 MHz | emu2149 (静的リンク) |
 | `ChipTypeExt::DCSG`    | SN76489      | 3.58 MHz | emu76489 (静的リンク) |
 | `ChipTypeExt::SCC`     | SCC/K051649  | 3.58 MHz | emu2212 (静的リンク) |
 | `ChipTypeExt::SAA`     | SAA1099      | 8.00 MHz | SAASound.dll (動的ロード) |
