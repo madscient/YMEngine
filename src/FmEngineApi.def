@@ -10,6 +10,7 @@ EXPORTS
     FmEngine_Create
     FmEngine_Destroy
     FmEngine_AddChip
+    FmEngine_AddExtChip
     FmEngine_GetChipName
     FmEngine_GetNativeRate
     FmEngine_GetSampleRate

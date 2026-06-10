@@ -12,12 +12,24 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # -------------------------------------------------------
 set(YMFM_DIR "${CMAKE_SOURCE_DIR}/extern/ymfm/src" CACHE PATH "ymfm src dir")
 
+# -------------------------------------------------------
+#  外部チップライブラリのパス
+#  git submodule add https://github.com/digital-sound-antiques/emu2149  extern/emu2149
+#  git submodule add https://github.com/digital-sound-antiques/emu76489 extern/emu76489
+#  git submodule add https://github.com/digital-sound-antiques/emu2212  extern/emu2212
+#  git submodule add https://github.com/stripwax/SAASound                extern/SAASound
+# -------------------------------------------------------
+set(EMU2149_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2149"       CACHE PATH "emu2149 dir")
+set(EMU76489_DIR "${CMAKE_SOURCE_DIR}/extern/emu76489"      CACHE PATH "emu76489 dir")
+set(EMU2212_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2212"       CACHE PATH "emu2212 dir")
+set(SAASOUND_DIR "${CMAKE_SOURCE_DIR}/extern/SAASound"      CACHE PATH "SAASound dir")
+
 # =======================================================
 #  ターゲット 1: FmEngineApi.dll  (または .so / .a)
 # =======================================================
 add_library(FmEngineApi SHARED
     src/FmEngineApi.cpp
-    # ymfm ソース (DLL 内に静的に取り込む)
+    # ymfm ソース
     ${YMFM_DIR}/ymfm_opl.cpp
     ${YMFM_DIR}/ymfm_opn.cpp
     ${YMFM_DIR}/ymfm_opm.cpp
@@ -26,11 +38,25 @@ add_library(FmEngineApi SHARED
     ${YMFM_DIR}/ymfm_opz.cpp
     ${YMFM_DIR}/ymfm_misc.cpp
     ${YMFM_DIR}/ymfm_adpcm.cpp
+    # 外部チップ ソース
+    ${EMU2149_DIR}/emu2149.c
+    ${EMU76489_DIR}/emu76489.c
+    ${EMU2212_DIR}/emu2212.c
+    ${SAASOUND_DIR}/src/SAASound.cpp
+    ${SAASOUND_DIR}/src/SAAEnv.cpp
+    ${SAASOUND_DIR}/src/SAAFreq.cpp
+    ${SAASOUND_DIR}/src/SAANoise.cpp
+    ${SAASOUND_DIR}/src/SAAAmp.cpp
+    ${SAASOUND_DIR}/src/SAAImpl.cpp
 )
 
 target_include_directories(FmEngineApi PRIVATE
     src/
     ${YMFM_DIR}
+    ${EMU2149_DIR}
+    ${EMU76489_DIR}
+    ${EMU2212_DIR}
+    ${SAASOUND_DIR}/include
 )
 
 # FMENGINE_EXPORTS → FmEngineApi.cpp 内で dllexport になる

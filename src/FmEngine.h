@@ -8,6 +8,7 @@
 //   dBToLinear() を通常の inline static 関数にする。
 
 #include "FmChip.h"
+#include "ExternalChip.h"
 #include <atomic>
 #include <array>
 #include <memory>
@@ -78,15 +79,18 @@ public:
     explicit FmEngine(uint32_t sample_rate = 44100)
         : m_sample_rate(sample_rate) {}
 
-    // チップ追加。clock=0 で標準クロックを使用。
+    // ymfmチップ追加。clock=0 で標準クロックを使用。
     uint32_t addChip(ChipType type, uint32_t clock = 0) {
         auto chip = createChip(type, clock);
         chip->setTargetRate(m_sample_rate);
-        const uint32_t id = static_cast<uint32_t>(m_chips.size());
-        m_chips.push_back(std::move(chip));
-        m_gains.emplace_back();
-        m_work_bufs.emplace_back();
-        return id;
+        return registerChip(std::move(chip));
+    }
+
+    // 外部ライブラリチップ追加 (PSG/SN76489/SCC/SAA1099)
+    uint32_t addExtChip(ChipTypeExt type, uint32_t clock = 0) {
+        auto ext  = createExtChip(type, clock, m_sample_rate);
+        auto chip = std::make_unique<ExtChipAdapter>(std::move(ext));
+        return registerChip(std::move(chip));
     }
 
     uint32_t sampleRate() const { return m_sample_rate; }
@@ -156,6 +160,14 @@ public:
     }
 
 private:
+    uint32_t registerChip(std::unique_ptr<FmChip> chip) {
+        const uint32_t id = static_cast<uint32_t>(m_chips.size());
+        m_chips.push_back(std::move(chip));
+        m_gains.emplace_back();
+        m_work_bufs.emplace_back();
+        return id;
+    }
+
     static float softClip(float x) {
         if (x >  1.5f) return  1.0f;
         if (x < -1.5f) return -1.0f;

@@ -65,6 +65,17 @@ typedef enum FmChipType {
 } FmChipType;
 
 // =========================================================
+//  外部ライブラリチップ種別
+//  ※ extern "C" の外で定義 (MSVC C2143 回避)
+// =========================================================
+typedef enum FmChipTypeExt {
+    FM_CHIP_EXT_PSG     = 100,  // YM2149 (PSG)   via emu2149
+    FM_CHIP_EXT_SN76489 = 101,  // SN76489        via emu76489
+    FM_CHIP_EXT_SCC     = 102,  // SCC/K051649    via emu2212
+    FM_CHIP_EXT_SAA1099 = 103,  // SAA1099        via SAASound
+} FmChipTypeExt;
+
+// =========================================================
 //  不透明ハンドル前方宣言
 //  ※ extern "C" の外に置く
 // =========================================================
@@ -85,6 +96,10 @@ FMENGINE_API FmEngineHandle FMENGINE_CALL FmEngine_Create(uint32_t sample_rate);
 FMENGINE_API void           FMENGINE_CALL FmEngine_Destroy(FmEngineHandle engine);
 FMENGINE_API FmResult       FMENGINE_CALL FmEngine_AddChip(
     FmEngineHandle engine, FmChipType type, uint32_t clock, uint32_t* out_id);
+
+// 外部ライブラリチップ追加 (PSG/SN76489/SCC/SAA1099)
+FMENGINE_API FmResult       FMENGINE_CALL FmEngine_AddExtChip(
+    FmEngineHandle engine, FmChipTypeExt type, uint32_t clock, uint32_t* out_id);
 FMENGINE_API const char*    FMENGINE_CALL FmEngine_GetChipName(
     FmEngineHandle engine, uint32_t chip_id);
 FMENGINE_API uint32_t       FMENGINE_CALL FmEngine_GetNativeRate(

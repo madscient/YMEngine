@@ -81,19 +81,23 @@ int main() {
     FmEngineHandle eng = FmEngine_Create(48000);
     if (!eng) { fputs("FmEngine_Create failed\n", stderr); return 1; }
 
-    // ② チップ追加 (クロック明示)
+    // ② チップ追加 (ymfm + 外部ライブラリ)
     uint32_t opl3Id = 0, opn2Id = 0;
-    check(FmEngine_AddChip(eng, FM_CHIP_OPL3, 0,          &opl3Id), "AddChip OPL3");
-    check(FmEngine_AddChip(eng, FM_CHIP_OPN2, 7600489u,   &opn2Id), "AddChip OPN2 PAL");
+    uint32_t psgId = 0, sngId = 0, sccId = 0, saaId = 0;
+    check(FmEngine_AddChip(eng, FM_CHIP_OPL3, 0,        &opl3Id), "AddChip OPL3");
+    check(FmEngine_AddChip(eng, FM_CHIP_OPN2, 7600489u, &opn2Id), "AddChip OPN2 PAL");
+    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_PSG,     0, &psgId), "AddExtChip PSG");
+    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_SN76489, 0, &sngId), "AddExtChip SN76489");
+    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_SCC,     0, &sccId), "AddExtChip SCC");
+    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_SAA1099, 0, &saaId), "AddExtChip SAA1099");
 
-    printf("%-20s  native=%5u Hz  target=%5u Hz\n",
-           FmEngine_GetChipName(eng, opl3Id),
-           FmEngine_GetNativeRate(eng, opl3Id),
-           FmEngine_GetSampleRate(eng));
-    printf("%-20s  native=%5u Hz  target=%5u Hz\n",
-           FmEngine_GetChipName(eng, opn2Id),
-           FmEngine_GetNativeRate(eng, opn2Id),
-           FmEngine_GetSampleRate(eng));
+    uint32_t allIds[] = {opl3Id, opn2Id, psgId, sngId, sccId, saaId};
+    for (uint32_t id : allIds) {
+        printf("%-20s  native=%5u Hz  target=%5u Hz\n",
+               FmEngine_GetChipName(eng, id),
+               FmEngine_GetNativeRate(eng, id),
+               FmEngine_GetSampleRate(eng));
+    }
 
     // ③ ゲイン設定
     check(FmEngine_SetGain(eng, opl3Id, 1.0f, 1.0f),                             "SetGain OPL3");
