@@ -17,15 +17,17 @@ set(YMFM_DIR "${CMAKE_SOURCE_DIR}/extern/ymfm/src" CACHE PATH "ymfm src dir")
 #  git submodule add https://github.com/digital-sound-antiques/emu2149  extern/emu2149
 #  git submodule add https://github.com/digital-sound-antiques/emu76489 extern/emu76489
 #  git submodule add https://github.com/digital-sound-antiques/emu2212  extern/emu2212
-#  git submodule add https://github.com/stripwax/SAASound                extern/SAASound
+#
+#  SAASound は独立 DLL としてビルドし実行時に LoadLibrary でロードする。
+#  FmEngineApi には含めない。SAASound.dll を出力ディレクトリに配置すること。
 # -------------------------------------------------------
-set(EMU2149_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2149"       CACHE PATH "emu2149 dir")
-set(EMU76489_DIR "${CMAKE_SOURCE_DIR}/extern/emu76489"      CACHE PATH "emu76489 dir")
-set(EMU2212_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2212"       CACHE PATH "emu2212 dir")
-set(SAASOUND_DIR "${CMAKE_SOURCE_DIR}/extern/SAASound"      CACHE PATH "SAASound dir")
+set(EMU2149_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2149"  CACHE PATH "emu2149 dir")
+set(EMU76489_DIR "${CMAKE_SOURCE_DIR}/extern/emu76489" CACHE PATH "emu76489 dir")
+set(EMU2212_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2212"  CACHE PATH "emu2212 dir")
+set(NLOHMANN_DIR "${CMAKE_SOURCE_DIR}/extern/nlohmann" CACHE PATH "nlohmann/json dir")
 
 # =======================================================
-#  ターゲット 1: FmEngineApi.dll  (または .so / .a)
+#  ターゲット 1: FmEngineApi.dll
 # =======================================================
 add_library(FmEngineApi SHARED
     src/FmEngineApi.cpp
@@ -38,16 +40,10 @@ add_library(FmEngineApi SHARED
     ${YMFM_DIR}/ymfm_opz.cpp
     ${YMFM_DIR}/ymfm_misc.cpp
     ${YMFM_DIR}/ymfm_adpcm.cpp
-    # 外部チップ ソース
+    # 外部チップ ソース (SAASound は除く)
     ${EMU2149_DIR}/emu2149.c
     ${EMU76489_DIR}/emu76489.c
     ${EMU2212_DIR}/emu2212.c
-    ${SAASOUND_DIR}/src/SAASound.cpp
-    ${SAASOUND_DIR}/src/SAAEnv.cpp
-    ${SAASOUND_DIR}/src/SAAFreq.cpp
-    ${SAASOUND_DIR}/src/SAANoise.cpp
-    ${SAASOUND_DIR}/src/SAAAmp.cpp
-    ${SAASOUND_DIR}/src/SAAImpl.cpp
 )
 
 target_include_directories(FmEngineApi PRIVATE
@@ -56,7 +52,6 @@ target_include_directories(FmEngineApi PRIVATE
     ${EMU2149_DIR}
     ${EMU76489_DIR}
     ${EMU2212_DIR}
-    ${SAASOUND_DIR}/include
 )
 
 # FMENGINE_EXPORTS → FmEngineApi.cpp 内で dllexport になる
@@ -112,19 +107,28 @@ endif()
 # =======================================================
 add_executable(sample_app src/main.cpp)
 
-target_include_directories(sample_app PRIVATE src/)
+target_include_directories(sample_app PRIVATE
+    src/
+    ${NLOHMANN_DIR}
+)
 
-# FmEngineApi.h だけで使えるようにするため、
-# PRIVATE でインポートライブラリにリンク
 target_link_libraries(sample_app PRIVATE FmEngineApi)
 
 if (MSVC)
-    target_compile_options(sample_app PRIVATE /utf-8)
+    target_compile_options(sample_app PRIVATE /utf8)
     set_target_properties(sample_app PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
     target_compile_options(sample_app PRIVATE /W4 /wd4100)
 endif()
+
+# test_patches.json をビルド出力ディレクトリにコピー
+add_custom_command(TARGET sample_app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/src/test_patches.json"
+        "$<TARGET_FILE_DIR:sample_app>/test_patches.json"
+    COMMENT "Copying test_patches.json"
+)
 
 # =======================================================
 #  インストール規則 (任意)

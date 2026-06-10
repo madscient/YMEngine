@@ -1,17 +1,42 @@
 // main.cpp
-// FmEngineApi.dll を使うサンプルアプリ。
-// FmEngine.h / WasapiOutput.h を include せず、
-// FmEngineApi.h (C ファサード) だけで完結する。
+// YMEngine 全チップ全チャンネルテスト
+//
+// 動作:
+//   test_patches.json を読み込み、記述されたチップ×チャンネルを順番に
+//   1音ずつ鳴らす。各チャンネルの発音→消音→次のチャンネルへ。
+//
+// JSON パーサー:
+//   nlohmann/json (header-only)
+//   extern/nlohmann/json.hpp に配置すること。
+//   取得: https://github.com/nlohmann/json/releases/latest/download/json.hpp
 
 #include "FmEngineApi.h"
 #include <cstdio>
-#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <cstdint>
 #include <string>
-#include <windows.h>   // Sleep(), WideCharToMultiByte()
+#include <vector>
+#include <stdexcept>
+#include <windows.h>
+#include "nlohmann/json.hpp"
 
-// -------------------------------------------------------
-//  エラーチェックヘルパー
-// -------------------------------------------------------
+using json = nlohmann::json;
+
+// =========================================================
+//  ヘルパー
+// =========================================================
+
+// 16進文字列 ("0xFF") または 10進数値を uint32_t に変換
+static uint32_t parseVal(const json& j) {
+    if (j.is_string()) {
+        const std::string s = j.get<std::string>();
+        return static_cast<uint32_t>(std::stoul(s, nullptr, 0));
+    }
+    return j.get<uint32_t>();
+}
+
+// エラーチェック
 static void check(FmResult r, const char* msg) {
     if (r != FM_OK) {
         fprintf(stderr, "ERROR %s: code=%d\n", msg, (int)r);
@@ -19,156 +44,223 @@ static void check(FmResult r, const char* msg) {
     }
 }
 
-// -------------------------------------------------------
-//  OPL3 簡易メロディ
-// -------------------------------------------------------
-static void setupOpl3(FmEngineHandle eng, uint32_t id) {
-    FmEngine_Write(eng, id, 0x05, 0x01, 1);
-    FmEngine_Write(eng, id, 0x20, 0x01, 0);
-    FmEngine_Write(eng, id, 0x40, 0x10, 0);
-    FmEngine_Write(eng, id, 0x60, 0xF0, 0);
-    FmEngine_Write(eng, id, 0x80, 0x77, 0);
-    FmEngine_Write(eng, id, 0x23, 0x01, 0);
-    FmEngine_Write(eng, id, 0x43, 0x00, 0);
-    FmEngine_Write(eng, id, 0x63, 0xF0, 0);
-    FmEngine_Write(eng, id, 0x83, 0x55, 0);
-    FmEngine_Write(eng, id, 0xA0, 0x6A, 0);
-    FmEngine_Write(eng, id, 0xB0, 0x34, 0); // Key-on
+// wchar_t → アクティブコードページ変換
+static std::string toMB(const wchar_t* wstr) {
+    if (!wstr || wstr[0] == L'\0') return {};
+    const UINT cp = GetACP();
+    const int len = WideCharToMultiByte(cp, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 0) return {};
+    std::string buf(len, '\0');
+    WideCharToMultiByte(cp, 0, wstr, -1, buf.data(), len, nullptr, nullptr);
+    buf.resize(len - 1);
+    return buf;
 }
 
-// -------------------------------------------------------
-//  OPN2 簡易トーン
-// -------------------------------------------------------
-static void setupOpn2(FmEngineHandle eng, uint32_t id) {
-    FmEngine_Write(eng, id, 0x22, 0x00, 0);
-    FmEngine_Write(eng, id, 0x2B, 0x00, 0);
-    FmEngine_Write(eng, id, 0xB0, 0x04, 0);
-    FmEngine_Write(eng, id, 0xB4, 0xC0, 0);
-    // OP1-4 (DT/MUL, TL, AR, D1R, D2R, SL/RR, SSG)
-    const uint8_t ops[4][7] = {
-        {0x71, 0x23, 0x1F, 0x05, 0x02, 0x11, 0x00},
-        {0x0D, 0x2D, 0x1F, 0x05, 0x02, 0x11, 0x00},
-        {0x33, 0x26, 0x1F, 0x05, 0x02, 0x11, 0x00},
-        {0x01, 0x00, 0x1F, 0x07, 0x02, 0x11, 0x00},
-    };
-    const uint8_t bases[4] = {0x30, 0x34, 0x38, 0x3C};
-    for (int i = 0; i < 4; ++i) {
-        FmEngine_Write(eng, id, bases[i]+0x00, ops[i][0], 0);
-        FmEngine_Write(eng, id, bases[i]+0x10, ops[i][1], 0);
-        FmEngine_Write(eng, id, bases[i]+0x20, ops[i][2], 0);
-        FmEngine_Write(eng, id, bases[i]+0x30, ops[i][3], 0);
-        FmEngine_Write(eng, id, bases[i]+0x40, ops[i][4], 0);
-        FmEngine_Write(eng, id, bases[i]+0x50, ops[i][5], 0);
-        FmEngine_Write(eng, id, bases[i]+0x90, ops[i][6], 0);
+// =========================================================
+//  レジスタ書き込みリストを実行
+// =========================================================
+static void applyRegs(FmEngineHandle eng, uint32_t chip_id,
+                      const json& regs, uint32_t default_port = 0)
+{
+    if (!regs.is_array()) return;
+    for (const auto& r : regs) {
+        const uint32_t reg   = parseVal(r["reg"]);
+        const uint32_t val   = parseVal(r["val"]);
+        const uint32_t port  = r.contains("port")
+                               ? parseVal(r["port"]) : default_port;
+        FmEngine_Write(eng, chip_id, static_cast<uint8_t>(reg),
+                                     static_cast<uint8_t>(val), port);
     }
-    FmEngine_Write(eng, id, 0xA4, 0x22, 0);
-    FmEngine_Write(eng, id, 0xA0, 0x8A, 0);
-    FmEngine_Write(eng, id, 0x28, 0xF0, 0); // Key-on
 }
 
-// -------------------------------------------------------
-//  dB → 線形変換 (FmEngineApi は ChipGain::dBToLinear を公開しないため)
-// -------------------------------------------------------
-static float dBToLinear(float dB) {
-    return powf(10.0f, dB / 20.0f);
+// =========================================================
+//  チップ種別名 → FmChipType / FmChipTypeExt への変換
+// =========================================================
+struct ChipEntry {
+    std::string name;
+    bool        isExt;
+    int         type;       // FmChipType または FmChipTypeExt の値
+};
+
+static const ChipEntry kChipTable[] = {
+    // ymfm チップ
+    {"Y8950",   false, FM_CHIP_Y8950  },
+    {"OPL",     false, FM_CHIP_OPL    },
+    {"OPL2",    false, FM_CHIP_OPL2   },
+    {"OPL3",    false, FM_CHIP_OPL3   },
+    {"OPL4",    false, FM_CHIP_OPL4   },
+    {"OPN",     false, FM_CHIP_OPN    },
+    {"OPNA",    false, FM_CHIP_OPNA   },
+    {"OPNB",    false, FM_CHIP_OPNB   },
+    {"OPNBB",   false, FM_CHIP_OPNBB  },
+    {"OPN2",    false, FM_CHIP_OPN2   },
+    {"OPM",     false, FM_CHIP_OPM    },
+    {"OPLL",    false, FM_CHIP_OPLL   },
+    {"OPLLP",   false, FM_CHIP_OPLLP  },
+    {"OPLLX",   false, FM_CHIP_OPLLX  },
+    {"OPZ",     false, FM_CHIP_OPZ    },
+    {"VRC7",    false, FM_CHIP_VRC7   },
+    // 外部ライブラリチップ
+    {"PSG",     true,  FM_CHIP_EXT_PSG     },
+    {"SN76489", true,  FM_CHIP_EXT_SN76489 },
+    {"SCC",     true,  FM_CHIP_EXT_SCC     },
+    {"SAA1099", true,  FM_CHIP_EXT_SAA1099 },
+};
+
+static const ChipEntry* findChipEntry(const std::string& name) {
+    for (const auto& e : kChipTable)
+        if (e.name == name) return &e;
+    return nullptr;
 }
 
-// -------------------------------------------------------
+// =========================================================
 //  main
-// -------------------------------------------------------
-int main() {
-    // ① エンジン作成 (48000 Hz)
-    FmEngineHandle eng = FmEngine_Create(48000);
+// =========================================================
+int main(int argc, char* argv[]) {
+    const char* jsonPath = "test_patches.json";
+    if (argc >= 2) jsonPath = argv[1];
+
+    // ① JSON 読み込み
+    FILE* fp = fopen(jsonPath, "rb");
+    if (!fp) {
+        fprintf(stderr, "Cannot open %s\n", jsonPath);
+        return 1;
+    }
+    fseek(fp, 0, SEEK_END);
+    const long fileSize = ftell(fp);
+    rewind(fp);
+    std::string jsonStr(fileSize, '\0');
+    fread(jsonStr.data(), 1, fileSize, fp);
+    fclose(fp);
+
+    json root;
+    try {
+        root = json::parse(jsonStr);
+    } catch (const std::exception& e) {
+        fprintf(stderr, "JSON parse error: %s\n", e.what());
+        return 1;
+    }
+
+    const uint32_t DEFAULT_NOTE_MS = root.value("global", json{})
+                                         .value("note_ms", 800u);
+    const uint32_t DEFAULT_REST_MS = root.value("global", json{})
+                                         .value("rest_ms", 200u);
+    const uint32_t SAMPLE_RATE     = root.value("sample_rate", 48000u);
+
+    printf("Patch file : %s\n", jsonPath);
+    printf("Sample rate: %u Hz\n\n", SAMPLE_RATE);
+
+    // ② エンジン作成
+    FmEngineHandle eng = FmEngine_Create(SAMPLE_RATE);
     if (!eng) { fputs("FmEngine_Create failed\n", stderr); return 1; }
 
-    // ② チップ追加 (ymfm + 外部ライブラリ)
-    uint32_t opl3Id = 0, opn2Id = 0;
-    uint32_t psgId = 0, sngId = 0, sccId = 0, saaId = 0;
-    check(FmEngine_AddChip(eng, FM_CHIP_OPL3, 0,        &opl3Id), "AddChip OPL3");
-    check(FmEngine_AddChip(eng, FM_CHIP_OPN2, 7600489u, &opn2Id), "AddChip OPN2 PAL");
-    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_PSG,     0, &psgId), "AddExtChip PSG");
-    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_SN76489, 0, &sngId), "AddExtChip SN76489");
-    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_SCC,     0, &sccId), "AddExtChip SCC");
-    check(FmEngine_AddExtChip(eng, FM_CHIP_EXT_SAA1099, 0, &saaId), "AddExtChip SAA1099");
-
-    uint32_t allIds[] = {opl3Id, opn2Id, psgId, sngId, sccId, saaId};
-    for (uint32_t id : allIds) {
-        printf("%-20s  native=%5u Hz  target=%5u Hz\n",
-               FmEngine_GetChipName(eng, id),
-               FmEngine_GetNativeRate(eng, id),
-               FmEngine_GetSampleRate(eng));
-    }
-
-    // ③ ゲイン設定
-    check(FmEngine_SetGain(eng, opl3Id, 1.0f, 1.0f),                             "SetGain OPL3");
-    check(FmEngine_SetGain(eng, opn2Id, dBToLinear(-3.0f), dBToLinear(-3.0f)),   "SetGain OPN2");
-
-    float gl, gr;
-    FmEngine_GetGain(eng, opn2Id, &gl, &gr);
-    printf("OPN2 gain: L=%.3f  R=%.3f\n", gl, gr);
-
-    // ④ オーディオデバイス列挙・選択
-    // Wasapi_GetDeviceCount() を呼ぶとデバイスリストが更新される。
-    // 明示的に別デバイスを使いたい場合は selectedDeviceId を書き換える。
+    // ③ デバイス選択
     const uint32_t deviceCount = Wasapi_GetDeviceCount();
-    printf("=== Audio Devices (%u found) ===\n", deviceCount);
-    wchar_t selectedDeviceId[256] = {};
-
-    // ワイド文字列 → アクティブコードページ変換ヘルパー
-    auto toMB = [](const wchar_t* wstr) -> std::string {
-        if (!wstr || wstr[0] == L'\0') return {};
-        const UINT cp = GetACP();
-        const int len = WideCharToMultiByte(cp, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
-        if (len <= 0) return {};
-        std::string buf(len, '\0');
-        WideCharToMultiByte(cp, 0, wstr, -1, buf.data(), len, nullptr, nullptr);
-        buf.resize(len - 1); // 終端 '\0' を除く
-        return buf;
-    };
-
+    wchar_t selectedId[256] = {};
     for (uint32_t i = 0; i < deviceCount; ++i) {
         wchar_t id[256] = {}, name[256] = {};
         Wasapi_GetDeviceId(i, id, 256);
         Wasapi_GetDeviceName(i, name, 256);
-        int isDef = Wasapi_IsDefaultDevice(i);
-        printf("  [%u] %s%s\n", i, toMB(name).c_str(), isDef ? " (default)" : "");
-        if (isDef && selectedDeviceId[0] == L'\0')
-            wcscpy_s(selectedDeviceId, id);
+        printf("[%u] %s%s\n", i, toMB(name).c_str(),
+               Wasapi_IsDefaultDevice(i) ? " (default)" : "");
+        if (Wasapi_IsDefaultDevice(i) && selectedId[0] == L'\0')
+            wcscpy_s(selectedId, id);
     }
     printf("\n");
 
-    // ⑤ WASAPI 出力 (selectedDeviceId のデバイスを使用)
-    WasapiHandle wasapi = (selectedDeviceId[0] != L'\0')
-        ? Wasapi_CreateWithDevice(eng, 0, selectedDeviceId)
+    WasapiHandle wasapi = (selectedId[0] != L'\0')
+        ? Wasapi_CreateWithDevice(eng, 0, selectedId)
         : Wasapi_Create(eng, 0);
     if (!wasapi) { fputs("Wasapi_Create failed\n", stderr); FmEngine_Destroy(eng); return 1; }
 
-    printf("Engine sample rate : %u Hz\n", FmEngine_GetSampleRate(eng));
-    printf("Device sample rate : %u Hz\n", Wasapi_GetSampleRate(wasapi));
-    if (FmEngine_GetSampleRate(eng) != Wasapi_GetSampleRate(wasapi)) {
-        printf("  (rates differ — WasapiOutput will resample internally)\n");
+    // ④ JSON の "chips" 以下を順に処理
+    const auto& chips = root["chips"];
+    for (auto it = chips.begin(); it != chips.end(); ++it) {
+        const std::string chipName = it.key();
+        const auto& chipDef = it.value();
+
+        // チップを検索して追加
+        const ChipEntry* entry = findChipEntry(chipName);
+        if (!entry) {
+            printf("[SKIP] %s : unknown chip type\n", chipName.c_str());
+            continue;
+        }
+
+        uint32_t chip_id = 0;
+        FmResult addResult;
+        if (entry->isExt)
+            addResult = FmEngine_AddExtChip(eng, (FmChipTypeExt)entry->type, 0, &chip_id);
+        else
+            addResult = FmEngine_AddChip(eng, (FmChipType)entry->type, 0, &chip_id);
+
+        if (addResult != FM_OK) {
+            printf("[SKIP] %s : AddChip failed (code=%d)\n", chipName.c_str(), (int)addResult);
+            continue;
+        }
+
+        // ゲイン設定 (任意)
+        const float gain = chipDef.value("gain", 1.0f);
+        FmEngine_SetGain(eng, chip_id, gain, gain);
+
+        // チップ全体の init レジスタ
+        if (chipDef.contains("init"))
+            applyRegs(eng, chip_id, chipDef["init"]);
+
+        const uint32_t chipNative = FmEngine_GetNativeRate(eng, chip_id);
+        printf("=== %s  [id=%u]  native=%u Hz ===\n",
+               FmEngine_GetChipName(eng, chip_id), chip_id, chipNative);
+
+        // ⑤ チャンネルを順番に鳴らす
+        if (!chipDef.contains("channels") || !chipDef["channels"].is_array()) {
+            printf("  (no channels defined)\n\n");
+            continue;
+        }
+
+        const auto& channels = chipDef["channels"];
+
+        // WASAPI 開始 (初回チップの初回チャンネルで開始)
+        static bool wasapiStarted = false;
+        if (!wasapiStarted) {
+            check(Wasapi_Start(wasapi), "Wasapi_Start");
+            wasapiStarted = true;
+        }
+
+        for (const auto& chDef : channels) {
+            const int ch = chDef.value("ch", 0);
+            const uint32_t note_ms = chDef.value("note_ms", DEFAULT_NOTE_MS);
+            const uint32_t rest_ms = chDef.value("rest_ms", DEFAULT_REST_MS);
+            const uint32_t chPort  = chDef.value("port", 0u);
+
+            printf("  ch%-2d ", ch);
+            fflush(stdout);
+
+            // チャンネル init
+            if (chDef.contains("init"))
+                applyRegs(eng, chip_id, chDef["init"], chPort);
+
+            // key_on
+            if (chDef.contains("key_on"))
+                applyRegs(eng, chip_id, chDef["key_on"], chPort);
+
+            printf("ON  (%u ms) ", note_ms);
+            fflush(stdout);
+            Sleep(note_ms);
+
+            // key_off
+            if (chDef.contains("key_off"))
+                applyRegs(eng, chip_id, chDef["key_off"], chPort);
+
+            printf("OFF (%u ms)\n", rest_ms);
+            fflush(stdout);
+            Sleep(rest_ms);
+        }
+        printf("\n");
     }
-    printf("\n");
-
-    check(Wasapi_Start(wasapi), "Wasapi_Start");
-
-    // ⑤ レジスタ設定
-    setupOpl3(eng, opl3Id);
-    setupOpn2(eng, opn2Id);
-
-    printf("Playing 2 seconds...\n");
-    Sleep(1000);
-
-    // ゲインをリアルタイム変更
-    printf("Fade OPN2 to -12 dB\n");
-    FmEngine_SetGain(eng, opn2Id, dBToLinear(-12.0f), dBToLinear(-12.0f));
-    Sleep(1000);
 
     // ⑥ 停止・解放
     Wasapi_Stop(wasapi);
     Wasapi_Destroy(wasapi);
     FmEngine_Destroy(eng);
-
     printf("Done.\n");
     return 0;
 }
