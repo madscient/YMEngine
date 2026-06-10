@@ -99,18 +99,18 @@ public:
     // ゲイン設定 (任意スレッドから呼べる)
     void setGain(uint32_t chip_id, float gain_l, float gain_r) {
         assert(chip_id < m_gains.size());
-        m_gains[chip_id].gain_l.store(gain_l, std::memory_order_relaxed);
-        m_gains[chip_id].gain_r.store(gain_r, std::memory_order_relaxed);
+        m_gains[chip_id]->gain_l.store(gain_l, std::memory_order_relaxed);
+        m_gains[chip_id]->gain_r.store(gain_r, std::memory_order_relaxed);
     }
     void setGain(uint32_t chip_id, float gain) { setGain(chip_id, gain, gain); }
 
     float getGainL(uint32_t chip_id) const {
         assert(chip_id < m_gains.size());
-        return m_gains[chip_id].gain_l.load(std::memory_order_relaxed);
+        return m_gains[chip_id]->gain_l.load(std::memory_order_relaxed);
     }
     float getGainR(uint32_t chip_id) const {
         assert(chip_id < m_gains.size());
-        return m_gains[chip_id].gain_r.load(std::memory_order_relaxed);
+        return m_gains[chip_id]->gain_r.load(std::memory_order_relaxed);
     }
 
     // 外部メモリ設定 (ADPCM/PCM ROM/RAM)
@@ -149,6 +149,8 @@ public:
         std::fill(out_r, out_r + samples, 0.0f);
 
         // 3. 各チップ生成 → ゲイン付きミックス
+        assert(m_chips.size() == m_gains.size());
+        assert(m_chips.size() == m_work_bufs.size());
         for (size_t i = 0; i < m_chips.size(); ++i) {
             WorkBuf& wb = m_work_bufs[i];
             wb.l.resize(samples);
@@ -156,8 +158,8 @@ public:
 
             m_chips[i]->generate(wb.l.data(), wb.r.data(), samples);
 
-            const float gl = m_gains[i].gain_l.load(std::memory_order_relaxed);
-            const float gr = m_gains[i].gain_r.load(std::memory_order_relaxed);
+            const float gl = m_gains[i]->gain_l.load(std::memory_order_relaxed);
+            const float gr = m_gains[i]->gain_r.load(std::memory_order_relaxed);
             for (uint32_t s = 0; s < samples; ++s) {
                 out_l[s] += wb.l[s] * gl;
                 out_r[s] += wb.r[s] * gr;
@@ -180,7 +182,7 @@ private:
     uint32_t registerChip(std::unique_ptr<FmChip> chip) {
         const uint32_t id = static_cast<uint32_t>(m_chips.size());
         m_chips.push_back(std::move(chip));
-        m_gains.emplace_back();
+        m_gains.push_back(std::make_unique<ChipGain>());
         m_work_bufs.emplace_back();
         return id;
     }
@@ -197,8 +199,8 @@ private:
     };
 
     uint32_t                             m_sample_rate;
-    std::vector<std::unique_ptr<FmChip>> m_chips;
-    std::vector<ChipGain>                m_gains;
-    std::vector<WorkBuf>                 m_work_bufs;
-    SpscQueue<RegWriteCmd, 4096>         m_queue;
+    std::vector<std::unique_ptr<FmChip>>     m_chips;
+    std::vector<std::unique_ptr<ChipGain>>   m_gains;   // unique_ptr: atomic は vector 再確保でムーブ不可
+    std::vector<WorkBuf>                     m_work_bufs;
+    SpscQueue<RegWriteCmd, 4096>             m_queue;
 };

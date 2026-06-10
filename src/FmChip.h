@@ -99,7 +99,6 @@ public:
         m_dst_rate  = dst_rate;
         m_phase_inc = (static_cast<uint64_t>(src_rate) << 32) / dst_rate;
         m_phase     = 0;
-        m_prev_l = m_prev_r = m_cur_l = m_cur_r = 0.0f;
         m_work_l.clear();
         m_work_r.clear();
     }
@@ -112,6 +111,8 @@ public:
             generate_fn(out_l, out_r, dst_samples);
             return;
         }
+
+        // 必要なソースサンプル数を計算 (+2 で余裕を持たせる)
         const uint32_t src_needed =
             static_cast<uint32_t>(
                 (static_cast<uint64_t>(dst_samples) * m_src_rate) / m_dst_rate) + 2;
@@ -120,28 +121,36 @@ public:
         m_work_r.resize(src_needed);
         generate_fn(m_work_l.data(), m_work_r.data(), src_needed);
 
-        uint32_t src_idx = 0;
         for (uint32_t di = 0; di < dst_samples; ++di) {
+            // フェーズの整数部 = 読み出すソースインデックス
             const uint32_t int_part = static_cast<uint32_t>(m_phase >> 32);
             const float    frac     = static_cast<float>(m_phase & 0xFFFFFFFFull)
                                       * (1.0f / 4294967296.0f);
-            while (src_idx <= int_part && src_idx < src_needed) {
-                m_prev_l = m_cur_l;  m_prev_r = m_cur_r;
-                m_cur_l  = m_work_l[src_idx];
-                m_cur_r  = m_work_r[src_idx];
-                ++src_idx;
-            }
-            out_l[di] = m_prev_l + (m_cur_l - m_prev_l) * frac;
-            out_r[di] = m_prev_r + (m_cur_r - m_prev_r) * frac;
-            m_phase  += m_phase_inc;
+
+            // 範囲チェック付きでソースバッファを読む
+            const uint32_t i0 = (int_part     < src_needed) ? int_part     : src_needed - 1;
+            const uint32_t i1 = (int_part + 1 < src_needed) ? int_part + 1 : src_needed - 1;
+
+            out_l[di] = m_work_l[i0] + (m_work_l[i1] - m_work_l[i0]) * frac;
+            out_r[di] = m_work_r[i0] + (m_work_r[i1] - m_work_r[i0]) * frac;
+
+            m_phase += m_phase_inc;
         }
-        m_phase -= static_cast<uint64_t>(src_idx) << 32;
+
+        // 次回呼び出しのために消費分フェーズをリセット
+        // 整数部が src_needed を超えないように、消費したサンプル数を引く
+        const uint32_t consumed = static_cast<uint32_t>(m_phase >> 32);
+        if (consumed >= src_needed) {
+            // フェーズが src_needed を超えた場合は小数部のみ残す
+            m_phase &= 0xFFFFFFFFull;
+        } else {
+            m_phase -= static_cast<uint64_t>(consumed) << 32;
+        }
     }
 
 private:
     uint32_t m_src_rate = 0, m_dst_rate = 0;
     uint64_t m_phase_inc = 0, m_phase = 0;
-    float    m_prev_l = 0, m_prev_r = 0, m_cur_l = 0, m_cur_r = 0;
     std::vector<float> m_work_l, m_work_r;
 };
 
