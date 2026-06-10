@@ -69,10 +69,10 @@ typedef enum FmChipType {
 //  ※ extern "C" の外で定義 (MSVC C2143 回避)
 // =========================================================
 typedef enum FmChipTypeExt {
-    FM_CHIP_EXT_PSG     = 100,  // YM2149 (PSG)   via emu2149
-    FM_CHIP_EXT_SN76489 = 101,  // SN76489        via emu76489
+    FM_CHIP_EXT_SSG     = 100,  // YM2149 (SSG)   via emu2149
+    FM_CHIP_EXT_DCSG = 101,  // SN76489        via emu76489
     FM_CHIP_EXT_SCC     = 102,  // SCC/K051649    via emu2212
-    FM_CHIP_EXT_SAA1099 = 103,  // SAA1099        via SAASound
+    FM_CHIP_EXT_SAA = 103,  // SAA1099        via SAASound
 } FmChipTypeExt;
 
 // =========================================================
