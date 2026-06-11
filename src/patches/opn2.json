@@ -6,7 +6,7 @@
   },
   "chips": {
     "OPN2": {
-      "_comment": "YM2612 6ch FM. CH0-2はport0、CH3-5はport1",
+      "_comment": "OPN2 (YM2612) 6ch FM",
       "init": [
         {
           "reg": "0x22",
@@ -24,7 +24,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH1 261Hz port=0 block=2 fnum=0x504 pan=L",
+          "_comment": "CH1 261Hz port=0 block=3 fnum=0x504 pan=L",
           "port": 0,
           "init": [
             {
@@ -159,7 +159,7 @@
             },
             {
               "reg": "0xa4",
-              "val": "0x15",
+              "val": "0x1d",
               "port": 0
             },
             {
@@ -185,7 +185,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH2 294Hz port=0 block=2 fnum=0x5A7 pan=R",
+          "_comment": "CH2 294Hz port=0 block=3 fnum=0x5A7 pan=R",
           "port": 0,
           "init": [
             {
@@ -320,7 +320,7 @@
             },
             {
               "reg": "0xa5",
-              "val": "0x15",
+              "val": "0x1d",
               "port": 0
             },
             {
@@ -346,7 +346,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 330Hz port=0 block=2 fnum=0x658 pan=LR",
+          "_comment": "CH3 330Hz port=0 block=3 fnum=0x658 pan=LR",
           "port": 0,
           "init": [
             {
@@ -481,7 +481,7 @@
             },
             {
               "reg": "0xa6",
-              "val": "0x16",
+              "val": "0x1e",
               "port": 0
             },
             {
@@ -507,7 +507,7 @@
         },
         {
           "ch": 3,
-          "_comment": "CH4 392Hz port=1 block=2 fnum=0x789 pan=L",
+          "_comment": "CH4 392Hz port=1 block=3 fnum=0x789 pan=L",
           "port": 1,
           "init": [
             {
@@ -642,7 +642,7 @@
             },
             {
               "reg": "0xa4",
-              "val": "0x17",
+              "val": "0x1f",
               "port": 1
             },
             {
@@ -668,7 +668,7 @@
         },
         {
           "ch": 4,
-          "_comment": "CH5 440Hz port=1 block=3 fnum=0x43B pan=R",
+          "_comment": "CH5 440Hz port=1 block=4 fnum=0x43B pan=R",
           "port": 1,
           "init": [
             {
@@ -803,7 +803,7 @@
             },
             {
               "reg": "0xa5",
-              "val": "0x1c",
+              "val": "0x24",
               "port": 1
             },
             {
@@ -829,7 +829,7 @@
         },
         {
           "ch": 5,
-          "_comment": "CH6 494Hz port=1 block=3 fnum=0x4C0 pan=LR",
+          "_comment": "CH6 494Hz port=1 block=4 fnum=0x4C0 pan=LR",
           "port": 1,
           "init": [
             {
@@ -964,7 +964,7 @@
             },
             {
               "reg": "0xa6",
-              "val": "0x1c",
+              "val": "0x24",
               "port": 1
             },
             {

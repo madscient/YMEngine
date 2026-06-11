@@ -6,7 +6,7 @@
   },
   "chips": {
     "OPN": {
-      "_comment": "OPN (YM2203) 3ch FM + SSG",
+      "_comment": "OPN (YM2203) 3ch FM",
       "init": [
         {
           "reg": "0x27",
@@ -16,7 +16,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH1 261Hz",
+          "_comment": "CH1 261Hz block=4 fnum=0x4D2",
           "port": 0,
           "init": [
             {
@@ -121,7 +121,7 @@
             },
             {
               "reg": "0xa4",
-              "val": "0x1c"
+              "val": "0x24"
             },
             {
               "reg": "0xa0",
@@ -145,7 +145,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH2 330Hz",
+          "_comment": "CH2 330Hz block=4 fnum=0x618",
           "port": 0,
           "init": [
             {
@@ -250,7 +250,7 @@
             },
             {
               "reg": "0xa5",
-              "val": "0x1e"
+              "val": "0x26"
             },
             {
               "reg": "0xa1",
@@ -274,7 +274,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 440Hz",
+          "_comment": "CH3 440Hz block=5 fnum=0x410",
           "port": 0,
           "init": [
             {
@@ -379,7 +379,7 @@
             },
             {
               "reg": "0xa6",
-              "val": "0x24"
+              "val": "0x2c"
             },
             {
               "reg": "0xa2",

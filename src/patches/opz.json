@@ -16,7 +16,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH1 261Hz",
+          "_comment": "CH1 261Hz port=0 block=3 fnum=0x4C7",
           "port": 0,
           "init": [
             {
@@ -116,7 +116,7 @@
             },
             {
               "reg": "0xa4",
-              "val": "0x14",
+              "val": "0x1c",
               "port": 0
             },
             {
@@ -142,7 +142,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH2 294Hz",
+          "_comment": "CH2 294Hz port=0 block=3 fnum=0x562",
           "port": 0,
           "init": [
             {
@@ -242,7 +242,7 @@
             },
             {
               "reg": "0xa5",
-              "val": "0x15",
+              "val": "0x1d",
               "port": 0
             },
             {
@@ -268,7 +268,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 330Hz",
+          "_comment": "CH3 330Hz port=0 block=3 fnum=0x60B",
           "port": 0,
           "init": [
             {
@@ -368,7 +368,7 @@
             },
             {
               "reg": "0xa6",
-              "val": "0x16",
+              "val": "0x1e",
               "port": 0
             },
             {
@@ -394,7 +394,7 @@
         },
         {
           "ch": 3,
-          "_comment": "CH4 349Hz",
+          "_comment": "CH4 349Hz port=0 block=3 fnum=0x664",
           "port": 0,
           "init": [
             {
@@ -494,7 +494,7 @@
             },
             {
               "reg": "0xa7",
-              "val": "0x16",
+              "val": "0x1e",
               "port": 0
             },
             {
@@ -520,7 +520,7 @@
         },
         {
           "ch": 4,
-          "_comment": "CH5 392Hz",
+          "_comment": "CH5 392Hz port=1 block=3 fnum=0x72D",
           "port": 1,
           "init": [
             {
@@ -620,7 +620,7 @@
             },
             {
               "reg": "0xa4",
-              "val": "0x17",
+              "val": "0x1f",
               "port": 1
             },
             {
@@ -646,7 +646,7 @@
         },
         {
           "ch": 5,
-          "_comment": "CH6 440Hz",
+          "_comment": "CH6 440Hz port=1 block=4 fnum=0x407",
           "port": 1,
           "init": [
             {
@@ -746,7 +746,7 @@
             },
             {
               "reg": "0xa5",
-              "val": "0x1c",
+              "val": "0x24",
               "port": 1
             },
             {
@@ -772,7 +772,7 @@
         },
         {
           "ch": 6,
-          "_comment": "CH7 494Hz",
+          "_comment": "CH7 494Hz port=1 block=4 fnum=0x486",
           "port": 1,
           "init": [
             {
@@ -872,7 +872,7 @@
             },
             {
               "reg": "0xa6",
-              "val": "0x1c",
+              "val": "0x24",
               "port": 1
             },
             {
@@ -898,7 +898,7 @@
         },
         {
           "ch": 7,
-          "_comment": "CH8 523Hz",
+          "_comment": "CH8 523Hz port=1 block=4 fnum=0x4CA",
           "port": 1,
           "init": [
             {
@@ -998,7 +998,7 @@
             },
             {
               "reg": "0xa7",
-              "val": "0x1c",
+              "val": "0x24",
               "port": 1
             },
             {
