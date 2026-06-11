@@ -61,7 +61,7 @@ namespace FmClock {
     constexpr uint32_t VRC7   = 3'579'545;
     constexpr uint32_t OPL2   = 3'579'545;
     constexpr uint32_t OPL3   = 14'318'180;
-    constexpr uint32_t OPL4   = 16'934'400;
+    constexpr uint32_t OPL4   = 33'868'800;  // YMF278B 標準クロック (FM sr ≈ 49516 Hz)
     constexpr uint32_t OPN    = 3'993'600;
     constexpr uint32_t OPNA   = 7'987'200;
     constexpr uint32_t OPNB   = 8'000'000;
