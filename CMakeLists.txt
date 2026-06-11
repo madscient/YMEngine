@@ -161,21 +161,27 @@ if (MSVC)
     target_compile_options(sample_app PRIVATE /W4 /wd4100 /utf-8)
 endif()
 
-# test_patches.json をビルド出力ディレクトリにコピー
-# configure_file: cmake 構成時にビルドツリーへコピー (ファイルが存在する場合)
-set(TEST_PATCHES_SRC "${CMAKE_SOURCE_DIR}/src/test_patches.json")
-if (EXISTS "${TEST_PATCHES_SRC}")
-    # 構成時コピー (cmake -B build 時)
-    configure_file("${TEST_PATCHES_SRC}" "${CMAKE_BINARY_DIR}/bin/test_patches.json" COPYONLY)
-    # ビルド時コピー (ファイルが更新された場合)
-    add_custom_command(TARGET sample_app POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${TEST_PATCHES_SRC}"
-            "$<TARGET_FILE_DIR:sample_app>/test_patches.json"
-        COMMENT "Copying test_patches.json"
-    )
+# patches/ ディレクトリの JSON ファイルをビルド出力ディレクトリにコピー
+set(PATCHES_SRC_DIR "${CMAKE_SOURCE_DIR}/src/patches")
+if (EXISTS "${PATCHES_SRC_DIR}")
+    file(GLOB PATCH_FILES "${PATCHES_SRC_DIR}/*.json")
+    foreach(PATCH_FILE ${PATCH_FILES})
+        add_custom_command(TARGET sample_app POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_FILE_DIR:sample_app>/patches"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${PATCH_FILE}"
+                "$<TARGET_FILE_DIR:sample_app>/patches/"
+            COMMENT "Copying ${PATCH_FILE}"
+        )
+    endforeach()
+    # cmake 構成時にもコピー
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/bin/patches")
+    foreach(PATCH_FILE ${PATCH_FILES})
+        configure_file("${PATCH_FILE}" "${CMAKE_BINARY_DIR}/bin/patches/" COPYONLY)
+    endforeach()
 else()
-    message(WARNING "test_patches.json not found at ${TEST_PATCHES_SRC} -- skipping copy")
+    message(WARNING "patches/ directory not found at ${PATCHES_SRC_DIR}")
 endif()
 
 # =======================================================

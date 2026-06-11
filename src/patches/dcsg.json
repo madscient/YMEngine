@@ -1,0 +1,131 @@
+{
+  "sample_rate": 48000,
+  "global": {
+    "note_ms": 800,
+    "rest_ms": 200
+  },
+  "chips": {
+    "DCSG": {
+      "_comment": "DCSG(SN76489) 3tone+1noise. reg無視、valをシリアルバイトとしてwriteIOへ渡す",
+      "init": [],
+      "channels": [
+        {
+          "ch": 0,
+          "_comment": "Tone CH0 440Hz",
+          "init": [
+            {
+              "reg": "0x00",
+              "val": "0x8e"
+            },
+            {
+              "reg": "0x00",
+              "val": "0xf"
+            },
+            {
+              "reg": "0x00",
+              "val": "0x90"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x00",
+              "val": "0x90"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x00",
+              "val": "0x9f"
+            }
+          ]
+        },
+        {
+          "ch": 1,
+          "_comment": "Tone CH1 494Hz",
+          "init": [
+            {
+              "reg": "0x00",
+              "val": "0xa2"
+            },
+            {
+              "reg": "0x00",
+              "val": "0xe"
+            },
+            {
+              "reg": "0x00",
+              "val": "0xb0"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x00",
+              "val": "0xb0"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x00",
+              "val": "0xbf"
+            }
+          ]
+        },
+        {
+          "ch": 2,
+          "_comment": "Tone CH2 523Hz",
+          "init": [
+            {
+              "reg": "0x00",
+              "val": "0xc6"
+            },
+            {
+              "reg": "0x00",
+              "val": "0xd"
+            },
+            {
+              "reg": "0x00",
+              "val": "0xd0"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x00",
+              "val": "0xd0"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x00",
+              "val": "0xdf"
+            }
+          ]
+        },
+        {
+          "ch": 3,
+          "_comment": "Noise CH white noise (0xE5=mode1/freq1), vol on/off",
+          "init": [
+            {
+              "reg": "0x00",
+              "val": "0xE5"
+            },
+            {
+              "reg": "0x00",
+              "val": "0xFF"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x00",
+              "val": "0xF0"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x00",
+              "val": "0xFF"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

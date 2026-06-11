@@ -1,14 +1,25 @@
 // main.cpp
-// YMEngine 全チップ全チャンネルテスト
+// YMEngine チップテスト
 //
-// 動作:
-//   test_patches.json を読み込み、記述されたチップ×チャンネルを順番に
-//   1音ずつ鳴らす。各チャンネルの発音→消音→次のチャンネルへ。
+// 使い方:
+//   sample_app.exe [オプション] [file1.json] [file2.json] ...
 //
-// JSON パーサー:
-//   nlohmann/json (header-only)
-//   extern/nlohmann/json.hpp に配置すること。
-//   取得: https://github.com/nlohmann/json/releases/latest/download/json.hpp
+//   引数なし         : patches/all.json を使用
+//   JSON ファイル指定 : 指定したファイルを順に処理 (複数指定可)
+//   -r <rate>        : サンプルレートを指定 (省略時 48000)
+//   -d <name>        : デバイス名を部分一致で指定 (省略時デフォルトデバイス)
+//
+// JSON フォーマット:
+//   {
+//     "sample_rate": 48000,
+//     "global": { "note_ms": 800, "rest_ms": 200 },
+//     "chips": {
+//       "OPL2": { "gain": 1.0, "init": [...], "channels": [...] }
+//     }
+//   }
+//
+// 注意: AddChip は Wasapi_Start より前に全て完了させること。
+//       (WASAPI スレッドとの競合防止)
 
 #include "FmEngineApi.h"
 #include <cstdio>
@@ -27,16 +38,12 @@ using json = nlohmann::json;
 //  ヘルパー
 // =========================================================
 
-// 16進文字列 ("0xFF") または 10進数値を uint32_t に変換
 static uint32_t parseVal(const json& j) {
-    if (j.is_string()) {
-        const std::string s = j.get<std::string>();
-        return static_cast<uint32_t>(std::stoul(s, nullptr, 0));
-    }
+    if (j.is_string())
+        return static_cast<uint32_t>(std::stoul(j.get<std::string>(), nullptr, 0));
     return j.get<uint32_t>();
 }
 
-// エラーチェック
 static void check(FmResult r, const char* msg) {
     if (r != FM_OK) {
         fprintf(stderr, "ERROR %s: code=%d\n", msg, (int)r);
@@ -44,67 +51,47 @@ static void check(FmResult r, const char* msg) {
     }
 }
 
-// wchar_t → アクティブコードページ変換
 static std::string toMB(const wchar_t* wstr) {
     if (!wstr || wstr[0] == L'\0') return {};
     const UINT cp = GetACP();
-    const int len = WideCharToMultiByte(cp, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
-    if (len <= 0) return {};
-    std::string buf(len, '\0');
-    WideCharToMultiByte(cp, 0, wstr, -1, buf.data(), len, nullptr, nullptr);
-    buf.resize(len - 1);
+    const int  n  = WideCharToMultiByte(cp, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
+    if (n <= 0) return {};
+    std::string buf(n, '\0');
+    WideCharToMultiByte(cp, 0, wstr, -1, buf.data(), n, nullptr, nullptr);
+    buf.resize(n - 1);
     return buf;
 }
 
-// =========================================================
-//  レジスタ書き込みリストを実行
-// =========================================================
 static void applyRegs(FmEngineHandle eng, uint32_t chip_id,
                       const json& regs, uint32_t default_port = 0)
 {
     if (!regs.is_array()) return;
     for (const auto& r : regs) {
-        const uint32_t reg   = parseVal(r["reg"]);
-        const uint32_t val   = parseVal(r["val"]);
-        const uint32_t port  = r.contains("port")
-                               ? parseVal(r["port"]) : default_port;
-        FmEngine_Write(eng, chip_id, static_cast<uint8_t>(reg),
-                                     static_cast<uint8_t>(val), port);
+        const uint32_t reg  = parseVal(r["reg"]);
+        const uint32_t val  = parseVal(r["val"]);
+        const uint32_t port = r.contains("port") ? parseVal(r["port"]) : default_port;
+        FmEngine_Write(eng, chip_id,
+                       static_cast<uint8_t>(reg),
+                       static_cast<uint8_t>(val), port);
     }
 }
 
 // =========================================================
-//  チップ種別名 → FmChipType / FmChipTypeExt への変換
+//  チップ種別テーブル
 // =========================================================
-struct ChipEntry {
-    std::string name;
-    bool        isExt;
-    int         type;       // FmChipType または FmChipTypeExt の値
-};
+struct ChipEntry { std::string name; bool isExt; int type; };
 
 static const ChipEntry kChipTable[] = {
-    // ymfm チップ
-    {"Y8950",   false, FM_CHIP_Y8950  },
-    {"OPL",     false, FM_CHIP_OPL    },
-    {"OPL2",    false, FM_CHIP_OPL2   },
-    {"OPL3",    false, FM_CHIP_OPL3   },
-    {"OPL4",    false, FM_CHIP_OPL4   },
-    {"OPN",     false, FM_CHIP_OPN    },
-    {"OPNA",    false, FM_CHIP_OPNA   },
-    {"OPNB",    false, FM_CHIP_OPNB   },
-    {"OPNBB",   false, FM_CHIP_OPNBB  },
-    {"OPN2",    false, FM_CHIP_OPN2   },
-    {"OPM",     false, FM_CHIP_OPM    },
-    {"OPLL",    false, FM_CHIP_OPLL   },
-    {"OPLLP",   false, FM_CHIP_OPLLP  },
-    {"OPLLX",   false, FM_CHIP_OPLLX  },
-    {"OPZ",     false, FM_CHIP_OPZ    },
-    {"VRC7",    false, FM_CHIP_VRC7   },
-    // 外部ライブラリチップ
-    {"SSG",     true,  FM_CHIP_EXT_SSG },
-    {"DCSG",    true,  FM_CHIP_EXT_DCSG},
-    {"SCC",     true,  FM_CHIP_EXT_SCC },
-    {"SAA",     true,  FM_CHIP_EXT_SAA },
+    {"Y8950",  false, FM_CHIP_Y8950 }, {"OPL",   false, FM_CHIP_OPL   },
+    {"OPL2",   false, FM_CHIP_OPL2  }, {"OPL3",  false, FM_CHIP_OPL3  },
+    {"OPL4",   false, FM_CHIP_OPL4  }, {"OPN",   false, FM_CHIP_OPN   },
+    {"OPNA",   false, FM_CHIP_OPNA  }, {"OPNB",  false, FM_CHIP_OPNB  },
+    {"OPNBB",  false, FM_CHIP_OPNBB }, {"OPN2",  false, FM_CHIP_OPN2  },
+    {"OPM",    false, FM_CHIP_OPM   }, {"OPLL",  false, FM_CHIP_OPLL  },
+    {"OPLLP",  false, FM_CHIP_OPLLP }, {"OPLLX", false, FM_CHIP_OPLLX },
+    {"OPZ",    false, FM_CHIP_OPZ   }, {"VRC7",  false, FM_CHIP_VRC7  },
+    {"SSG",    true,  FM_CHIP_EXT_SSG  }, {"DCSG", true, FM_CHIP_EXT_DCSG },
+    {"SCC",    true,  FM_CHIP_EXT_SCC  }, {"SAA",  true, FM_CHIP_EXT_SAA  },
 };
 
 static const ChipEntry* findChipEntry(const std::string& name) {
@@ -114,72 +101,41 @@ static const ChipEntry* findChipEntry(const std::string& name) {
 }
 
 // =========================================================
-//  main
+//  JSON ファイル読み込み
 // =========================================================
-int main(int argc, char* argv[]) {
-    const char* jsonPath = "test_patches.json";
-    if (argc >= 2) jsonPath = argv[1];
-
-    // ① JSON 読み込み
-    FILE* fp = fopen(jsonPath, "rb");
-    if (!fp) {
-        fprintf(stderr, "Cannot open %s\n", jsonPath);
-        return 1;
-    }
+static bool loadJson(const char* path, json& out) {
+    FILE* fp = fopen(path, "rb");
+    if (!fp) { fprintf(stderr, "Cannot open: %s\n", path); return false; }
     fseek(fp, 0, SEEK_END);
-    const long fileSize = ftell(fp);
-    rewind(fp);
-    std::string jsonStr(fileSize, '\0');
-    fread(jsonStr.data(), 1, fileSize, fp);
+    const long sz = ftell(fp); rewind(fp);
+    std::string buf(sz, '\0');
+    fread(buf.data(), 1, sz, fp);
     fclose(fp);
-
-    json root;
-    try {
-        root = json::parse(jsonStr);
-    } catch (const std::exception& e) {
-        fprintf(stderr, "JSON parse error: %s\n", e.what());
-        return 1;
+    try   { out = json::parse(buf); return true; }
+    catch (const std::exception& e) {
+        fprintf(stderr, "JSON parse error (%s): %s\n", path, e.what());
+        return false;
     }
+}
 
-    const uint32_t DEFAULT_NOTE_MS = root.value("global", json{})
-                                         .value("note_ms", 800u);
-    const uint32_t DEFAULT_REST_MS = root.value("global", json{})
-                                         .value("rest_ms", 200u);
-    const uint32_t SAMPLE_RATE     = root.value("sample_rate", 48000u);
+// =========================================================
+//  1 ファイル処理 (チップ追加フェーズ)
+//  WASAPI_Start より前に呼ぶこと。
+// =========================================================
+struct FileContext {
+    json     root;
+    std::string path;
+    bool     valid = false;
+    struct Slot { uint32_t id = 0; bool valid = false; };
+    std::vector<Slot> slots;
+};
 
-    printf("Patch file : %s\n", jsonPath);
-    printf("Sample rate: %u Hz\n\n", SAMPLE_RATE);
+static void addChipsFromFile(FileContext& ctx, FmEngineHandle eng) {
+    if (!ctx.valid) return;
+    if (!ctx.root.contains("chips") || !ctx.root["chips"].is_object()) return;
 
-    // ② エンジン作成
-    FmEngineHandle eng = FmEngine_Create(SAMPLE_RATE);
-    if (!eng) { fputs("FmEngine_Create failed\n", stderr); return 1; }
-
-    // ③ デバイス選択
-    const uint32_t deviceCount = Wasapi_GetDeviceCount();
-    wchar_t selectedId[256] = {};
-    for (uint32_t i = 0; i < deviceCount; ++i) {
-        wchar_t id[256] = {}, name[256] = {};
-        Wasapi_GetDeviceId(i, id, 256);
-        Wasapi_GetDeviceName(i, name, 256);
-        printf("[%u] %s%s\n", i, toMB(name).c_str(),
-               Wasapi_IsDefaultDevice(i) ? " (default)" : "");
-        if (Wasapi_IsDefaultDevice(i) && selectedId[0] == L'\0')
-            wcscpy_s(selectedId, id);
-    }
-    printf("\n");
-
-    WasapiHandle wasapi = (selectedId[0] != L'\0')
-        ? Wasapi_CreateWithDevice(eng, 0, selectedId)
-        : Wasapi_Create(eng, 0);
-    if (!wasapi) { fputs("Wasapi_Create failed\n", stderr); FmEngine_Destroy(eng); return 1; }
-
-    // ⑤ 全チップを先に追加 (Wasapi_Start より前)
-    // AddChip は WASAPI スレッドが動く前に完了させること。
-    // ループ内で AddChip と WASAPI スレッドが競合すると m_chips/m_work_bufs の
-    // サイズ不一致によりバッファオーバーランが発生する。
-    const auto& chips = root["chips"];
-    std::vector<uint32_t> chip_ids;   // JSON 順に chip_id を格納
-    std::vector<bool>     chip_valid; // 追加成功フラグ
+    const auto& chips = ctx.root["chips"];
+    ctx.slots.reserve(chips.size());
 
     for (auto it = chips.begin(); it != chips.end(); ++it) {
         const std::string chipName = it.key();
@@ -187,90 +143,160 @@ int main(int argc, char* argv[]) {
         const ChipEntry* entry = findChipEntry(chipName);
 
         if (!entry) {
-            printf("[SKIP] %s : unknown chip type\n", chipName.c_str());
-            chip_ids.push_back(0);
-            chip_valid.push_back(false);
+            printf("  [SKIP] %s : unknown chip type\n", chipName.c_str());
+            ctx.slots.push_back({0, false});
             continue;
         }
 
         uint32_t chip_id = 0;
-        FmResult addResult;
+        FmResult res;
         if (entry->isExt)
-            addResult = FmEngine_AddExtChip(eng, (FmChipTypeExt)entry->type, 0, &chip_id);
+            res = FmEngine_AddExtChip(eng, (FmChipTypeExt)entry->type, 0, &chip_id);
         else
-            addResult = FmEngine_AddChip(eng, (FmChipType)entry->type, 0, &chip_id);
+            res = FmEngine_AddChip(eng, (FmChipType)entry->type, 0, &chip_id);
 
-        if (addResult != FM_OK) {
-            printf("[SKIP] %s : AddChip failed (code=%d)\n", chipName.c_str(), (int)addResult);
-            chip_ids.push_back(0);
-            chip_valid.push_back(false);
+        if (res != FM_OK) {
+            printf("  [SKIP] %s : AddChip failed (code=%d)\n", chipName.c_str(), (int)res);
+            ctx.slots.push_back({0, false});
             continue;
         }
 
-        const float gain = chipDef.value("gain", 1.0f);
-        FmEngine_SetGain(eng, chip_id, gain, gain);
-
-        chip_ids.push_back(chip_id);
-        chip_valid.push_back(true);
+        FmEngine_SetGain(eng, chip_id,
+                         chipDef.value("gain", 1.0f),
+                         chipDef.value("gain", 1.0f));
+        ctx.slots.push_back({chip_id, true});
     }
+}
 
-    // ⑥ WASAPI 再生開始 (全チップ追加完了後)
-    check(Wasapi_Start(wasapi), "Wasapi_Start");
+// =========================================================
+//  1 ファイル処理 (発音フェーズ)
+//  WASAPI_Start 後に呼ぶこと。
+// =========================================================
+static void playChipsFromFile(const FileContext& ctx, FmEngineHandle eng) {
+    if (!ctx.valid) return;
+    if (!ctx.root.contains("chips")) return;
 
-    // ⑦ JSON の "chips" 以下を順に処理 (発音テスト)
-    uint32_t chipIndex = 0;
-    for (auto it = chips.begin(); it != chips.end(); ++it, ++chipIndex) {
-        if (!chip_valid[chipIndex]) continue;
+    const uint32_t NOTE_MS = ctx.root.value("global", json{}).value("note_ms", 800u);
+    const uint32_t REST_MS = ctx.root.value("global", json{}).value("rest_ms", 200u);
+
+    printf("=== %s ===\n", ctx.path.c_str());
+
+    const auto& chips = ctx.root["chips"];
+    uint32_t slotIdx = 0;
+    for (auto it = chips.begin(); it != chips.end(); ++it, ++slotIdx) {
+        if (!ctx.slots[slotIdx].valid) continue;
 
         const std::string chipName = it.key();
-        const auto& chipDef = it.value();
-        const uint32_t chip_id = chip_ids[chipIndex];
+        const auto&  chipDef = it.value();
+        const uint32_t chip_id = ctx.slots[slotIdx].id;
 
-        // チップ全体の init レジスタ
         if (chipDef.contains("init"))
             applyRegs(eng, chip_id, chipDef["init"]);
 
-        const uint32_t chipNative = FmEngine_GetNativeRate(eng, chip_id);
-        printf("=== %s  [id=%u]  native=%u Hz ===\n",
-               FmEngine_GetChipName(eng, chip_id), chip_id, chipNative);
+        printf("  %s [id=%u]  native=%u Hz\n",
+               FmEngine_GetChipName(eng, chip_id),
+               chip_id, FmEngine_GetNativeRate(eng, chip_id));
 
         if (!chipDef.contains("channels") || !chipDef["channels"].is_array()) {
-            printf("  (no channels defined)\n\n");
+            printf("    (no channels)\n");
             continue;
         }
-        const auto& channels = chipDef["channels"];
 
-        for (const auto& chDef : channels) {
-            const int ch = chDef.value("ch", 0);
-            const uint32_t note_ms = chDef.value("note_ms", DEFAULT_NOTE_MS);
-            const uint32_t rest_ms = chDef.value("rest_ms", DEFAULT_REST_MS);
+        for (const auto& chDef : chipDef["channels"]) {
+            const int      ch      = chDef.value("ch", 0);
+            const uint32_t note_ms = chDef.value("note_ms", NOTE_MS);
+            const uint32_t rest_ms = chDef.value("rest_ms", REST_MS);
             const uint32_t chPort  = chDef.value("port", 0u);
+            const std::string cmt  = chDef.value("_comment", "");
 
-            printf("  ch%-2d ", ch);
+            printf("    ch%-2d %s\n", ch, cmt.c_str());
             fflush(stdout);
 
-            // チャンネル init
             if (chDef.contains("init"))
                 applyRegs(eng, chip_id, chDef["init"], chPort);
-
-            // key_on
             if (chDef.contains("key_on"))
                 applyRegs(eng, chip_id, chDef["key_on"], chPort);
 
-            printf("ON  (%u ms) ", note_ms);
-            fflush(stdout);
             Sleep(note_ms);
 
-            // key_off
             if (chDef.contains("key_off"))
                 applyRegs(eng, chip_id, chDef["key_off"], chPort);
 
-            printf("OFF (%u ms)\n", rest_ms);
-            fflush(stdout);
             Sleep(rest_ms);
         }
-        printf("\n");
     }
+    printf("\n");
+}
+
+// =========================================================
+//  main
+// =========================================================
+int main(int argc, char* argv[]) {
+
+    // 引数解析
+    std::vector<const char*> jsonFiles;
+    uint32_t    sampleRate = 48000;
+    const char* deviceName = nullptr;
+
+    for (int i = 1; i < argc; ++i) {
+        if      (strcmp(argv[i], "-r") == 0 && i+1 < argc) sampleRate = (uint32_t)atoi(argv[++i]);
+        else if (strcmp(argv[i], "-d") == 0 && i+1 < argc) deviceName = argv[++i];
+        else                                                jsonFiles.push_back(argv[i]);
+    }
+    if (jsonFiles.empty())
+        jsonFiles.push_back("patches/all.json");
+
+    printf("YMEngine Test\n");
+    printf("Sample rate: %u Hz\n\n", sampleRate);
+
+    // ① エンジン作成
+    FmEngineHandle eng = FmEngine_Create(sampleRate);
+    if (!eng) { fputs("FmEngine_Create failed\n", stderr); return 1; }
+
+    // ② デバイス列挙・選択
+    const uint32_t devCount = Wasapi_GetDeviceCount();
+    wchar_t selectedId[256] = {};
+
+    for (uint32_t i = 0; i < devCount; ++i) {
+        wchar_t id[256] = {}, name[256] = {};
+        Wasapi_GetDeviceId(i, id, 256);
+        Wasapi_GetDeviceName(i, name, 256);
+        const bool isDef = Wasapi_IsDefaultDevice(i) != 0;
+        const std::string mb = toMB(name);
+        printf("  [%u] %s%s\n", i, mb.c_str(), isDef ? " (default)" : "");
+
+        if (deviceName) {
+            if (mb.find(deviceName) != std::string::npos)
+                wcscpy_s(selectedId, id);
+        } else if (isDef && selectedId[0] == L'\0') {
+            wcscpy_s(selectedId, id);
+        }
+    }
+    printf("\n");
+
+    WasapiHandle wasapi = (selectedId[0] != L'\0')
+        ? Wasapi_CreateWithDevice(eng, 0, selectedId)
+        : Wasapi_Create(eng, 0);
+    if (!wasapi) {
+        fputs("Wasapi_Create failed\n", stderr);
+        FmEngine_Destroy(eng);
+        return 1;
+    }
+
+    // ③ 全ファイルを読み込み、全チップを先に追加 (WASAPI 開始前)
+    std::vector<FileContext> ctxs(jsonFiles.size());
+    for (size_t i = 0; i < jsonFiles.size(); ++i) {
+        ctxs[i].path  = jsonFiles[i];
+        ctxs[i].valid = loadJson(jsonFiles[i], ctxs[i].root);
+        addChipsFromFile(ctxs[i], eng);
+    }
+
+    // ④ WASAPI 開始 (全 AddChip 完了後)
+    check(Wasapi_Start(wasapi), "Wasapi_Start");
+
+    // ⑤ 各ファイルを発音テスト
+    for (const auto& ctx : ctxs)
+        playChipsFromFile(ctx, eng);
 
     // ⑥ 停止・解放
     Wasapi_Stop(wasapi);

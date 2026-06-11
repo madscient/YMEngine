@@ -1,0 +1,212 @@
+{
+  "sample_rate": 48000,
+  "global": {
+    "note_ms": 800,
+    "rest_ms": 200
+  },
+  "chips": {
+    "SAA": {
+      "_comment": "SAA1099 6ch. reg0x00-0x05=amplitude, 0x08-0x0D=frequency, 0x10-0x11=octave, 0x14=tone_enable, 0x1C=master_enable",
+      "init": [
+        {
+          "reg": "0x1C",
+          "val": "0x01"
+        },
+        {
+          "reg": "0x10",
+          "val": "0x44"
+        },
+        {
+          "reg": "0x11",
+          "val": "0x44"
+        },
+        {
+          "reg": "0x12",
+          "val": "0x44"
+        }
+      ],
+      "channels": [
+        {
+          "ch": 0,
+          "_comment": "CH0 261Hz (oct=4 F=0xFC) pan=L",
+          "init": [
+            {
+              "reg": "0x0",
+              "val": "0xf"
+            },
+            {
+              "reg": "0x8",
+              "val": "0xfc"
+            },
+            {
+              "reg": "0x10",
+              "val": "0x44"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x14",
+              "val": "0x1"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x14",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 1,
+          "_comment": "CH1 294Hz (oct=4 F=0xFD) pan=R",
+          "init": [
+            {
+              "reg": "0x1",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x9",
+              "val": "0xfd"
+            },
+            {
+              "reg": "0x10",
+              "val": "0x44"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x14",
+              "val": "0x2"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x14",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 2,
+          "_comment": "CH2 330Hz (oct=4 F=0xFD) pan=LR",
+          "init": [
+            {
+              "reg": "0x2",
+              "val": "0xff"
+            },
+            {
+              "reg": "0xa",
+              "val": "0xfd"
+            },
+            {
+              "reg": "0x11",
+              "val": "0x44"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x14",
+              "val": "0x4"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x14",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 3,
+          "_comment": "CH3 392Hz (oct=4 F=0xFE) pan=L",
+          "init": [
+            {
+              "reg": "0x3",
+              "val": "0xf"
+            },
+            {
+              "reg": "0xb",
+              "val": "0xfe"
+            },
+            {
+              "reg": "0x11",
+              "val": "0x44"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x14",
+              "val": "0x8"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x14",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 4,
+          "_comment": "CH4 440Hz (oct=4 F=0xFE) pan=R",
+          "init": [
+            {
+              "reg": "0x4",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0xc",
+              "val": "0xfe"
+            },
+            {
+              "reg": "0x12",
+              "val": "0x44"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x14",
+              "val": "0x10"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x14",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 5,
+          "_comment": "CH5 494Hz (oct=4 F=0xFE) pan=LR",
+          "init": [
+            {
+              "reg": "0x5",
+              "val": "0xff"
+            },
+            {
+              "reg": "0xd",
+              "val": "0xfe"
+            },
+            {
+              "reg": "0x12",
+              "val": "0x44"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x14",
+              "val": "0x20"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x14",
+              "val": "0x00"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
