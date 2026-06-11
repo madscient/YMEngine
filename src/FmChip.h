@@ -112,8 +112,11 @@ public:
             return;
         }
 
-        // 必要なソースサンプル数を計算 (+2 で余裕を持たせる)
+        // 前回コール末尾からの持ち越しフェーズ整数部 + 今回分 + 余裕 2
+        // consumed (= ループ後 m_phase>>32) <= src_needed を保証する
+        const uint32_t phase_offset = static_cast<uint32_t>(m_phase >> 32);
         const uint32_t src_needed =
+            phase_offset +
             static_cast<uint32_t>(
                 (static_cast<uint64_t>(dst_samples) * m_src_rate) / m_dst_rate) + 2;
 
@@ -122,7 +125,6 @@ public:
         generate_fn(m_work_l.data(), m_work_r.data(), src_needed);
 
         for (uint32_t di = 0; di < dst_samples; ++di) {
-            // フェーズの整数部 = 読み出すソースインデックス
             const uint32_t int_part = static_cast<uint32_t>(m_phase >> 32);
             const float    frac     = static_cast<float>(m_phase & 0xFFFFFFFFull)
                                       * (1.0f / 4294967296.0f);
@@ -137,15 +139,13 @@ public:
             m_phase += m_phase_inc;
         }
 
-        // 次回呼び出しのために消費分フェーズをリセット
-        // 整数部が src_needed を超えないように、消費したサンプル数を引く
+        // 実際に消費したソースサンプル数だけフェーズ整数部を引く。
+        // src_needed ではなく consumed を使うこと。
+        // src_needed は +2 の余裕を含むため src_needed << 32 を引くと
+        // uint64_t アンダーフローが発生する。
         const uint32_t consumed = static_cast<uint32_t>(m_phase >> 32);
-        if (consumed >= src_needed) {
-            // フェーズが src_needed を超えた場合は小数部のみ残す
-            m_phase &= 0xFFFFFFFFull;
-        } else {
-            m_phase -= static_cast<uint64_t>(consumed) << 32;
-        }
+        m_phase -= static_cast<uint64_t>(consumed) << 32;
+        // 小数部のみ残り、次回の phase_offset は 0 になる
     }
 
 private:
@@ -311,14 +311,24 @@ private:
     void generateNative(float* out_l, float* out_r, uint32_t n) {
         typename ChipImpl::output_data out_data{};
         constexpr float kScale = 1.0f / 32768.0f;
-        // ymfm_output<N> には outputs という静的メンバーが存在しない (MSVC C2039)。
-        // sizeof で出力チャンネル数を判定する。
-        constexpr bool isStereo =
-            (sizeof(out_data.data) / sizeof(out_data.data[0])) >= 2;
+        // ymfm_output<N> の data 配列サイズで出力チャンネル数を判定する。
+        // ただし OPLL (ymfm_output<2>) の data[0]=FM合計, data[1]=Rhythm合計
+        // であり L/R ではないため、OUTPUTS=2 でもモノラルとして扱う必要がある。
+        // OPM/OPN2 等の真のステレオは TType で区別する。
+        constexpr bool isTrueStereo =
+            (sizeof(out_data.data) / sizeof(out_data.data[0])) >= 2 &&
+            (TType == ChipType::OPM   ||
+             TType == ChipType::OPN   ||
+             TType == ChipType::OPNA  ||
+             TType == ChipType::OPNB  ||
+             TType == ChipType::OPNBB ||
+             TType == ChipType::OPN2  ||
+             TType == ChipType::OPL3  ||
+             TType == ChipType::OPL4);
         for (uint32_t i = 0; i < n; ++i) {
             m_chip.generate(&out_data);
             out_l[i] = static_cast<float>(out_data.data[0]) * kScale;
-            if constexpr (isStereo)
+            if constexpr (isTrueStereo)
                 out_r[i] = static_cast<float>(out_data.data[1]) * kScale;
             else
                 out_r[i] = out_l[i];
