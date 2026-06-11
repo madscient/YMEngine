@@ -223,7 +223,16 @@ public:
     }
 
     void write(uint32_t /*port*/, uint8_t reg, uint8_t value) override {
-        SCC_write(m_scc, reg, value);
+        // SCC_writeReg を使用。アドレス体系は emu2212 内部レジスタマップ:
+        //   0x00-0x1F: CH.A 波形テーブル
+        //   0x20-0x3F: CH.B 波形テーブル
+        //   0x40-0x5F: CH.C 波形テーブル
+        //   0x60-0x7F: CH.D/E 波形テーブル
+        //   0x80-0x9F: CH.E 波形テーブル (SCC+)
+        //   0xC0-0xC9: 周波数 (CH.A-E 各 Low/High)
+        //   0xD0-0xD4: ボリューム (CH.A-E)
+        //   0xE1:       チャンネルイネーブル
+        SCC_writeReg(m_scc, reg, value);
     }
 
     void generate(float* out_l, float* out_r, uint32_t dst_samples) override {
