@@ -308,7 +308,17 @@ public:
     bool tryLoad() {
         if (hDll) return isLoaded();
         hDll = LoadLibraryA(DLL_NAME);
-        if (!hDll) return false;
+        if (!hDll) {
+            // GetLastError() で失敗理由を確認できるようにする
+            // 0x7E = ERROR_MOD_NOT_FOUND (DLL が見つからない)
+            // 0xC1 = ERROR_BAD_EXE_FORMAT (32/64bit 不一致)
+            char msg[256];
+            snprintf(msg, sizeof(msg),
+                "LoadLibrary(\"%s\") failed: GetLastError=%lu",
+                DLL_NAME, static_cast<unsigned long>(GetLastError()));
+            m_lastError = msg;
+            return false;
+        }
 
         New            = reinterpret_cast<FnNew>           (GetProcAddress(hDll, "newSAASND"));
         Delete         = reinterpret_cast<FnDelete>        (GetProcAddress(hDll, "deleteSAASND"));
@@ -320,18 +330,30 @@ public:
         GenerateMany   = reinterpret_cast<FnGenerateMany>  (GetProcAddress(hDll, "SAASNDGenerateMany"));
 
         if (!New || !Delete || !GenerateMany || !WriteAddrData) {
+            char msg[256];
+            snprintf(msg, sizeof(msg),
+                "SAASound.dll loaded but required exports not found "
+                "(newSAASND=%p, deleteSAASND=%p, SAASNDGenerateMany=%p, SAASNDWriteAddressData=%p)",
+                static_cast<void*>(New), static_cast<void*>(Delete),
+                static_cast<void*>(GenerateMany), static_cast<void*>(WriteAddrData));
+            m_lastError = msg;
             FreeLibrary(hDll);
             hDll = nullptr;
             return false;
         }
+        m_lastError.clear();
         return true;
     }
+
+    const std::string& lastError() const { return m_lastError; }
 
 private:
     SAASoundProxy() = default;
     ~SAASoundProxy() { if (hDll) { FreeLibrary(hDll); hDll = nullptr; } }
     SAASoundProxy(const SAASoundProxy&) = delete;
     SAASoundProxy& operator=(const SAASoundProxy&) = delete;
+
+    std::string m_lastError;
 };
 
 // =========================================================
@@ -345,8 +367,7 @@ public:
         auto& proxy = SAASoundProxy::instance();
         if (!proxy.tryLoad())
             throw std::runtime_error(
-                "SAASound.dll not found or missing exports. "
-                "Place SAASound.dll next to FmEngineApi.dll.");
+                std::string("SAASound.dll load failed: ") + proxy.lastError());
 
         m_inst = proxy.New();
         if (!m_inst) throw std::runtime_error("newSAASND failed");
