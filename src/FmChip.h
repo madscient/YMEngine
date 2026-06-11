@@ -311,14 +311,24 @@ private:
     void generateNative(float* out_l, float* out_r, uint32_t n) {
         typename ChipImpl::output_data out_data{};
         constexpr float kScale = 1.0f / 32768.0f;
-        // ymfm_output<N> には outputs という静的メンバーが存在しない (MSVC C2039)。
-        // sizeof で出力チャンネル数を判定する。
-        constexpr bool isStereo =
-            (sizeof(out_data.data) / sizeof(out_data.data[0])) >= 2;
+        // ymfm_output<N> の data 配列サイズで出力チャンネル数を判定する。
+        // ただし OPLL (ymfm_output<2>) の data[0]=FM合計, data[1]=Rhythm合計
+        // であり L/R ではないため、OUTPUTS=2 でもモノラルとして扱う必要がある。
+        // OPM/OPN2 等の真のステレオは TType で区別する。
+        constexpr bool isTrueStereo =
+            (sizeof(out_data.data) / sizeof(out_data.data[0])) >= 2 &&
+            (TType == ChipType::OPM   ||
+             TType == ChipType::OPN   ||
+             TType == ChipType::OPNA  ||
+             TType == ChipType::OPNB  ||
+             TType == ChipType::OPNBB ||
+             TType == ChipType::OPN2  ||
+             TType == ChipType::OPL3  ||
+             TType == ChipType::OPL4);
         for (uint32_t i = 0; i < n; ++i) {
             m_chip.generate(&out_data);
             out_l[i] = static_cast<float>(out_data.data[0]) * kScale;
-            if constexpr (isStereo)
+            if constexpr (isTrueStereo)
                 out_r[i] = static_cast<float>(out_data.data[1]) * kScale;
             else
                 out_r[i] = out_l[i];

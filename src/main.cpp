@@ -173,16 +173,23 @@ int main(int argc, char* argv[]) {
         : Wasapi_Create(eng, 0);
     if (!wasapi) { fputs("Wasapi_Create failed\n", stderr); FmEngine_Destroy(eng); return 1; }
 
-    // ④ JSON の "chips" 以下を順に処理
+    // ⑤ 全チップを先に追加 (Wasapi_Start より前)
+    // AddChip は WASAPI スレッドが動く前に完了させること。
+    // ループ内で AddChip と WASAPI スレッドが競合すると m_chips/m_work_bufs の
+    // サイズ不一致によりバッファオーバーランが発生する。
     const auto& chips = root["chips"];
+    std::vector<uint32_t> chip_ids;   // JSON 順に chip_id を格納
+    std::vector<bool>     chip_valid; // 追加成功フラグ
+
     for (auto it = chips.begin(); it != chips.end(); ++it) {
         const std::string chipName = it.key();
         const auto& chipDef = it.value();
-
-        // チップを検索して追加
         const ChipEntry* entry = findChipEntry(chipName);
+
         if (!entry) {
             printf("[SKIP] %s : unknown chip type\n", chipName.c_str());
+            chip_ids.push_back(0);
+            chip_valid.push_back(false);
             continue;
         }
 
@@ -195,12 +202,29 @@ int main(int argc, char* argv[]) {
 
         if (addResult != FM_OK) {
             printf("[SKIP] %s : AddChip failed (code=%d)\n", chipName.c_str(), (int)addResult);
+            chip_ids.push_back(0);
+            chip_valid.push_back(false);
             continue;
         }
 
-        // ゲイン設定 (任意)
         const float gain = chipDef.value("gain", 1.0f);
         FmEngine_SetGain(eng, chip_id, gain, gain);
+
+        chip_ids.push_back(chip_id);
+        chip_valid.push_back(true);
+    }
+
+    // ⑥ WASAPI 再生開始 (全チップ追加完了後)
+    check(Wasapi_Start(wasapi), "Wasapi_Start");
+
+    // ⑦ JSON の "chips" 以下を順に処理 (発音テスト)
+    uint32_t chipIndex = 0;
+    for (auto it = chips.begin(); it != chips.end(); ++it, ++chipIndex) {
+        if (!chip_valid[chipIndex]) continue;
+
+        const std::string chipName = it.key();
+        const auto& chipDef = it.value();
+        const uint32_t chip_id = chip_ids[chipIndex];
 
         // チップ全体の init レジスタ
         if (chipDef.contains("init"))
@@ -210,20 +234,11 @@ int main(int argc, char* argv[]) {
         printf("=== %s  [id=%u]  native=%u Hz ===\n",
                FmEngine_GetChipName(eng, chip_id), chip_id, chipNative);
 
-        // ⑤ チャンネルを順番に鳴らす
         if (!chipDef.contains("channels") || !chipDef["channels"].is_array()) {
             printf("  (no channels defined)\n\n");
             continue;
         }
-
         const auto& channels = chipDef["channels"];
-
-        // WASAPI 開始 (初回チップの初回チャンネルで開始)
-        static bool wasapiStarted = false;
-        if (!wasapiStarted) {
-            check(Wasapi_Start(wasapi), "Wasapi_Start");
-            wasapiStarted = true;
-        }
 
         for (const auto& chDef : channels) {
             const int ch = chDef.value("ch", 0);
