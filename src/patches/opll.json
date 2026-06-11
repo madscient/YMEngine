@@ -1,0 +1,249 @@
+{
+  "sample_rate": 48000,
+  "global": {
+    "note_ms": 800,
+    "rest_ms": 200
+  },
+  "chips": {
+    "OPLL": {
+      "_comment": "OPLL (YM2413) 9ch FM",
+      "init": [],
+      "channels": [
+        {
+          "ch": 0,
+          "_comment": "CH1 inst=1(Violin) 261Hz block=3 fnum=0x158",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x10"
+            },
+            {
+              "reg": "0x10",
+              "val": "0x58"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x20",
+              "val": "0x17"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x20",
+              "val": "0x7"
+            }
+          ]
+        },
+        {
+          "ch": 1,
+          "_comment": "CH2 inst=2(Guitar) 294Hz block=3 fnum=0x184",
+          "init": [
+            {
+              "reg": "0x31",
+              "val": "0x20"
+            },
+            {
+              "reg": "0x11",
+              "val": "0x84"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x21",
+              "val": "0x17"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x21",
+              "val": "0x7"
+            }
+          ]
+        },
+        {
+          "ch": 2,
+          "_comment": "CH3 inst=3(Piano) 330Hz block=3 fnum=0x1B3",
+          "init": [
+            {
+              "reg": "0x32",
+              "val": "0x30"
+            },
+            {
+              "reg": "0x12",
+              "val": "0xb3"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x22",
+              "val": "0x17"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x22",
+              "val": "0x7"
+            }
+          ]
+        },
+        {
+          "ch": 3,
+          "_comment": "CH4 inst=4(Flute) 349Hz block=3 fnum=0x1CC",
+          "init": [
+            {
+              "reg": "0x33",
+              "val": "0x40"
+            },
+            {
+              "reg": "0x13",
+              "val": "0xcc"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x23",
+              "val": "0x17"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x23",
+              "val": "0x7"
+            }
+          ]
+        },
+        {
+          "ch": 4,
+          "_comment": "CH5 inst=5(Clarinet) 392Hz block=4 fnum=0x102",
+          "init": [
+            {
+              "reg": "0x34",
+              "val": "0x50"
+            },
+            {
+              "reg": "0x14",
+              "val": "0x2"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x24",
+              "val": "0x19"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x24",
+              "val": "0x9"
+            }
+          ]
+        },
+        {
+          "ch": 5,
+          "_comment": "CH6 inst=6(Oboe) 440Hz block=4 fnum=0x122",
+          "init": [
+            {
+              "reg": "0x35",
+              "val": "0x60"
+            },
+            {
+              "reg": "0x15",
+              "val": "0x22"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x25",
+              "val": "0x19"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x25",
+              "val": "0x9"
+            }
+          ]
+        },
+        {
+          "ch": 6,
+          "_comment": "CH7 inst=7(Trumpet) 494Hz block=4 fnum=0x146",
+          "init": [
+            {
+              "reg": "0x36",
+              "val": "0x70"
+            },
+            {
+              "reg": "0x16",
+              "val": "0x46"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x26",
+              "val": "0x19"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x26",
+              "val": "0x9"
+            }
+          ]
+        },
+        {
+          "ch": 7,
+          "_comment": "CH8 inst=8(Organ) 523Hz block=4 fnum=0x159",
+          "init": [
+            {
+              "reg": "0x37",
+              "val": "0x80"
+            },
+            {
+              "reg": "0x17",
+              "val": "0x59"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x27",
+              "val": "0x19"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x27",
+              "val": "0x9"
+            }
+          ]
+        },
+        {
+          "ch": 8,
+          "_comment": "CH9 inst=9(Horn) 587Hz block=4 fnum=0x183",
+          "init": [
+            {
+              "reg": "0x38",
+              "val": "0x90"
+            },
+            {
+              "reg": "0x18",
+              "val": "0x83"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x28",
+              "val": "0x19"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x28",
+              "val": "0x9"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

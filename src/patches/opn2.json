@@ -1,0 +1,994 @@
+{
+  "sample_rate": 48000,
+  "global": {
+    "note_ms": 800,
+    "rest_ms": 200
+  },
+  "chips": {
+    "OPN2": {
+      "_comment": "YM2612 6ch FM. CH0-2はport0、CH3-5はport1",
+      "init": [
+        {
+          "reg": "0x22",
+          "val": "0x00"
+        },
+        {
+          "reg": "0x27",
+          "val": "0x00"
+        },
+        {
+          "reg": "0x2B",
+          "val": "0x00"
+        }
+      ],
+      "channels": [
+        {
+          "ch": 0,
+          "_comment": "CH1 261Hz port=0 block=2 fnum=0x504 pan=L",
+          "port": 0,
+          "init": [
+            {
+              "reg": "0xb0",
+              "val": "0x04",
+              "port": 0
+            },
+            {
+              "reg": "0xb4",
+              "val": "0x80",
+              "port": 0
+            },
+            {
+              "reg": "0x30",
+              "val": "0x71",
+              "port": 0
+            },
+            {
+              "reg": "0x40",
+              "val": "0x23",
+              "port": 0
+            },
+            {
+              "reg": "0x50",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x60",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x70",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x80",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x34",
+              "val": "0x0D",
+              "port": 0
+            },
+            {
+              "reg": "0x44",
+              "val": "0x2D",
+              "port": 0
+            },
+            {
+              "reg": "0x54",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x64",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x74",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x84",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x38",
+              "val": "0x33",
+              "port": 0
+            },
+            {
+              "reg": "0x48",
+              "val": "0x26",
+              "port": 0
+            },
+            {
+              "reg": "0x58",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x68",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x78",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x88",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x3c",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x4c",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x5c",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x6c",
+              "val": "0x07",
+              "port": 0
+            },
+            {
+              "reg": "0x7c",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x8c",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0xa4",
+              "val": "0x15",
+              "port": 0
+            },
+            {
+              "reg": "0xa0",
+              "val": "0x4",
+              "port": 0
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x28",
+              "val": "0xf0",
+              "port": 0
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x28",
+              "val": "0x0",
+              "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 1,
+          "_comment": "CH2 294Hz port=0 block=2 fnum=0x5A7 pan=R",
+          "port": 0,
+          "init": [
+            {
+              "reg": "0xb1",
+              "val": "0x04",
+              "port": 0
+            },
+            {
+              "reg": "0xb5",
+              "val": "0x40",
+              "port": 0
+            },
+            {
+              "reg": "0x31",
+              "val": "0x71",
+              "port": 0
+            },
+            {
+              "reg": "0x41",
+              "val": "0x23",
+              "port": 0
+            },
+            {
+              "reg": "0x51",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x61",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x71",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x81",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x35",
+              "val": "0x0D",
+              "port": 0
+            },
+            {
+              "reg": "0x45",
+              "val": "0x2D",
+              "port": 0
+            },
+            {
+              "reg": "0x55",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x65",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x75",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x85",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x39",
+              "val": "0x33",
+              "port": 0
+            },
+            {
+              "reg": "0x49",
+              "val": "0x26",
+              "port": 0
+            },
+            {
+              "reg": "0x59",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x69",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x79",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x89",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x3d",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x4d",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x5d",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x6d",
+              "val": "0x07",
+              "port": 0
+            },
+            {
+              "reg": "0x7d",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x8d",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0xa5",
+              "val": "0x15",
+              "port": 0
+            },
+            {
+              "reg": "0xa1",
+              "val": "0xa7",
+              "port": 0
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x28",
+              "val": "0xf1",
+              "port": 0
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x28",
+              "val": "0x1",
+              "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 2,
+          "_comment": "CH3 330Hz port=0 block=2 fnum=0x658 pan=LR",
+          "port": 0,
+          "init": [
+            {
+              "reg": "0xb2",
+              "val": "0x04",
+              "port": 0
+            },
+            {
+              "reg": "0xb6",
+              "val": "0xc0",
+              "port": 0
+            },
+            {
+              "reg": "0x32",
+              "val": "0x71",
+              "port": 0
+            },
+            {
+              "reg": "0x42",
+              "val": "0x23",
+              "port": 0
+            },
+            {
+              "reg": "0x52",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x62",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x72",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x82",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x36",
+              "val": "0x0D",
+              "port": 0
+            },
+            {
+              "reg": "0x46",
+              "val": "0x2D",
+              "port": 0
+            },
+            {
+              "reg": "0x56",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x66",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x76",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x86",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x3a",
+              "val": "0x33",
+              "port": 0
+            },
+            {
+              "reg": "0x4a",
+              "val": "0x26",
+              "port": 0
+            },
+            {
+              "reg": "0x5a",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x6a",
+              "val": "0x05",
+              "port": 0
+            },
+            {
+              "reg": "0x7a",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x8a",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0x3e",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x4e",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x5e",
+              "val": "0x9F",
+              "port": 0
+            },
+            {
+              "reg": "0x6e",
+              "val": "0x07",
+              "port": 0
+            },
+            {
+              "reg": "0x7e",
+              "val": "0x02",
+              "port": 0
+            },
+            {
+              "reg": "0x8e",
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0xa6",
+              "val": "0x16",
+              "port": 0
+            },
+            {
+              "reg": "0xa2",
+              "val": "0x58",
+              "port": 0
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x28",
+              "val": "0xf2",
+              "port": 0
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x28",
+              "val": "0x2",
+              "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 3,
+          "_comment": "CH4 392Hz port=1 block=2 fnum=0x789 pan=L",
+          "port": 1,
+          "init": [
+            {
+              "reg": "0xb0",
+              "val": "0x04",
+              "port": 1
+            },
+            {
+              "reg": "0xb4",
+              "val": "0x80",
+              "port": 1
+            },
+            {
+              "reg": "0x30",
+              "val": "0x71",
+              "port": 1
+            },
+            {
+              "reg": "0x40",
+              "val": "0x23",
+              "port": 1
+            },
+            {
+              "reg": "0x50",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x60",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x70",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x80",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x34",
+              "val": "0x0D",
+              "port": 1
+            },
+            {
+              "reg": "0x44",
+              "val": "0x2D",
+              "port": 1
+            },
+            {
+              "reg": "0x54",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x64",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x74",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x84",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x38",
+              "val": "0x33",
+              "port": 1
+            },
+            {
+              "reg": "0x48",
+              "val": "0x26",
+              "port": 1
+            },
+            {
+              "reg": "0x58",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x68",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x78",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x88",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x3c",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4c",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x5c",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x6c",
+              "val": "0x07",
+              "port": 1
+            },
+            {
+              "reg": "0x7c",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x8c",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0xa4",
+              "val": "0x17",
+              "port": 1
+            },
+            {
+              "reg": "0xa0",
+              "val": "0x89",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x28",
+              "val": "0xf4",
+              "port": 0
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x28",
+              "val": "0x4",
+              "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 4,
+          "_comment": "CH5 440Hz port=1 block=3 fnum=0x43B pan=R",
+          "port": 1,
+          "init": [
+            {
+              "reg": "0xb1",
+              "val": "0x04",
+              "port": 1
+            },
+            {
+              "reg": "0xb5",
+              "val": "0x40",
+              "port": 1
+            },
+            {
+              "reg": "0x31",
+              "val": "0x71",
+              "port": 1
+            },
+            {
+              "reg": "0x41",
+              "val": "0x23",
+              "port": 1
+            },
+            {
+              "reg": "0x51",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x61",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x71",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x81",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x35",
+              "val": "0x0D",
+              "port": 1
+            },
+            {
+              "reg": "0x45",
+              "val": "0x2D",
+              "port": 1
+            },
+            {
+              "reg": "0x55",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x65",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x75",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x85",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x39",
+              "val": "0x33",
+              "port": 1
+            },
+            {
+              "reg": "0x49",
+              "val": "0x26",
+              "port": 1
+            },
+            {
+              "reg": "0x59",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x69",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x79",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x89",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x3d",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4d",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x5d",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x6d",
+              "val": "0x07",
+              "port": 1
+            },
+            {
+              "reg": "0x7d",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x8d",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0xa5",
+              "val": "0x1c",
+              "port": 1
+            },
+            {
+              "reg": "0xa1",
+              "val": "0x3b",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x28",
+              "val": "0xf5",
+              "port": 0
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x28",
+              "val": "0x5",
+              "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 5,
+          "_comment": "CH6 494Hz port=1 block=3 fnum=0x4C0 pan=LR",
+          "port": 1,
+          "init": [
+            {
+              "reg": "0xb2",
+              "val": "0x04",
+              "port": 1
+            },
+            {
+              "reg": "0xb6",
+              "val": "0xc0",
+              "port": 1
+            },
+            {
+              "reg": "0x32",
+              "val": "0x71",
+              "port": 1
+            },
+            {
+              "reg": "0x42",
+              "val": "0x23",
+              "port": 1
+            },
+            {
+              "reg": "0x52",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x62",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x72",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x82",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x36",
+              "val": "0x0D",
+              "port": 1
+            },
+            {
+              "reg": "0x46",
+              "val": "0x2D",
+              "port": 1
+            },
+            {
+              "reg": "0x56",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x66",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x76",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x86",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x3a",
+              "val": "0x33",
+              "port": 1
+            },
+            {
+              "reg": "0x4a",
+              "val": "0x26",
+              "port": 1
+            },
+            {
+              "reg": "0x5a",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x6a",
+              "val": "0x05",
+              "port": 1
+            },
+            {
+              "reg": "0x7a",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x8a",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0x3e",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4e",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x5e",
+              "val": "0x9F",
+              "port": 1
+            },
+            {
+              "reg": "0x6e",
+              "val": "0x07",
+              "port": 1
+            },
+            {
+              "reg": "0x7e",
+              "val": "0x02",
+              "port": 1
+            },
+            {
+              "reg": "0x8e",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0xa6",
+              "val": "0x1c",
+              "port": 1
+            },
+            {
+              "reg": "0xa2",
+              "val": "0xc0",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x28",
+              "val": "0xf6",
+              "port": 0
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x28",
+              "val": "0x6",
+              "port": 0
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
