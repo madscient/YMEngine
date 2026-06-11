@@ -65,11 +65,17 @@ static FmResult safeCall(Fn&& fn) noexcept {
     try {
         fn();
         return FM_OK;
-    } catch (const std::invalid_argument&) {
+    } catch (const std::invalid_argument& e) {
+        fprintf(stderr, "[FmEngineApi] invalid_argument: %s\n", e.what());
         return FM_ERR_INVALID_ARG;
-    } catch (const std::runtime_error&) {
+    } catch (const std::runtime_error& e) {
+        fprintf(stderr, "[FmEngineApi] runtime_error: %s\n", e.what());
         return FM_ERR_AUDIO;
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[FmEngineApi] exception: %s\n", e.what());
+        return FM_ERR_EXCEPTION;
     } catch (...) {
+        fprintf(stderr, "[FmEngineApi] unknown exception\n");
         return FM_ERR_EXCEPTION;
     }
 }
