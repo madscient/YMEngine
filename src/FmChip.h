@@ -112,8 +112,11 @@ public:
             return;
         }
 
-        // 必要なソースサンプル数を計算 (+2 で余裕を持たせる)
+        // 前回の余剰フェーズ分を考慮して必要なソースサンプル数を計算
+        // phase_offset: 前回コールから持ち越したフェーズの整数部
+        const uint32_t phase_offset = static_cast<uint32_t>(m_phase >> 32);
         const uint32_t src_needed =
+            phase_offset +
             static_cast<uint32_t>(
                 (static_cast<uint64_t>(dst_samples) * m_src_rate) / m_dst_rate) + 2;
 
@@ -122,7 +125,6 @@ public:
         generate_fn(m_work_l.data(), m_work_r.data(), src_needed);
 
         for (uint32_t di = 0; di < dst_samples; ++di) {
-            // フェーズの整数部 = 読み出すソースインデックス
             const uint32_t int_part = static_cast<uint32_t>(m_phase >> 32);
             const float    frac     = static_cast<float>(m_phase & 0xFFFFFFFFull)
                                       * (1.0f / 4294967296.0f);
@@ -137,15 +139,9 @@ public:
             m_phase += m_phase_inc;
         }
 
-        // 次回呼び出しのために消費分フェーズをリセット
-        // 整数部が src_needed を超えないように、消費したサンプル数を引く
-        const uint32_t consumed = static_cast<uint32_t>(m_phase >> 32);
-        if (consumed >= src_needed) {
-            // フェーズが src_needed を超えた場合は小数部のみ残す
-            m_phase &= 0xFFFFFFFFull;
-        } else {
-            m_phase -= static_cast<uint64_t>(consumed) << 32;
-        }
+        // src_needed 分生成・消費したのでその分フェーズ整数部を引く
+        // 残った整数部が次回の phase_offset になる
+        m_phase -= static_cast<uint64_t>(src_needed) << 32;
     }
 
 private:
