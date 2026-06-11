@@ -39,14 +39,14 @@
 
 // ChipType 列挙に追加分
 enum class ChipTypeExt {
-    PSG     = 100,  // YM2149 (PSG) via emu2149
+    SSG     = 100,  // YM2149 (SSG) via emu2149
     SN76489 = 101,  // SN76489      via emu76489
     SCC     = 102,  // SCC/K051649  via emu2212
     SAA1099 = 103,  // SAA1099      via SAASound.dll (動的ロード)
 };
 
 namespace ExtClock {
-    constexpr uint32_t PSG     = 3'579'545;  // NTSC
+    constexpr uint32_t SSG     = 3'579'545;  // NTSC
     constexpr uint32_t SN76489 = 3'579'545;  // SMS / GG
     constexpr uint32_t SCC     = 3'579'545;  // MSX
     constexpr uint32_t SAA1099 = 8'000'000;  // SAM Coupe
@@ -122,9 +122,9 @@ public:
     }
 
     uint32_t    nativeRate() const override { return m_native_rate; }
-    ChipTypeExt type()       const override { return ChipTypeExt::PSG; }
+    ChipTypeExt type()       const override { return ChipTypeExt::SSG; }
     uint32_t    clock()      const override { return m_clock; }
-    const char* name()       const override { return "PSG (YM2149)"; }
+    const char* name()       const override { return "SSG (YM2149)"; }
 
 private:
     PSG*           m_psg         = nullptr;
@@ -223,7 +223,16 @@ public:
     }
 
     void write(uint32_t /*port*/, uint8_t reg, uint8_t value) override {
-        SCC_write(m_scc, reg, value);
+        // SCC_writeReg を使用。アドレス体系は emu2212 内部レジスタマップ:
+        //   0x00-0x1F: CH.A 波形テーブル
+        //   0x20-0x3F: CH.B 波形テーブル
+        //   0x40-0x5F: CH.C 波形テーブル
+        //   0x60-0x7F: CH.D/E 波形テーブル
+        //   0x80-0x9F: CH.E 波形テーブル (SCC+)
+        //   0xC0-0xC9: 周波数 (CH.A-E 各 Low/High)
+        //   0xD0-0xD4: ボリューム (CH.A-E)
+        //   0xE1:       チャンネルイネーブル
+        SCC_writeReg(m_scc, reg, value);
     }
 
     void generate(float* out_l, float* out_r, uint32_t dst_samples) override {
@@ -308,7 +317,17 @@ public:
     bool tryLoad() {
         if (hDll) return isLoaded();
         hDll = LoadLibraryA(DLL_NAME);
-        if (!hDll) return false;
+        if (!hDll) {
+            // GetLastError() で失敗理由を確認できるようにする
+            // 0x7E = ERROR_MOD_NOT_FOUND (DLL が見つからない)
+            // 0xC1 = ERROR_BAD_EXE_FORMAT (32/64bit 不一致)
+            char msg[256];
+            snprintf(msg, sizeof(msg),
+                "LoadLibrary(\"%s\") failed: GetLastError=%lu",
+                DLL_NAME, static_cast<unsigned long>(GetLastError()));
+            m_lastError = msg;
+            return false;
+        }
 
         New            = reinterpret_cast<FnNew>           (GetProcAddress(hDll, "newSAASND"));
         Delete         = reinterpret_cast<FnDelete>        (GetProcAddress(hDll, "deleteSAASND"));
@@ -320,18 +339,30 @@ public:
         GenerateMany   = reinterpret_cast<FnGenerateMany>  (GetProcAddress(hDll, "SAASNDGenerateMany"));
 
         if (!New || !Delete || !GenerateMany || !WriteAddrData) {
+            char msg[256];
+            snprintf(msg, sizeof(msg),
+                "SAASound.dll loaded but required exports not found "
+                "(newSAASND=%p, deleteSAASND=%p, SAASNDGenerateMany=%p, SAASNDWriteAddressData=%p)",
+                static_cast<void*>(New), static_cast<void*>(Delete),
+                static_cast<void*>(GenerateMany), static_cast<void*>(WriteAddrData));
+            m_lastError = msg;
             FreeLibrary(hDll);
             hDll = nullptr;
             return false;
         }
+        m_lastError.clear();
         return true;
     }
+
+    const std::string& lastError() const { return m_lastError; }
 
 private:
     SAASoundProxy() = default;
     ~SAASoundProxy() { if (hDll) { FreeLibrary(hDll); hDll = nullptr; } }
     SAASoundProxy(const SAASoundProxy&) = delete;
     SAASoundProxy& operator=(const SAASoundProxy&) = delete;
+
+    std::string m_lastError;
 };
 
 // =========================================================
@@ -345,8 +376,7 @@ public:
         auto& proxy = SAASoundProxy::instance();
         if (!proxy.tryLoad())
             throw std::runtime_error(
-                "SAASound.dll not found or missing exports. "
-                "Place SAASound.dll next to FmEngineApi.dll.");
+                std::string("SAASound.dll load failed: ") + proxy.lastError());
 
         m_inst = proxy.New();
         if (!m_inst) throw std::runtime_error("newSAASND failed");
@@ -413,8 +443,8 @@ inline std::unique_ptr<ExtChip> createExtChip(
 {
     auto resolve = [](uint32_t c, uint32_t def) { return c ? c : def; };
     switch (type) {
-        case ChipTypeExt::PSG:
-            return std::make_unique<PSGChip>(resolve(clock, ExtClock::PSG), target_rate);
+        case ChipTypeExt::SSG:
+            return std::make_unique<PSGChip>(resolve(clock, ExtClock::SSG), target_rate);
         case ChipTypeExt::SN76489:
             return std::make_unique<SNGChip>(resolve(clock, ExtClock::SN76489), target_rate);
         case ChipTypeExt::SCC:

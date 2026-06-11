@@ -376,6 +376,7 @@ private:
             if (!m_exclusive) {
                 if (FAILED(m_audioClient->GetCurrentPadding(&padding))) break;
             }
+            if (padding >= m_bufferFrames) continue;  // アンダーフロー防止
             const UINT32 devFrames = m_bufferFrames - padding;
             if (devFrames == 0) continue;
 
