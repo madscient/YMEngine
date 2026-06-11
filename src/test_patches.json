@@ -831,7 +831,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH.A A4(440Hz) 矩形波",
+          "_comment": "CH.A A4(440Hz) fc=508",
           "init": [
             {
               "reg": "0x0",
@@ -970,14 +970,14 @@
               "val": "0x1"
             },
             {
-              "reg": "0xD0",
+              "reg": "0xd0",
               "val": "0x0F"
             }
           ],
           "key_on": [
             {
               "reg": "0xE1",
-              "val": "0x01"
+              "val": "0x1"
             }
           ],
           "key_off": [
@@ -989,7 +989,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH.B B4(494Hz) 矩形波",
+          "_comment": "CH.B B4(494Hz) fc=453",
           "init": [
             {
               "reg": "0x20",
@@ -1128,26 +1128,26 @@
               "val": "0x1"
             },
             {
-              "reg": "0xD1",
+              "reg": "0xd1",
               "val": "0x0F"
             }
           ],
           "key_on": [
             {
               "reg": "0xE1",
-              "val": "0x03"
+              "val": "0x2"
             }
           ],
           "key_off": [
             {
               "reg": "0xE1",
-              "val": "0x01"
+              "val": "0x00"
             }
           ]
         },
         {
           "ch": 2,
-          "_comment": "CH.C C5(523Hz) 矩形波",
+          "_comment": "CH.C C5(523Hz) fc=428",
           "init": [
             {
               "reg": "0x40",
@@ -1286,20 +1286,20 @@
               "val": "0x1"
             },
             {
-              "reg": "0xD2",
+              "reg": "0xd2",
               "val": "0x0F"
             }
           ],
           "key_on": [
             {
               "reg": "0xE1",
-              "val": "0x07"
+              "val": "0x4"
             }
           ],
           "key_off": [
             {
               "reg": "0xE1",
-              "val": "0x03"
+              "val": "0x00"
             }
           ]
         }
@@ -1328,25 +1328,25 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH0 A4相当",
+          "_comment": "CH0 A4",
           "init": [
             {
-              "reg": "0x00",
+              "reg": "0x0",
               "val": "0xFF"
             },
             {
-              "reg": "0x08",
-              "val": "0x80"
+              "reg": "0x8",
+              "val": "0xfd"
+            },
+            {
+              "reg": "0x10",
+              "val": "0x44"
             }
           ],
           "key_on": [
             {
               "reg": "0x14",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x1C",
-              "val": "0x01"
+              "val": "0x1"
             }
           ],
           "key_off": [
@@ -1358,53 +1358,61 @@
         },
         {
           "ch": 1,
-          "_comment": "CH1",
+          "_comment": "CH1 B4",
           "init": [
             {
-              "reg": "0x01",
+              "reg": "0x1",
               "val": "0xFF"
             },
             {
-              "reg": "0x09",
-              "val": "0x60"
+              "reg": "0x9",
+              "val": "0xc0"
+            },
+            {
+              "reg": "0x10",
+              "val": "0x44"
             }
           ],
           "key_on": [
             {
               "reg": "0x14",
-              "val": "0x03"
+              "val": "0x2"
             }
           ],
           "key_off": [
             {
               "reg": "0x14",
-              "val": "0x01"
+              "val": "0x00"
             }
           ]
         },
         {
           "ch": 2,
-          "_comment": "CH2",
+          "_comment": "CH2 C5",
           "init": [
             {
-              "reg": "0x02",
+              "reg": "0x2",
               "val": "0xFF"
             },
             {
-              "reg": "0x0A",
-              "val": "0x40"
+              "reg": "0xa",
+              "val": "0x80"
+            },
+            {
+              "reg": "0x11",
+              "val": "0x44"
             }
           ],
           "key_on": [
             {
               "reg": "0x14",
-              "val": "0x07"
+              "val": "0x4"
             }
           ],
           "key_off": [
             {
               "reg": "0x14",
-              "val": "0x03"
+              "val": "0x00"
             }
           ]
         }
