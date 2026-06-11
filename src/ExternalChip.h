@@ -39,14 +39,14 @@
 
 // ChipType 列挙に追加分
 enum class ChipTypeExt {
-    PSG     = 100,  // YM2149 (PSG) via emu2149
+    SSG     = 100,  // YM2149 (SSG) via emu2149
     SN76489 = 101,  // SN76489      via emu76489
     SCC     = 102,  // SCC/K051649  via emu2212
     SAA1099 = 103,  // SAA1099      via SAASound.dll (動的ロード)
 };
 
 namespace ExtClock {
-    constexpr uint32_t PSG     = 3'579'545;  // NTSC
+    constexpr uint32_t SSG     = 3'579'545;  // NTSC
     constexpr uint32_t SN76489 = 3'579'545;  // SMS / GG
     constexpr uint32_t SCC     = 3'579'545;  // MSX
     constexpr uint32_t SAA1099 = 8'000'000;  // SAM Coupe
@@ -122,9 +122,9 @@ public:
     }
 
     uint32_t    nativeRate() const override { return m_native_rate; }
-    ChipTypeExt type()       const override { return ChipTypeExt::PSG; }
+    ChipTypeExt type()       const override { return ChipTypeExt::SSG; }
     uint32_t    clock()      const override { return m_clock; }
-    const char* name()       const override { return "PSG (YM2149)"; }
+    const char* name()       const override { return "SSG (YM2149)"; }
 
 private:
     PSG*           m_psg         = nullptr;
@@ -434,8 +434,8 @@ inline std::unique_ptr<ExtChip> createExtChip(
 {
     auto resolve = [](uint32_t c, uint32_t def) { return c ? c : def; };
     switch (type) {
-        case ChipTypeExt::PSG:
-            return std::make_unique<PSGChip>(resolve(clock, ExtClock::PSG), target_rate);
+        case ChipTypeExt::SSG:
+            return std::make_unique<PSGChip>(resolve(clock, ExtClock::SSG), target_rate);
         case ChipTypeExt::SN76489:
             return std::make_unique<SNGChip>(resolve(clock, ExtClock::SN76489), target_rate);
         case ChipTypeExt::SCC:

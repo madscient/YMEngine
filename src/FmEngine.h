@@ -86,7 +86,7 @@ public:
         return registerChip(std::move(chip));
     }
 
-    // 外部ライブラリチップ追加 (PSG/SN76489/SCC/SAA1099)
+    // 外部ライブラリチップ追加 (SSG/SN76489/SCC/SAA1099)
     uint32_t addExtChip(ChipTypeExt type, uint32_t clock = 0) {
         auto ext  = createExtChip(type, clock, m_sample_rate);
         auto chip = std::make_unique<ExtChipAdapter>(std::move(ext));

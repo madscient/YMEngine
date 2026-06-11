@@ -18,7 +18,7 @@ YMEngine/
 ├── src/
 │   ├── FmChip.h           ymfm ラッパー・LinearResampler
 │   ├── FmEngine.h         複数チップ管理・SPSC キュー・ゲイン
-│   ├── ExternalChip.h     外部ライブラリチップ (PSG/SN76489/SCC/SAA1099)
+│   ├── ExternalChip.h     外部ライブラリチップ (SSG/SN76489/SCC/SAA1099)
 │   ├── WasapiOutput.h     WASAPI リアルタイム出力・デバイス列挙
 │   ├── FmEngineApi.h  ★  DLL 公開用 C ファサード (宣言)
 │   ├── FmEngineApi.cpp★  DLL 公開用 C ファサード (実装)
@@ -91,7 +91,7 @@ FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
 
 // 外部ライブラリチップ追加
 uint32_t psgId;
-FmEngine_AddExtChip(eng, FM_CHIP_EXT_PSG, 0, &psgId);
+FmEngine_AddExtChip(eng, FM_CHIP_EXT_SSG, 0, &psgId);
 
 // ゲイン設定 (1.0 = 0 dB)
 FmEngine_SetGain(eng, opnaId, 1.0f, 1.0f);
@@ -104,7 +104,7 @@ Wasapi_Start(wasapi);
 // レジスタ書き込み (任意スレッドから安全)
 // ymfm 系: write(chip_id, reg, value, port)
 FmEngine_Write(eng, opnaId, 0xB4, 0xC0, 0);
-// PSG 系:  write(chip_id, reg_num, value, port=0)
+// SSG 系:  write(chip_id, reg_num, value, port=0)
 FmEngine_Write(eng, psgId,  0x08, 0x0F, 0);
 
 // 停止・解放
@@ -211,12 +211,12 @@ sample_app.exe my_patches.json
         }
       ]
     },
-    "PSG": { ... }
+    "SSG": { ... }
   }
 }
 ```
 
-チップ名キー (`"OPNA"`, `"PSG"` 等) は以下の識別子と対応します。
+チップ名キー (`"OPNA"`, `"SSG"` 等) は以下の識別子と対応します。
 
 ## 対応チップ
 
