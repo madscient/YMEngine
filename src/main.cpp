@@ -101,10 +101,10 @@ static const ChipEntry kChipTable[] = {
     {"OPZ",     false, FM_CHIP_OPZ    },
     {"VRC7",    false, FM_CHIP_VRC7   },
     // 外部ライブラリチップ
-    {"PSG",     true,  FM_CHIP_EXT_SSG     },
-    {"SN76489", true,  FM_CHIP_EXT_DCSG },
-    {"SCC",     true,  FM_CHIP_EXT_SCC     },
-    {"SAA1099", true,  FM_CHIP_EXT_SAA },
+    {"SSG",     true,  FM_CHIP_EXT_SSG },
+    {"DCSG",    true,  FM_CHIP_EXT_DCSG},
+    {"SCC",     true,  FM_CHIP_EXT_SCC },
+    {"SAA",     true,  FM_CHIP_EXT_SAA },
 };
 
 static const ChipEntry* findChipEntry(const std::string& name) {
