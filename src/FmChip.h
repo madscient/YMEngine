@@ -112,8 +112,8 @@ public:
             return;
         }
 
-        // 前回の余剰フェーズ分を考慮して必要なソースサンプル数を計算
-        // phase_offset: 前回コールから持ち越したフェーズの整数部
+        // 前回コール末尾からの持ち越しフェーズ整数部 + 今回分 + 余裕 2
+        // consumed (= ループ後 m_phase>>32) <= src_needed を保証する
         const uint32_t phase_offset = static_cast<uint32_t>(m_phase >> 32);
         const uint32_t src_needed =
             phase_offset +
@@ -139,9 +139,13 @@ public:
             m_phase += m_phase_inc;
         }
 
-        // src_needed 分生成・消費したのでその分フェーズ整数部を引く
-        // 残った整数部が次回の phase_offset になる
-        m_phase -= static_cast<uint64_t>(src_needed) << 32;
+        // 実際に消費したソースサンプル数だけフェーズ整数部を引く。
+        // src_needed ではなく consumed を使うこと。
+        // src_needed は +2 の余裕を含むため src_needed << 32 を引くと
+        // uint64_t アンダーフローが発生する。
+        const uint32_t consumed = static_cast<uint32_t>(m_phase >> 32);
+        m_phase -= static_cast<uint64_t>(consumed) << 32;
+        // 小数部のみ残り、次回の phase_offset は 0 になる
     }
 
 private:
