@@ -6,7 +6,7 @@
   },
   "chips": {
     "Y8950": {
-      "_comment": "Y8950 (MSX-Audio) 9ch FM",
+      "_comment": "Y8950 (MSX-Audio) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH from drums.sb",
       "init": [
         {
           "reg": "0x01",
@@ -533,6 +533,240 @@
             {
               "reg": "0xb8",
               "val": "0x13"
+            }
+          ]
+        },
+        {
+          "ch": 9,
+          "_comment": "BD (Bass Drum) - 0xBD bit4",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x50",
+              "val": "0xd6"
+            },
+            {
+              "reg": "0x70",
+              "val": "0x46"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xf0",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x33",
+              "val": "0x68"
+            },
+            {
+              "reg": "0x53",
+              "val": "0x19"
+            },
+            {
+              "reg": "0x73",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x1e"
+            },
+            {
+              "reg": "0xf3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xC6",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA6",
+              "val": "0x44"
+            },
+            {
+              "reg": "0xB6",
+              "val": "0x6"
+            },
+            {
+              "reg": "0x31",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x51",
+              "val": "0xc4"
+            },
+            {
+              "reg": "0x71",
+              "val": "0xb4"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xf1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x34",
+              "val": "0xf3"
+            },
+            {
+              "reg": "0x54",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x74",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x1e"
+            },
+            {
+              "reg": "0xf4",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA7",
+              "val": "0x00"
+            },
+            {
+              "reg": "0xB7",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x32",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x52",
+              "val": "0xa5"
+            },
+            {
+              "reg": "0x72",
+              "val": "0xf5"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xf2",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x35",
+              "val": "0xf1"
+            },
+            {
+              "reg": "0x55",
+              "val": "0x31"
+            },
+            {
+              "reg": "0x75",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x18"
+            },
+            {
+              "reg": "0xf5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA8",
+              "val": "0x00"
+            },
+            {
+              "reg": "0xB8",
+              "val": "0x00"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "SD (Snare Drum) - 0xBD bit3",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "TT (Tom Tom) - 0xBD bit2",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "CY (Cymbal) - 0xBD bit1",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 13,
+          "_comment": "HH (Hi-Hat) - 0xBD bit0",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
             }
           ]
         }

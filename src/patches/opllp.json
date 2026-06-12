@@ -6,7 +6,7 @@
   },
   "chips": {
     "OPLLP": {
-      "_comment": "OPLLP (YMF281) 9ch FM",
+      "_comment": "OPLLP (YMF281) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH (OPLL built-in rhythm)",
       "init": [],
       "channels": [
         {
@@ -240,6 +240,148 @@
             {
               "reg": "0x28",
               "val": "0x9"
+            }
+          ]
+        },
+        {
+          "ch": 9,
+          "_comment": "BD (Bass Drum) 82Hz block=1 fnum=0x1B0",
+          "init": [
+            {
+              "reg": "0x36",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x37",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x38",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x16",
+              "val": "0xb0"
+            },
+            {
+              "reg": "0x26",
+              "val": "0x13"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "SD (Snare) 220Hz block=3 fnum=0x122",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x17",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x27",
+              "val": "0x17"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "TT (Tom Tom) 220Hz block=3 fnum=0x122",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x18",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x28",
+              "val": "0x17"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "CY (Cymbal) 880Hz block=5 fnum=0x122",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x18",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x28",
+              "val": "0x1b"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 13,
+          "_comment": "HH (Hi-Hat) 880Hz block=5 fnum=0x122",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x17",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x27",
+              "val": "0x1b"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
             }
           ]
         }

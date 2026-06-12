@@ -6,7 +6,7 @@
   },
   "chips": {
     "OPN": {
-      "_comment": "OPN (YM2203) 3ch FM",
+      "_comment": "OPN (YM2203) 3ch FM + 3ch SSG",
       "init": [
         {
           "reg": "0x27",
@@ -16,7 +16,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH1 261Hz block=4 fnum=0x4D2",
+          "_comment": "CH1 262Hz block=3 fnum=0x4D5",
           "port": 0,
           "init": [
             {
@@ -121,11 +121,11 @@
             },
             {
               "reg": "0xa4",
-              "val": "0x24"
+              "val": "0x1c"
             },
             {
               "reg": "0xa0",
-              "val": "0xd2"
+              "val": "0xd5"
             }
           ],
           "key_on": [
@@ -145,7 +145,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH2 330Hz block=4 fnum=0x618",
+          "_comment": "CH2 330Hz block=3 fnum=0x616",
           "port": 0,
           "init": [
             {
@@ -250,11 +250,11 @@
             },
             {
               "reg": "0xa5",
-              "val": "0x26"
+              "val": "0x1e"
             },
             {
               "reg": "0xa1",
-              "val": "0x18"
+              "val": "0x16"
             }
           ],
           "key_on": [
@@ -274,7 +274,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 440Hz block=5 fnum=0x410",
+          "_comment": "CH3 440Hz block=4 fnum=0x410",
           "port": 0,
           "init": [
             {
@@ -379,7 +379,7 @@
             },
             {
               "reg": "0xa6",
-              "val": "0x2c"
+              "val": "0x24"
             },
             {
               "reg": "0xa2",
@@ -398,6 +398,108 @@
               "reg": "0x28",
               "val": "0x2",
               "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "SSG CHA 262Hz",
+          "init": [
+            {
+              "reg": "0x0",
+              "val": "0xef"
+            },
+            {
+              "reg": "0x1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3e"
+            },
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x8",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "SSG CHB 330Hz",
+          "init": [
+            {
+              "reg": "0x2",
+              "val": "0xbd"
+            },
+            {
+              "reg": "0x3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3d"
+            },
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x9",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "SSG CHC 392Hz",
+          "init": [
+            {
+              "reg": "0x4",
+              "val": "0x9f"
+            },
+            {
+              "reg": "0x5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3b"
+            },
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xa",
+              "val": "0x00"
             }
           ]
         }

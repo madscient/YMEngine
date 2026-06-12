@@ -6,7 +6,7 @@
   },
   "chips": {
     "OPLL": {
-      "_comment": "OPLL (YM2413) 9ch FM",
+      "_comment": "OPLL (YM2413) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH (OPLL built-in rhythm)",
       "init": [],
       "channels": [
         {
@@ -240,6 +240,132 @@
             {
               "reg": "0x28",
               "val": "0x9"
+            }
+          ]
+        },
+        {
+          "ch": 9,
+          "_comment": "OPLL BD (~100Hz)",
+          "init": [
+            {
+              "reg": "0x16",
+              "val": "0x8"
+            },
+            {
+              "reg": "0x26",
+              "val": "0x5"
+            },
+            {
+              "reg": "0x17",
+              "val": "0x6d"
+            },
+            {
+              "reg": "0x27",
+              "val": "0x9"
+            },
+            {
+              "reg": "0x18",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x28",
+              "val": "0x7"
+            },
+            {
+              "reg": "0x36",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x37",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x38",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "OPLL SD (~300Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "OPLL TT (~220Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "OPLL CY (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 13,
+          "_comment": "OPLL HH (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
             }
           ]
         }

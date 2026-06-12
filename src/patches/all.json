@@ -6,7 +6,7 @@
   },
   "chips": {
     "OPLL": {
-      "_comment": "OPLL (YM2413) 9ch FM",
+      "_comment": "OPLL (YM2413) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH (OPLL built-in rhythm)",
       "init": [],
       "channels": [
         {
@@ -242,11 +242,137 @@
               "val": "0x9"
             }
           ]
+        },
+        {
+          "ch": 9,
+          "_comment": "OPLL BD (~100Hz)",
+          "init": [
+            {
+              "reg": "0x16",
+              "val": "0x8"
+            },
+            {
+              "reg": "0x26",
+              "val": "0x5"
+            },
+            {
+              "reg": "0x17",
+              "val": "0x6d"
+            },
+            {
+              "reg": "0x27",
+              "val": "0x9"
+            },
+            {
+              "reg": "0x18",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x28",
+              "val": "0x7"
+            },
+            {
+              "reg": "0x36",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x37",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x38",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "OPLL SD (~300Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "OPLL TT (~220Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "OPLL CY (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 13,
+          "_comment": "OPLL HH (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
         }
       ]
     },
     "OPLLX": {
-      "_comment": "OPLLX (YM2423) 9ch FM",
+      "_comment": "OPLLX (YM2423) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH (OPLL built-in rhythm)",
       "init": [],
       "channels": [
         {
@@ -482,11 +608,137 @@
               "val": "0x9"
             }
           ]
+        },
+        {
+          "ch": 9,
+          "_comment": "OPLL BD (~100Hz)",
+          "init": [
+            {
+              "reg": "0x16",
+              "val": "0x8"
+            },
+            {
+              "reg": "0x26",
+              "val": "0x5"
+            },
+            {
+              "reg": "0x17",
+              "val": "0x6d"
+            },
+            {
+              "reg": "0x27",
+              "val": "0x9"
+            },
+            {
+              "reg": "0x18",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x28",
+              "val": "0x7"
+            },
+            {
+              "reg": "0x36",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x37",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x38",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "OPLL SD (~300Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "OPLL TT (~220Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "OPLL CY (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 13,
+          "_comment": "OPLL HH (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
         }
       ]
     },
     "OPLLP": {
-      "_comment": "OPLLP (YMF281) 9ch FM",
+      "_comment": "OPLLP (YMF281) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH (OPLL built-in rhythm)",
       "init": [],
       "channels": [
         {
@@ -722,6 +974,132 @@
               "val": "0x9"
             }
           ]
+        },
+        {
+          "ch": 9,
+          "_comment": "OPLL BD (~100Hz)",
+          "init": [
+            {
+              "reg": "0x16",
+              "val": "0x8"
+            },
+            {
+              "reg": "0x26",
+              "val": "0x5"
+            },
+            {
+              "reg": "0x17",
+              "val": "0x6d"
+            },
+            {
+              "reg": "0x27",
+              "val": "0x9"
+            },
+            {
+              "reg": "0x18",
+              "val": "0x22"
+            },
+            {
+              "reg": "0x28",
+              "val": "0x7"
+            },
+            {
+              "reg": "0x36",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x37",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x38",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "OPLL SD (~300Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "OPLL TT (~220Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "OPLL CY (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 13,
+          "_comment": "OPLL HH (~554Hz)",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x0E",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x0E",
+              "val": "0x20"
+            }
+          ]
         }
       ]
     },
@@ -888,7 +1266,7 @@
       ]
     },
     "Y8950": {
-      "_comment": "Y8950 (MSX-Audio) 9ch FM",
+      "_comment": "Y8950 (MSX-Audio) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH from drums.sb",
       "init": [
         {
           "reg": "0x01",
@@ -1415,13 +1793,247 @@
             {
               "reg": "0xb8",
               "val": "0x13"
+            }
+          ]
+        },
+        {
+          "ch": 20,
+          "_comment": "BD (Bass Drum) 0xBD=0x30",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x50",
+              "val": "0x32"
+            },
+            {
+              "reg": "0x70",
+              "val": "0xf8"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x66"
+            },
+            {
+              "reg": "0xf0",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x33",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x53",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x73",
+              "val": "0xf6"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x57"
+            },
+            {
+              "reg": "0xf3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xC6",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x31",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x51",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x71",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x34",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x54",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x74",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x7"
+            },
+            {
+              "reg": "0xf4",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x32",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x52",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x72",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf2",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x35",
+              "val": "0x4"
+            },
+            {
+              "reg": "0x55",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x75",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA6",
+              "val": "0x90"
+            },
+            {
+              "reg": "0xB6",
+              "val": "0x9"
+            },
+            {
+              "reg": "0xA7",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB7",
+              "val": "0xd"
+            },
+            {
+              "reg": "0xA8",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB8",
+              "val": "0x9"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 21,
+          "_comment": "SD (Snare Drum) 0xBD=0x28",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 22,
+          "_comment": "TT (Tom Tom) 0xBD=0x24",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 23,
+          "_comment": "CY (Cymbal) 0xBD=0x22",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 24,
+          "_comment": "HH (Hi-Hat) 0xBD=0x21",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
             }
           ]
         }
       ]
     },
     "OPL": {
-      "_comment": "OPL (YM3526) 9ch FM",
+      "_comment": "OPL (YM3526) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH from drums.sb",
       "init": [
         {
           "reg": "0x01",
@@ -1948,13 +2560,247 @@
             {
               "reg": "0xb8",
               "val": "0x13"
+            }
+          ]
+        },
+        {
+          "ch": 20,
+          "_comment": "BD (Bass Drum) 0xBD=0x30",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x50",
+              "val": "0x32"
+            },
+            {
+              "reg": "0x70",
+              "val": "0xf8"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x66"
+            },
+            {
+              "reg": "0xf0",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x33",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x53",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x73",
+              "val": "0xf6"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x57"
+            },
+            {
+              "reg": "0xf3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xC6",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x31",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x51",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x71",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x34",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x54",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x74",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x7"
+            },
+            {
+              "reg": "0xf4",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x32",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x52",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x72",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf2",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x35",
+              "val": "0x4"
+            },
+            {
+              "reg": "0x55",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x75",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA6",
+              "val": "0x90"
+            },
+            {
+              "reg": "0xB6",
+              "val": "0x9"
+            },
+            {
+              "reg": "0xA7",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB7",
+              "val": "0xd"
+            },
+            {
+              "reg": "0xA8",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB8",
+              "val": "0x9"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 21,
+          "_comment": "SD (Snare Drum) 0xBD=0x28",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 22,
+          "_comment": "TT (Tom Tom) 0xBD=0x24",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 23,
+          "_comment": "CY (Cymbal) 0xBD=0x22",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 24,
+          "_comment": "HH (Hi-Hat) 0xBD=0x21",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
             }
           ]
         }
       ]
     },
     "OPL2": {
-      "_comment": "OPL2 (YM3812) 9ch FM",
+      "_comment": "OPL2 (YM3812) 9ch FM. Rhythm channels: BD/SD/TT/CY/HH from drums.sb",
       "init": [
         {
           "reg": "0x01",
@@ -2483,11 +3329,245 @@
               "val": "0x13"
             }
           ]
+        },
+        {
+          "ch": 20,
+          "_comment": "BD (Bass Drum) 0xBD=0x30",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x50",
+              "val": "0x32"
+            },
+            {
+              "reg": "0x70",
+              "val": "0xf8"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x66"
+            },
+            {
+              "reg": "0xf0",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x33",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x53",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x73",
+              "val": "0xf6"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x57"
+            },
+            {
+              "reg": "0xf3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xC6",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x31",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x51",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x71",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x34",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x54",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x74",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x7"
+            },
+            {
+              "reg": "0xf4",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x32",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x52",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x72",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf2",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x35",
+              "val": "0x4"
+            },
+            {
+              "reg": "0x55",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x75",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA6",
+              "val": "0x90"
+            },
+            {
+              "reg": "0xB6",
+              "val": "0x9"
+            },
+            {
+              "reg": "0xA7",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB7",
+              "val": "0xd"
+            },
+            {
+              "reg": "0xA8",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB8",
+              "val": "0x9"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 21,
+          "_comment": "SD (Snare Drum) 0xBD=0x28",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 22,
+          "_comment": "TT (Tom Tom) 0xBD=0x24",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 23,
+          "_comment": "CY (Cymbal) 0xBD=0x22",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 24,
+          "_comment": "HH (Hi-Hat) 0xBD=0x21",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
         }
       ]
     },
     "OPL3": {
-      "_comment": "OPL3 (YMF262) 9ch FM. 0x105=0x01でOPL3モードON, 0xC0でパン設定",
+      "_comment": "OPL3 (YMF262): bank0(4OP×3+2OP×3)+bank1(4OP×3+2OP×3) C4半音スケール+rhythm×5",
       "init": [
         {
           "reg": "0x01",
@@ -2497,535 +3577,1362 @@
           "reg": "0x05",
           "val": "0x01",
           "port": 1
+        },
+        {
+          "reg": "0x04",
+          "val": "0x07",
+          "port": 1
         }
       ],
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH0 261Hz block=3 fnum=0x2B0 pan=L",
+          "_comment": "4OP CH0+CH3 C4(262Hz) bank0 CON=1 pan=L block=3 fnum=0x2B2",
           "init": [
             {
               "reg": "0x20",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x40",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x60",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x80",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x23",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x43",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x63",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x83",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x28",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x48",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x68",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x88",
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x2b",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x4b",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x6b",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x8b",
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc0",
-              "val": "0x11"
+              "val": "0x11",
+              "port": 0
+            },
+            {
+              "reg": "0xc3",
+              "val": "0x11",
+              "port": 0
             },
             {
               "reg": "0xa0",
-              "val": "0xb0"
+              "val": "0xb2",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb0",
-              "val": "0x2e"
+              "val": "0x2e",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb0",
-              "val": "0xe"
+              "val": "0xe",
+              "port": 0
             }
           ]
         },
         {
           "ch": 1,
-          "_comment": "CH1 294Hz block=3 fnum=0x307 pan=R",
+          "_comment": "4OP CH1+CH4 C#4(277Hz) bank0 CON=1 pan=R block=3 fnum=0x2DB",
           "init": [
             {
               "reg": "0x21",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x41",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x61",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x81",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x24",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x44",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x64",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x84",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x29",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x49",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x69",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x89",
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x2c",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x4c",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x6c",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x8c",
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc1",
-              "val": "0x21"
+              "val": "0x21",
+              "port": 0
+            },
+            {
+              "reg": "0xc4",
+              "val": "0x21",
+              "port": 0
             },
             {
               "reg": "0xa1",
-              "val": "0x7"
+              "val": "0xdb",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb1",
-              "val": "0x2f"
+              "val": "0x2e",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb1",
-              "val": "0xf"
+              "val": "0xe",
+              "port": 0
             }
           ]
         },
         {
           "ch": 2,
-          "_comment": "CH2 330Hz block=3 fnum=0x366 pan=LR",
+          "_comment": "4OP CH2+CH5 D4(294Hz) bank0 CON=1 pan=LR block=3 fnum=0x306",
           "init": [
             {
               "reg": "0x22",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x42",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x62",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x82",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x25",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x45",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x65",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x85",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
-            {
-              "reg": "0xc2",
-              "val": "0x31"
-            },
-            {
-              "reg": "0xa2",
-              "val": "0x66"
-            }
-          ],
-          "key_on": [
-            {
-              "reg": "0xb2",
-              "val": "0x2f"
-            }
-          ],
-          "key_off": [
-            {
-              "reg": "0xb2",
-              "val": "0xf"
-            }
-          ]
-        },
-        {
-          "ch": 3,
-          "_comment": "CH3 349Hz block=3 fnum=0x398 pan=L",
-          "init": [
-            {
-              "reg": "0x28",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x48",
-              "val": "0x28"
-            },
-            {
-              "reg": "0x68",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x88",
-              "val": "0x77"
-            },
-            {
-              "reg": "0x2b",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x4b",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x6b",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x8b",
-              "val": "0x55"
-            },
-            {
-              "reg": "0xc3",
-              "val": "0x11"
-            },
-            {
-              "reg": "0xa3",
-              "val": "0x98"
-            }
-          ],
-          "key_on": [
-            {
-              "reg": "0xb3",
-              "val": "0x2f"
-            }
-          ],
-          "key_off": [
-            {
-              "reg": "0xb3",
-              "val": "0xf"
-            }
-          ]
-        },
-        {
-          "ch": 4,
-          "_comment": "CH4 392Hz block=4 fnum=0x205 pan=R",
-          "init": [
-            {
-              "reg": "0x29",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x49",
-              "val": "0x28"
-            },
-            {
-              "reg": "0x69",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x89",
-              "val": "0x77"
-            },
-            {
-              "reg": "0x2c",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x4c",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x6c",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x8c",
-              "val": "0x55"
-            },
-            {
-              "reg": "0xc4",
-              "val": "0x21"
-            },
-            {
-              "reg": "0xa4",
-              "val": "0x5"
-            }
-          ],
-          "key_on": [
-            {
-              "reg": "0xb4",
-              "val": "0x32"
-            }
-          ],
-          "key_off": [
-            {
-              "reg": "0xb4",
-              "val": "0x12"
-            }
-          ]
-        },
-        {
-          "ch": 5,
-          "_comment": "CH5 440Hz block=4 fnum=0x244 pan=LR",
-          "init": [
             {
               "reg": "0x2a",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x4a",
-              "val": "0x28"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x6a",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x8a",
-              "val": "0x77"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0x2d",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x4d",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x6d",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x8d",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0xc2",
+              "val": "0x31",
+              "port": 0
             },
             {
               "reg": "0xc5",
-              "val": "0x31"
+              "val": "0x31",
+              "port": 0
             },
             {
-              "reg": "0xa5",
-              "val": "0x44"
+              "reg": "0xa2",
+              "val": "0x6",
+              "port": 0
             }
           ],
           "key_on": [
             {
-              "reg": "0xb5",
-              "val": "0x32"
+              "reg": "0xb2",
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
-              "reg": "0xb5",
-              "val": "0x12"
+              "reg": "0xb2",
+              "val": "0xf",
+              "port": 0
             }
           ]
         },
         {
           "ch": 6,
-          "_comment": "CH6 494Hz block=4 fnum=0x28B pan=L",
+          "_comment": "2OP CH6 D#4(311Hz) bank0 pan=L block=3 fnum=0x334",
           "init": [
             {
               "reg": "0x30",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x50",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x70",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x90",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x33",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x53",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x73",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x93",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc6",
-              "val": "0x11"
+              "val": "0x11",
+              "port": 0
             },
             {
               "reg": "0xa6",
-              "val": "0x8b"
+              "val": "0x34",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb6",
-              "val": "0x32"
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb6",
-              "val": "0x12"
+              "val": "0xf",
+              "port": 0
             }
           ]
         },
         {
           "ch": 7,
-          "_comment": "CH7 523Hz block=4 fnum=0x2B1 pan=R",
+          "_comment": "2OP CH7 E4(330Hz) bank0 pan=R block=3 fnum=0x365",
           "init": [
             {
               "reg": "0x31",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x51",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x71",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x91",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x34",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x54",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x74",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x94",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc7",
-              "val": "0x21"
+              "val": "0x21",
+              "port": 0
             },
             {
               "reg": "0xa7",
-              "val": "0xb1"
+              "val": "0x65",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb7",
-              "val": "0x32"
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb7",
-              "val": "0x12"
+              "val": "0xf",
+              "port": 0
             }
           ]
         },
         {
           "ch": 8,
-          "_comment": "CH8 587Hz block=4 fnum=0x306 pan=LR",
+          "_comment": "2OP CH8 F4(349Hz) bank0 pan=LR block=3 fnum=0x399",
           "init": [
             {
               "reg": "0x32",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x52",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x72",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x92",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x35",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x55",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x75",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x95",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc8",
-              "val": "0x31"
+              "val": "0x31",
+              "port": 0
             },
             {
               "reg": "0xa8",
-              "val": "0x6"
+              "val": "0x99",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb8",
-              "val": "0x33"
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb8",
-              "val": "0x13"
+              "val": "0xf",
+              "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 9,
+          "_comment": "4OP CH9+CH12 F#4(370Hz) bank1 CON=1 pan=L block=3 fnum=0x3CF",
+          "init": [
+            {
+              "reg": "0x20",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x40",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x60",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x80",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x23",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x43",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x63",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x83",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x28",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x48",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x68",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x88",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2b",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4b",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6b",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8b",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc0",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0xc3",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0xa0",
+              "val": "0xcf",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb0",
+              "val": "0x2f",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb0",
+              "val": "0xf",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "4OP CH10+CH13 G4(392Hz) bank1 CON=1 pan=R block=4 fnum=0x205",
+          "init": [
+            {
+              "reg": "0x21",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x41",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x61",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x81",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x24",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x44",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x64",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x84",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x29",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x49",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x69",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x89",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2c",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4c",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6c",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8c",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc1",
+              "val": "0x21",
+              "port": 1
+            },
+            {
+              "reg": "0xc4",
+              "val": "0x21",
+              "port": 1
+            },
+            {
+              "reg": "0xa1",
+              "val": "0x5",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb1",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb1",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "4OP CH11+CH14 G#4(415Hz) bank1 CON=1 pan=LR block=4 fnum=0x223",
+          "init": [
+            {
+              "reg": "0x22",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x42",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x62",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x82",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x25",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x45",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x65",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x85",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2a",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4a",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6a",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8a",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2d",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4d",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6d",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8d",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc2",
+              "val": "0x31",
+              "port": 1
+            },
+            {
+              "reg": "0xc5",
+              "val": "0x31",
+              "port": 1
+            },
+            {
+              "reg": "0xa2",
+              "val": "0x23",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb2",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb2",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 15,
+          "_comment": "2OP CH15 A4(440Hz) bank1 pan=L block=4 fnum=0x244",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x50",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x70",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x90",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x33",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x53",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x73",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x93",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc6",
+              "val": "0x11",
+              "port": 1
+            },
+            {
+              "reg": "0xa6",
+              "val": "0x44",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb6",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb6",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 16,
+          "_comment": "2OP CH16 A#4(466Hz) bank1 pan=R block=4 fnum=0x266",
+          "init": [
+            {
+              "reg": "0x31",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x51",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x71",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x91",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x34",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x54",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x74",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x94",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc7",
+              "val": "0x21",
+              "port": 1
+            },
+            {
+              "reg": "0xa7",
+              "val": "0x66",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb7",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb7",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 17,
+          "_comment": "2OP CH17 B4(494Hz) bank1 pan=LR block=4 fnum=0x28B",
+          "init": [
+            {
+              "reg": "0x32",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x52",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x72",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x92",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x35",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x55",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x75",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x95",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc8",
+              "val": "0x31",
+              "port": 1
+            },
+            {
+              "reg": "0xa8",
+              "val": "0x8b",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb8",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb8",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 20,
+          "_comment": "BD (Bass Drum) 0xBD=0x30",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x50",
+              "val": "0x32"
+            },
+            {
+              "reg": "0x70",
+              "val": "0xf8"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x66"
+            },
+            {
+              "reg": "0xf0",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x33",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x53",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x73",
+              "val": "0xf6"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x57"
+            },
+            {
+              "reg": "0xf3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xC6",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x31",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x51",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x71",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x34",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x54",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x74",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x7"
+            },
+            {
+              "reg": "0xf4",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x32",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x52",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x72",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf2",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x35",
+              "val": "0x4"
+            },
+            {
+              "reg": "0x55",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x75",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA6",
+              "val": "0x90"
+            },
+            {
+              "reg": "0xB6",
+              "val": "0x9"
+            },
+            {
+              "reg": "0xA7",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB7",
+              "val": "0xd"
+            },
+            {
+              "reg": "0xA8",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB8",
+              "val": "0x9"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 21,
+          "_comment": "SD (Snare Drum) 0xBD=0x28",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 22,
+          "_comment": "TT (Tom Tom) 0xBD=0x24",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 23,
+          "_comment": "CY (Cymbal) 0xBD=0x22",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 24,
+          "_comment": "HH (Hi-Hat) 0xBD=0x21",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
             }
           ]
         }
       ]
     },
     "OPL4": {
-      "_comment": "OPL4 (YMF278B) 9ch FM. 0x105=0x01でnewflag=1, 0xC0 bit7=DO0-R/bit6=DO0-L/bit5=OPL3-R/bit4=OPL3-L",
+      "_comment": "OPL4 (YMF278B): bank0(4OP×3+2OP×3)+bank1(4OP×3+2OP×3) C4半音スケール+rhythm×5",
       "init": [
         {
           "reg": "0x01",
@@ -3035,535 +4942,1362 @@
           "reg": "0x05",
           "val": "0x01",
           "port": 1
+        },
+        {
+          "reg": "0x04",
+          "val": "0x07",
+          "port": 1
         }
       ],
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH0 261Hz block=3 fnum=0x2B3 pan=L",
+          "_comment": "4OP CH0+CH3 C4(262Hz) bank0 CON=1 pan=L block=3 fnum=0x2B5",
           "init": [
             {
               "reg": "0x20",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x40",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x60",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x80",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x23",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x43",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x63",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x83",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x28",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x48",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x68",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x88",
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x2b",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x4b",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x6b",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x8b",
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc0",
-              "val": "0x51"
+              "val": "0x51",
+              "port": 0
+            },
+            {
+              "reg": "0xc3",
+              "val": "0x51",
+              "port": 0
             },
             {
               "reg": "0xa0",
-              "val": "0xb3"
+              "val": "0xb5",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb0",
-              "val": "0x2e"
+              "val": "0x2e",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb0",
-              "val": "0xe"
+              "val": "0xe",
+              "port": 0
             }
           ]
         },
         {
           "ch": 1,
-          "_comment": "CH1 294Hz block=3 fnum=0x30A pan=R",
+          "_comment": "4OP CH1+CH4 C#4(277Hz) bank0 CON=1 pan=R block=3 fnum=0x2DE",
           "init": [
             {
               "reg": "0x21",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x41",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x61",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x81",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x24",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x44",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x64",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x84",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x29",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x49",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x69",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x89",
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0x2c",
+              "val": "0x01",
+              "port": 0
+            },
+            {
+              "reg": "0x4c",
+              "val": "0x00",
+              "port": 0
+            },
+            {
+              "reg": "0x6c",
+              "val": "0xF0",
+              "port": 0
+            },
+            {
+              "reg": "0x8c",
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc1",
-              "val": "0xa1"
+              "val": "0xa1",
+              "port": 0
+            },
+            {
+              "reg": "0xc4",
+              "val": "0xa1",
+              "port": 0
             },
             {
               "reg": "0xa1",
-              "val": "0xa"
+              "val": "0xde",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb1",
-              "val": "0x2f"
+              "val": "0x2e",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb1",
-              "val": "0xf"
+              "val": "0xe",
+              "port": 0
             }
           ]
         },
         {
           "ch": 2,
-          "_comment": "CH2 330Hz block=3 fnum=0x36A pan=LR",
+          "_comment": "4OP CH2+CH5 D4(294Hz) bank0 CON=1 pan=LR block=3 fnum=0x309",
           "init": [
             {
               "reg": "0x22",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x42",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x62",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x82",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x25",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x45",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x65",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x85",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
-            {
-              "reg": "0xc2",
-              "val": "0xf1"
-            },
-            {
-              "reg": "0xa2",
-              "val": "0x6a"
-            }
-          ],
-          "key_on": [
-            {
-              "reg": "0xb2",
-              "val": "0x2f"
-            }
-          ],
-          "key_off": [
-            {
-              "reg": "0xb2",
-              "val": "0xf"
-            }
-          ]
-        },
-        {
-          "ch": 3,
-          "_comment": "CH3 349Hz block=3 fnum=0x39C pan=L",
-          "init": [
-            {
-              "reg": "0x28",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x48",
-              "val": "0x28"
-            },
-            {
-              "reg": "0x68",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x88",
-              "val": "0x77"
-            },
-            {
-              "reg": "0x2b",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x4b",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x6b",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x8b",
-              "val": "0x55"
-            },
-            {
-              "reg": "0xc3",
-              "val": "0x51"
-            },
-            {
-              "reg": "0xa3",
-              "val": "0x9c"
-            }
-          ],
-          "key_on": [
-            {
-              "reg": "0xb3",
-              "val": "0x2f"
-            }
-          ],
-          "key_off": [
-            {
-              "reg": "0xb3",
-              "val": "0xf"
-            }
-          ]
-        },
-        {
-          "ch": 4,
-          "_comment": "CH4 392Hz block=4 fnum=0x207 pan=R",
-          "init": [
-            {
-              "reg": "0x29",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x49",
-              "val": "0x28"
-            },
-            {
-              "reg": "0x69",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x89",
-              "val": "0x77"
-            },
-            {
-              "reg": "0x2c",
-              "val": "0x01"
-            },
-            {
-              "reg": "0x4c",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x6c",
-              "val": "0xF0"
-            },
-            {
-              "reg": "0x8c",
-              "val": "0x55"
-            },
-            {
-              "reg": "0xc4",
-              "val": "0xa1"
-            },
-            {
-              "reg": "0xa4",
-              "val": "0x7"
-            }
-          ],
-          "key_on": [
-            {
-              "reg": "0xb4",
-              "val": "0x32"
-            }
-          ],
-          "key_off": [
-            {
-              "reg": "0xb4",
-              "val": "0x12"
-            }
-          ]
-        },
-        {
-          "ch": 5,
-          "_comment": "CH5 440Hz block=4 fnum=0x246 pan=LR",
-          "init": [
             {
               "reg": "0x2a",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x4a",
-              "val": "0x28"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x6a",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x8a",
-              "val": "0x77"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0x2d",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x4d",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x6d",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x8d",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
+            },
+            {
+              "reg": "0xc2",
+              "val": "0xf1",
+              "port": 0
             },
             {
               "reg": "0xc5",
-              "val": "0xf1"
+              "val": "0xf1",
+              "port": 0
             },
             {
-              "reg": "0xa5",
-              "val": "0x46"
+              "reg": "0xa2",
+              "val": "0x9",
+              "port": 0
             }
           ],
           "key_on": [
             {
-              "reg": "0xb5",
-              "val": "0x32"
+              "reg": "0xb2",
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
-              "reg": "0xb5",
-              "val": "0x12"
+              "reg": "0xb2",
+              "val": "0xf",
+              "port": 0
             }
           ]
         },
         {
           "ch": 6,
-          "_comment": "CH6 494Hz block=4 fnum=0x28E pan=L",
+          "_comment": "2OP CH6 D#4(311Hz) bank0 pan=L block=3 fnum=0x338",
           "init": [
             {
               "reg": "0x30",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x50",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x70",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x90",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x33",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x53",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x73",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x93",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc6",
-              "val": "0x51"
+              "val": "0x51",
+              "port": 0
             },
             {
               "reg": "0xa6",
-              "val": "0x8e"
+              "val": "0x38",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb6",
-              "val": "0x32"
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb6",
-              "val": "0x12"
+              "val": "0xf",
+              "port": 0
             }
           ]
         },
         {
           "ch": 7,
-          "_comment": "CH7 523Hz block=4 fnum=0x2B4 pan=R",
+          "_comment": "2OP CH7 E4(330Hz) bank0 pan=R block=3 fnum=0x369",
           "init": [
             {
               "reg": "0x31",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x51",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x71",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x91",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x34",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x54",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x74",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x94",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc7",
-              "val": "0xa1"
+              "val": "0xa1",
+              "port": 0
             },
             {
               "reg": "0xa7",
-              "val": "0xb4"
+              "val": "0x69",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb7",
-              "val": "0x32"
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb7",
-              "val": "0x12"
+              "val": "0xf",
+              "port": 0
             }
           ]
         },
         {
           "ch": 8,
-          "_comment": "CH8 587Hz block=4 fnum=0x309 pan=LR",
+          "_comment": "2OP CH8 F4(349Hz) bank0 pan=LR block=3 fnum=0x39C",
           "init": [
             {
               "reg": "0x32",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x52",
-              "val": "0x28"
+              "val": "0x28",
+              "port": 0
             },
             {
               "reg": "0x72",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x92",
-              "val": "0x77"
+              "val": "0x77",
+              "port": 0
             },
             {
               "reg": "0x35",
-              "val": "0x01"
+              "val": "0x01",
+              "port": 0
             },
             {
               "reg": "0x55",
-              "val": "0x00"
+              "val": "0x00",
+              "port": 0
             },
             {
               "reg": "0x75",
-              "val": "0xF0"
+              "val": "0xF0",
+              "port": 0
             },
             {
               "reg": "0x95",
-              "val": "0x55"
+              "val": "0x55",
+              "port": 0
             },
             {
               "reg": "0xc8",
-              "val": "0xf1"
+              "val": "0xf1",
+              "port": 0
             },
             {
               "reg": "0xa8",
-              "val": "0x9"
+              "val": "0x9c",
+              "port": 0
             }
           ],
           "key_on": [
             {
               "reg": "0xb8",
-              "val": "0x33"
+              "val": "0x2f",
+              "port": 0
             }
           ],
           "key_off": [
             {
               "reg": "0xb8",
-              "val": "0x13"
+              "val": "0xf",
+              "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 9,
+          "_comment": "4OP CH9+CH12 F#4(370Hz) bank1 CON=1 pan=L block=3 fnum=0x3D3",
+          "init": [
+            {
+              "reg": "0x20",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x40",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x60",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x80",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x23",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x43",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x63",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x83",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x28",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x48",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x68",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x88",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2b",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4b",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6b",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8b",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc0",
+              "val": "0x51",
+              "port": 1
+            },
+            {
+              "reg": "0xc3",
+              "val": "0x51",
+              "port": 1
+            },
+            {
+              "reg": "0xa0",
+              "val": "0xd3",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb0",
+              "val": "0x2f",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb0",
+              "val": "0xf",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "4OP CH10+CH13 G4(392Hz) bank1 CON=1 pan=R block=4 fnum=0x207",
+          "init": [
+            {
+              "reg": "0x21",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x41",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x61",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x81",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x24",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x44",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x64",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x84",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x29",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x49",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x69",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x89",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2c",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4c",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6c",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8c",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc1",
+              "val": "0xa1",
+              "port": 1
+            },
+            {
+              "reg": "0xc4",
+              "val": "0xa1",
+              "port": 1
+            },
+            {
+              "reg": "0xa1",
+              "val": "0x7",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb1",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb1",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "4OP CH11+CH14 G#4(415Hz) bank1 CON=1 pan=LR block=4 fnum=0x226",
+          "init": [
+            {
+              "reg": "0x22",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x42",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x62",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x82",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x25",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x45",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x65",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x85",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2a",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4a",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6a",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8a",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0x2d",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x4d",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x6d",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x8d",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc2",
+              "val": "0xf1",
+              "port": 1
+            },
+            {
+              "reg": "0xc5",
+              "val": "0xf1",
+              "port": 1
+            },
+            {
+              "reg": "0xa2",
+              "val": "0x26",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb2",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb2",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 15,
+          "_comment": "2OP CH15 A4(440Hz) bank1 pan=L block=4 fnum=0x246",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x50",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x70",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x90",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x33",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x53",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x73",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x93",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc6",
+              "val": "0x51",
+              "port": 1
+            },
+            {
+              "reg": "0xa6",
+              "val": "0x46",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb6",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb6",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 16,
+          "_comment": "2OP CH16 A#4(466Hz) bank1 pan=R block=4 fnum=0x269",
+          "init": [
+            {
+              "reg": "0x31",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x51",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x71",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x91",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x34",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x54",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x74",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x94",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc7",
+              "val": "0xa1",
+              "port": 1
+            },
+            {
+              "reg": "0xa7",
+              "val": "0x69",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb7",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb7",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 17,
+          "_comment": "2OP CH17 B4(494Hz) bank1 pan=LR block=4 fnum=0x28E",
+          "init": [
+            {
+              "reg": "0x32",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x52",
+              "val": "0x28",
+              "port": 1
+            },
+            {
+              "reg": "0x72",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x92",
+              "val": "0x77",
+              "port": 1
+            },
+            {
+              "reg": "0x35",
+              "val": "0x01",
+              "port": 1
+            },
+            {
+              "reg": "0x55",
+              "val": "0x00",
+              "port": 1
+            },
+            {
+              "reg": "0x75",
+              "val": "0xF0",
+              "port": 1
+            },
+            {
+              "reg": "0x95",
+              "val": "0x55",
+              "port": 1
+            },
+            {
+              "reg": "0xc8",
+              "val": "0xf1",
+              "port": 1
+            },
+            {
+              "reg": "0xa8",
+              "val": "0x8e",
+              "port": 1
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xb8",
+              "val": "0x32",
+              "port": 1
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xb8",
+              "val": "0x12",
+              "port": 1
+            }
+          ]
+        },
+        {
+          "ch": 20,
+          "_comment": "BD (Bass Drum) 0xBD=0x30",
+          "init": [
+            {
+              "reg": "0x30",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x50",
+              "val": "0x32"
+            },
+            {
+              "reg": "0x70",
+              "val": "0xf8"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x66"
+            },
+            {
+              "reg": "0xf0",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x33",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x53",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x73",
+              "val": "0xf6"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x57"
+            },
+            {
+              "reg": "0xf3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xC6",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x31",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x51",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x71",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x34",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x54",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x74",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x7"
+            },
+            {
+              "reg": "0xf4",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x32",
+              "val": "0x2"
+            },
+            {
+              "reg": "0x52",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x72",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf2",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x35",
+              "val": "0x4"
+            },
+            {
+              "reg": "0x55",
+              "val": "0x3"
+            },
+            {
+              "reg": "0x75",
+              "val": "0xf0"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x6"
+            },
+            {
+              "reg": "0xf5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0xA6",
+              "val": "0x90"
+            },
+            {
+              "reg": "0xB6",
+              "val": "0x9"
+            },
+            {
+              "reg": "0xA7",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB7",
+              "val": "0xd"
+            },
+            {
+              "reg": "0xA8",
+              "val": "0xf4"
+            },
+            {
+              "reg": "0xB8",
+              "val": "0x9"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x30"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 21,
+          "_comment": "SD (Snare Drum) 0xBD=0x28",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x28"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 22,
+          "_comment": "TT (Tom Tom) 0xBD=0x24",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x24"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 23,
+          "_comment": "CY (Cymbal) 0xBD=0x22",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x22"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
+            }
+          ]
+        },
+        {
+          "ch": 24,
+          "_comment": "HH (Hi-Hat) 0xBD=0x21",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0xBD",
+              "val": "0x21"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xBD",
+              "val": "0x20"
             }
           ]
         }
       ]
     },
     "OPN": {
-      "_comment": "OPN (YM2203) 3ch FM",
+      "_comment": "OPN (YM2203) 3ch FM + 3ch SSG",
       "init": [
         {
           "reg": "0x27",
@@ -3573,7 +6307,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH1 261Hz block=4 fnum=0x4D2",
+          "_comment": "CH1 262Hz block=3 fnum=0x4D5",
           "port": 0,
           "init": [
             {
@@ -3678,11 +6412,11 @@
             },
             {
               "reg": "0xa4",
-              "val": "0x24"
+              "val": "0x1c"
             },
             {
               "reg": "0xa0",
-              "val": "0xd2"
+              "val": "0xd5"
             }
           ],
           "key_on": [
@@ -3702,7 +6436,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH2 330Hz block=4 fnum=0x618",
+          "_comment": "CH2 330Hz block=3 fnum=0x616",
           "port": 0,
           "init": [
             {
@@ -3807,11 +6541,11 @@
             },
             {
               "reg": "0xa5",
-              "val": "0x26"
+              "val": "0x1e"
             },
             {
               "reg": "0xa1",
-              "val": "0x18"
+              "val": "0x16"
             }
           ],
           "key_on": [
@@ -3831,7 +6565,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 440Hz block=5 fnum=0x410",
+          "_comment": "CH3 440Hz block=4 fnum=0x410",
           "port": 0,
           "init": [
             {
@@ -3936,7 +6670,7 @@
             },
             {
               "reg": "0xa6",
-              "val": "0x2c"
+              "val": "0x24"
             },
             {
               "reg": "0xa2",
@@ -3955,6 +6689,108 @@
               "reg": "0x28",
               "val": "0x2",
               "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "SSG CHA 262Hz",
+          "init": [
+            {
+              "reg": "0x0",
+              "val": "0xef"
+            },
+            {
+              "reg": "0x1",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3e"
+            },
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x8",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "SSG CHB 330Hz",
+          "init": [
+            {
+              "reg": "0x2",
+              "val": "0xbd"
+            },
+            {
+              "reg": "0x3",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3d"
+            },
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x9",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "SSG CHC 392Hz",
+          "init": [
+            {
+              "reg": "0x4",
+              "val": "0x9f"
+            },
+            {
+              "reg": "0x5",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3b"
+            },
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xa",
+              "val": "0x00"
             }
           ]
         }
@@ -4946,7 +7782,7 @@
       ]
     },
     "OPNA": {
-      "_comment": "OPNA (YM2608) 6ch FM",
+      "_comment": "OPNA (YM2608) 6ch FM + 3ch SSG. 0x29=0x80 でCH3-5有効化",
       "init": [
         {
           "reg": "0x22",
@@ -4968,7 +7804,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH1 261Hz port=0 block=3 fnum=0x4D2 pan=L",
+          "_comment": "CH1 262Hz port=0 block=3 fnum=0x4D5 pan=L",
           "port": 0,
           "init": [
             {
@@ -5108,7 +7944,7 @@
             },
             {
               "reg": "0xa0",
-              "val": "0xd2",
+              "val": "0xd5",
               "port": 0
             }
           ],
@@ -5129,7 +7965,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH2 294Hz port=0 block=3 fnum=0x56D pan=R",
+          "_comment": "CH2 294Hz port=0 block=3 fnum=0x56C pan=R",
           "port": 0,
           "init": [
             {
@@ -5269,7 +8105,7 @@
             },
             {
               "reg": "0xa1",
-              "val": "0x6d",
+              "val": "0x6c",
               "port": 0
             }
           ],
@@ -5290,7 +8126,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 330Hz port=0 block=3 fnum=0x618 pan=LR",
+          "_comment": "CH3 330Hz port=0 block=3 fnum=0x616 pan=LR",
           "port": 0,
           "init": [
             {
@@ -5430,7 +8266,7 @@
             },
             {
               "reg": "0xa2",
-              "val": "0x18",
+              "val": "0x16",
               "port": 0
             }
           ],
@@ -5931,16 +8767,118 @@
               "port": 0
             }
           ]
+        },
+        {
+          "ch": 10,
+          "_comment": "SSG CHA 262Hz",
+          "init": [
+            {
+              "reg": "0x0",
+              "val": "0xdd"
+            },
+            {
+              "reg": "0x1",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3e"
+            },
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x8",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "SSG CHB 330Hz",
+          "init": [
+            {
+              "reg": "0x2",
+              "val": "0x7b"
+            },
+            {
+              "reg": "0x3",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3d"
+            },
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x9",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "SSG CHC 392Hz",
+          "init": [
+            {
+              "reg": "0x4",
+              "val": "0x3e"
+            },
+            {
+              "reg": "0x5",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3b"
+            },
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xa",
+              "val": "0x00"
+            }
+          ]
         }
       ]
     },
     "OPNBB": {
-      "_comment": "OPNBB (YM2610B) 6ch FM",
+      "_comment": "OPNBB (YM2610B) 6ch FM + 3ch SSG",
       "init": [],
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH1 261Hz port=0 block=3 fnum=0x4D0 pan=L",
+          "_comment": "CH1 262Hz port=0 block=3 fnum=0x4D3 pan=L",
           "port": 0,
           "init": [
             {
@@ -6080,7 +9018,7 @@
             },
             {
               "reg": "0xa0",
-              "val": "0xd0",
+              "val": "0xd3",
               "port": 0
             }
           ],
@@ -6101,7 +9039,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH2 294Hz port=0 block=3 fnum=0x56B pan=R",
+          "_comment": "CH2 294Hz port=0 block=3 fnum=0x56A pan=R",
           "port": 0,
           "init": [
             {
@@ -6241,7 +9179,7 @@
             },
             {
               "reg": "0xa1",
-              "val": "0x6b",
+              "val": "0x6a",
               "port": 0
             }
           ],
@@ -6262,7 +9200,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 330Hz port=0 block=3 fnum=0x615 pan=LR",
+          "_comment": "CH3 330Hz port=0 block=3 fnum=0x613 pan=LR",
           "port": 0,
           "init": [
             {
@@ -6402,7 +9340,7 @@
             },
             {
               "reg": "0xa2",
-              "val": "0x15",
+              "val": "0x13",
               "port": 0
             }
           ],
@@ -6903,16 +9841,118 @@
               "port": 0
             }
           ]
+        },
+        {
+          "ch": 10,
+          "_comment": "SSG CHA 262Hz",
+          "init": [
+            {
+              "reg": "0x0",
+              "val": "0xde"
+            },
+            {
+              "reg": "0x1",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3e"
+            },
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x8",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "SSG CHB 330Hz",
+          "init": [
+            {
+              "reg": "0x2",
+              "val": "0x7b"
+            },
+            {
+              "reg": "0x3",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3d"
+            },
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x9",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "SSG CHC 392Hz",
+          "init": [
+            {
+              "reg": "0x4",
+              "val": "0x3f"
+            },
+            {
+              "reg": "0x5",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3b"
+            },
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xa",
+              "val": "0x00"
+            }
+          ]
         }
       ]
     },
     "OPNB": {
-      "_comment": "OPNB (YM2610) 4ch FM (channel_mask=0x36)",
+      "_comment": "OPNB (YM2610) 4ch FM + 3ch SSG (CH0/3は無効)",
       "init": [],
       "channels": [
         {
           "ch": 1,
-          "_comment": "CH2 294Hz port=0 block=3 fnum=0x56B pan=L",
+          "_comment": "CH2 294Hz port=0 block=3 fnum=0x56A pan=L",
           "port": 0,
           "init": [
             {
@@ -7052,7 +10092,7 @@
             },
             {
               "reg": "0xa1",
-              "val": "0x6b",
+              "val": "0x6a",
               "port": 0
             }
           ],
@@ -7073,7 +10113,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH3 330Hz port=0 block=3 fnum=0x615 pan=R",
+          "_comment": "CH3 330Hz port=0 block=3 fnum=0x613 pan=R",
           "port": 0,
           "init": [
             {
@@ -7213,7 +10253,7 @@
             },
             {
               "reg": "0xa2",
-              "val": "0x15",
+              "val": "0x13",
               "port": 0
             }
           ],
@@ -7551,6 +10591,108 @@
               "reg": "0x28",
               "val": "0x6",
               "port": 0
+            }
+          ]
+        },
+        {
+          "ch": 10,
+          "_comment": "SSG CHA 262Hz",
+          "init": [
+            {
+              "reg": "0x0",
+              "val": "0xde"
+            },
+            {
+              "reg": "0x1",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3e"
+            },
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x8",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x8",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 11,
+          "_comment": "SSG CHB 330Hz",
+          "init": [
+            {
+              "reg": "0x2",
+              "val": "0x7b"
+            },
+            {
+              "reg": "0x3",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3d"
+            },
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x9",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x9",
+              "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 12,
+          "_comment": "SSG CHC 392Hz",
+          "init": [
+            {
+              "reg": "0x4",
+              "val": "0x3f"
+            },
+            {
+              "reg": "0x5",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x07",
+              "val": "0x3b"
+            },
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0xa",
+              "val": "0x0F"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0xa",
+              "val": "0x00"
             }
           ]
         }
@@ -9812,7 +12954,7 @@
       ]
     },
     "OPM": {
-      "_comment": "OPM (YM2151) 8ch. OPM opオフセット: CH c の M1=c, M2=c+8, C1=c+16, C2=c+24 (ch*4 ではない)",
+      "_comment": "OPM (YM2151) 8ch. op offset: CH c → M1=c, M2=c+8, C1=c+16, C2=c+24",
       "init": [
         {
           "reg": "0x01",
@@ -9842,19 +12984,19 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH0 C4 pan=L ALG=4",
+          "_comment": "CH0 C4(262Hz→262Hz) pan=L",
           "init": [
             {
               "reg": "0x20",
-              "val": "0x44"
-            },
-            {
-              "reg": "0x28",
               "val": "0x40"
             },
             {
+              "reg": "0x28",
+              "val": "0x3e"
+            },
+            {
               "reg": "0x30",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x38",
@@ -9870,19 +13012,19 @@
             },
             {
               "reg": "0x80",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa0",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc0",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe0",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x48",
@@ -9894,19 +13036,19 @@
             },
             {
               "reg": "0x88",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa8",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc8",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe8",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x50",
@@ -9914,23 +13056,23 @@
             },
             {
               "reg": "0x70",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x90",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb0",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd0",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf0",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x58",
@@ -9938,23 +13080,23 @@
             },
             {
               "reg": "0x78",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x98",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb8",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd8",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf8",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
@@ -9972,19 +13114,19 @@
         },
         {
           "ch": 1,
-          "_comment": "CH1 D4 pan=R ALG=4",
+          "_comment": "CH1 D4(294Hz→294Hz) pan=R",
           "init": [
             {
               "reg": "0x21",
-              "val": "0x84"
+              "val": "0x80"
             },
             {
               "reg": "0x29",
-              "val": "0x42"
+              "val": "0x41"
             },
             {
               "reg": "0x31",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x39",
@@ -10000,19 +13142,19 @@
             },
             {
               "reg": "0x81",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa1",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc1",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe1",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x49",
@@ -10024,19 +13166,19 @@
             },
             {
               "reg": "0x89",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa9",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc9",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe9",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x51",
@@ -10044,23 +13186,23 @@
             },
             {
               "reg": "0x71",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x91",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb1",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd1",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf1",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x59",
@@ -10068,23 +13210,23 @@
             },
             {
               "reg": "0x79",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x99",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb9",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd9",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf9",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
@@ -10102,19 +13244,19 @@
         },
         {
           "ch": 2,
-          "_comment": "CH2 E4 pan=LR ALG=4",
+          "_comment": "CH2 E4(330Hz→330Hz) pan=LR",
           "init": [
             {
               "reg": "0x22",
-              "val": "0xc4"
+              "val": "0xc0"
             },
             {
               "reg": "0x2a",
-              "val": "0x45"
+              "val": "0x43"
             },
             {
               "reg": "0x32",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x3a",
@@ -10130,19 +13272,19 @@
             },
             {
               "reg": "0x82",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa2",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc2",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe2",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x4a",
@@ -10154,19 +13296,19 @@
             },
             {
               "reg": "0x8a",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xaa",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xca",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xea",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x52",
@@ -10174,23 +13316,23 @@
             },
             {
               "reg": "0x72",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x92",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb2",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd2",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf2",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x5a",
@@ -10198,23 +13340,23 @@
             },
             {
               "reg": "0x7a",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x9a",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xba",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xda",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xfa",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
@@ -10232,19 +13374,19 @@
         },
         {
           "ch": 3,
-          "_comment": "CH3 F4 pan=L ALG=4",
+          "_comment": "CH3 F4(349Hz→349Hz) pan=L",
           "init": [
             {
               "reg": "0x23",
-              "val": "0x44"
+              "val": "0x40"
             },
             {
               "reg": "0x2b",
-              "val": "0x46"
+              "val": "0x45"
             },
             {
               "reg": "0x33",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x3b",
@@ -10260,19 +13402,19 @@
             },
             {
               "reg": "0x83",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa3",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc3",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe3",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x4b",
@@ -10284,19 +13426,19 @@
             },
             {
               "reg": "0x8b",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xab",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xcb",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xeb",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x53",
@@ -10304,23 +13446,23 @@
             },
             {
               "reg": "0x73",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x93",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb3",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd3",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf3",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x5b",
@@ -10328,23 +13470,23 @@
             },
             {
               "reg": "0x7b",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x9b",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xbb",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xdb",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xfb",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
@@ -10362,19 +13504,19 @@
         },
         {
           "ch": 4,
-          "_comment": "CH4 G4 pan=R ALG=4",
+          "_comment": "CH4 G4(392Hz→392Hz) pan=R",
           "init": [
             {
               "reg": "0x24",
-              "val": "0x84"
+              "val": "0x80"
             },
             {
               "reg": "0x2c",
-              "val": "0x49"
+              "val": "0x47"
             },
             {
               "reg": "0x34",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x3c",
@@ -10390,19 +13532,19 @@
             },
             {
               "reg": "0x84",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa4",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc4",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe4",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x4c",
@@ -10414,19 +13556,19 @@
             },
             {
               "reg": "0x8c",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xac",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xcc",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xec",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x54",
@@ -10434,23 +13576,23 @@
             },
             {
               "reg": "0x74",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x94",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb4",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd4",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf4",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x5c",
@@ -10458,23 +13600,23 @@
             },
             {
               "reg": "0x7c",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x9c",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xbc",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xdc",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xfc",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
@@ -10492,19 +13634,19 @@
         },
         {
           "ch": 5,
-          "_comment": "CH5 A4 pan=LR ALG=4",
+          "_comment": "CH5 A4(440Hz→440Hz) pan=LR",
           "init": [
             {
               "reg": "0x25",
-              "val": "0xc4"
+              "val": "0xc0"
             },
             {
               "reg": "0x2d",
-              "val": "0x4c"
+              "val": "0x4a"
             },
             {
               "reg": "0x35",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x3d",
@@ -10520,19 +13662,19 @@
             },
             {
               "reg": "0x85",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa5",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc5",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe5",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x4d",
@@ -10544,19 +13686,19 @@
             },
             {
               "reg": "0x8d",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xad",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xcd",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xed",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x55",
@@ -10564,23 +13706,23 @@
             },
             {
               "reg": "0x75",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x95",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb5",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd5",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf5",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x5d",
@@ -10588,23 +13730,23 @@
             },
             {
               "reg": "0x7d",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x9d",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xbd",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xdd",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xfd",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
@@ -10622,19 +13764,19 @@
         },
         {
           "ch": 6,
-          "_comment": "CH6 B4 pan=L ALG=4",
+          "_comment": "CH6 B4(494Hz→494Hz) pan=L",
           "init": [
             {
               "reg": "0x26",
-              "val": "0x44"
+              "val": "0x40"
             },
             {
               "reg": "0x2e",
-              "val": "0x4e"
+              "val": "0x4d"
             },
             {
               "reg": "0x36",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x3e",
@@ -10650,19 +13792,19 @@
             },
             {
               "reg": "0x86",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa6",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc6",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe6",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x4e",
@@ -10674,19 +13816,19 @@
             },
             {
               "reg": "0x8e",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xae",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xce",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xee",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x56",
@@ -10694,23 +13836,23 @@
             },
             {
               "reg": "0x76",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x96",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb6",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd6",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf6",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x5e",
@@ -10718,23 +13860,23 @@
             },
             {
               "reg": "0x7e",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x9e",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xbe",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xde",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xfe",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
@@ -10752,19 +13894,19 @@
         },
         {
           "ch": 7,
-          "_comment": "CH7 C5 pan=LR ALG=4",
+          "_comment": "CH7 C5(523Hz→523Hz) pan=LR",
           "init": [
             {
               "reg": "0x27",
-              "val": "0xc4"
+              "val": "0xc0"
             },
             {
               "reg": "0x2f",
-              "val": "0x50"
+              "val": "0x4e"
             },
             {
               "reg": "0x37",
-              "val": "0x00"
+              "val": "0x0"
             },
             {
               "reg": "0x3f",
@@ -10780,19 +13922,19 @@
             },
             {
               "reg": "0x87",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xa7",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xc7",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xe7",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x4f",
@@ -10804,19 +13946,19 @@
             },
             {
               "reg": "0x8f",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xaf",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xcf",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xef",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x57",
@@ -10824,23 +13966,23 @@
             },
             {
               "reg": "0x77",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x97",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xb7",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xd7",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xf7",
-              "val": "0xf"
+              "val": "0x0F"
             },
             {
               "reg": "0x5f",
@@ -10848,23 +13990,23 @@
             },
             {
               "reg": "0x7f",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0x9f",
-              "val": "0x1f"
+              "val": "0x1F"
             },
             {
               "reg": "0xbf",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xdf",
-              "val": "0x0"
+              "val": "0x00"
             },
             {
               "reg": "0xff",
-              "val": "0xf"
+              "val": "0x0F"
             }
           ],
           "key_on": [
