@@ -6,7 +6,7 @@
   },
   "chips": {
     "OPNA": {
-      "_comment": "OPNA (YM2608) 6ch FM + 3ch SSG. 0x29=0x80 でCH3-5有効化",
+      "_comment": "OPNA (YM2608) 6ch FM + 3ch SSG. 0x29=0x80 でCH3-5有効化 + ADPCM-A rhythm×6 (requires ym2608.rom)",
       "init": [
         {
           "reg": "0x22",
@@ -1091,6 +1091,233 @@
             {
               "reg": "0xa",
               "val": "0x00"
+            }
+          ]
+        },
+        {
+          "ch": 20,
+          "_comment": "ADPCM-A CH0 Bass Drum pan=L",
+          "init": [
+            {
+              "reg": "0x11",
+              "val": "0x3F"
+            },
+            {
+              "reg": "0x18",
+              "val": "0x9f"
+            },
+            {
+              "reg": "0x20",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x28",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x30",
+              "val": "0xbf"
+            },
+            {
+              "reg": "0x38",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x19",
+              "val": "0x5f"
+            },
+            {
+              "reg": "0x21",
+              "val": "0xc0"
+            },
+            {
+              "reg": "0x29",
+              "val": "0x1"
+            },
+            {
+              "reg": "0x31",
+              "val": "0x3f"
+            },
+            {
+              "reg": "0x39",
+              "val": "0x4"
+            },
+            {
+              "reg": "0x1a",
+              "val": "0xdf"
+            },
+            {
+              "reg": "0x22",
+              "val": "0x40"
+            },
+            {
+              "reg": "0x2a",
+              "val": "0x4"
+            },
+            {
+              "reg": "0x32",
+              "val": "0x7f"
+            },
+            {
+              "reg": "0x3a",
+              "val": "0x1b"
+            },
+            {
+              "reg": "0x1b",
+              "val": "0x9f"
+            },
+            {
+              "reg": "0x23",
+              "val": "0x80"
+            },
+            {
+              "reg": "0x2b",
+              "val": "0x1b"
+            },
+            {
+              "reg": "0x33",
+              "val": "0xff"
+            },
+            {
+              "reg": "0x3b",
+              "val": "0x1c"
+            },
+            {
+              "reg": "0x1c",
+              "val": "0x5f"
+            },
+            {
+              "reg": "0x24",
+              "val": "0x0"
+            },
+            {
+              "reg": "0x2c",
+              "val": "0x1d"
+            },
+            {
+              "reg": "0x34",
+              "val": "0x7f"
+            },
+            {
+              "reg": "0x3c",
+              "val": "0x1f"
+            },
+            {
+              "reg": "0x1d",
+              "val": "0xdf"
+            },
+            {
+              "reg": "0x25",
+              "val": "0x80"
+            },
+            {
+              "reg": "0x2d",
+              "val": "0x1f"
+            },
+            {
+              "reg": "0x35",
+              "val": "0xff"
+            },
+            {
+              "reg": "0x3d",
+              "val": "0x1f"
+            }
+          ],
+          "key_on": [
+            {
+              "reg": "0x10",
+              "val": "0x81"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x10",
+              "val": "0x1"
+            }
+          ]
+        },
+        {
+          "ch": 21,
+          "_comment": "ADPCM-A CH1 Snare Drum pan=R",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x10",
+              "val": "0x82"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x10",
+              "val": "0x2"
+            }
+          ]
+        },
+        {
+          "ch": 22,
+          "_comment": "ADPCM-A CH2 Top Cymbal pan=LR",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x10",
+              "val": "0x84"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x10",
+              "val": "0x4"
+            }
+          ]
+        },
+        {
+          "ch": 23,
+          "_comment": "ADPCM-A CH3 Hi-Hat pan=L",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x10",
+              "val": "0x88"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x10",
+              "val": "0x8"
+            }
+          ]
+        },
+        {
+          "ch": 24,
+          "_comment": "ADPCM-A CH4 Tom pan=R",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x10",
+              "val": "0x90"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x10",
+              "val": "0x10"
+            }
+          ]
+        },
+        {
+          "ch": 25,
+          "_comment": "ADPCM-A CH5 Rim Shot pan=LR",
+          "init": [],
+          "key_on": [
+            {
+              "reg": "0x10",
+              "val": "0xa0"
+            }
+          ],
+          "key_off": [
+            {
+              "reg": "0x10",
+              "val": "0x20"
             }
           ]
         }

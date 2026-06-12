@@ -77,8 +77,55 @@ static void applyRegs(FmEngineHandle eng, uint32_t chip_id,
 }
 
 // =========================================================
-//  チップ種別テーブル
+//  ROM ファイルロード
+//  実行ファイルと同じフォルダから検索する。
+//  見つからなくても続行する (ROM が必要なチップは無音になる)。
 // =========================================================
+
+// 実行ファイルのフォルダを取得
+static std::string getExeDir() {
+    char buf[MAX_PATH] = {};
+    GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    std::string path(buf);
+    const auto pos = path.find_last_of("\\/");
+    return (pos != std::string::npos) ? path.substr(0, pos + 1) : "";
+}
+
+// ROM ファイルをロードしてバッファに格納。失敗時は空を返す。
+static std::vector<uint8_t> loadRomFile(const std::string& filename) {
+    const std::string path = getExeDir() + filename;
+    FILE* fp = fopen(path.c_str(), "rb");
+    if (!fp) return {};
+    fseek(fp, 0, SEEK_END);
+    const long sz = ftell(fp);
+    rewind(fp);
+    if (sz <= 0) { fclose(fp); return {}; }
+    std::vector<uint8_t> buf(sz);
+    fread(buf.data(), 1, sz, fp);
+    fclose(fp);
+    return buf;
+}
+
+// チップ種別ごとの ROM 情報テーブル
+struct RomEntry {
+    std::string chipName;       // kChipTable の name と一致
+    FmMemoryType memType;
+    std::string filename;       // 実行ファイルと同じフォルダに置くファイル名
+    std::string description;    // ログ用説明
+};
+
+static const RomEntry kRomTable[] = {
+    // OPNA (YM2608): ADPCM-A rhythm ROM
+    { "OPNA",  FM_MEM_ADPCM_A, "ym2608_adpcm_rom.bin", "YM2608 ADPCM-A ROM" },
+    // OPNB (YM2610): ADPCM-A + ADPCM-B ROM
+    { "OPNB",  FM_MEM_ADPCM_A, "ym2610.rom", "YM2610 ADPCM-A ROM" },
+    { "OPNB",  FM_MEM_ADPCM_B, "ym2610b.rom","YM2610 ADPCM-B ROM" },
+    { "OPNBB", FM_MEM_ADPCM_A, "ym2610.rom", "YM2610 ADPCM-A ROM" },
+    { "OPNBB", FM_MEM_ADPCM_B, "ym2610b.rom","YM2610 ADPCM-B ROM" },
+};
+
+
+
 struct ChipEntry { std::string name; bool isExt; int type; };
 
 static const ChipEntry kChipTable[] = {
@@ -128,6 +175,8 @@ struct FileContext {
     bool     valid = false;
     struct Slot { uint32_t id = 0; bool valid = false; };
     std::vector<Slot> slots;
+    // ROM バッファ: エンジンが参照している間 (プロセス終了まで) 保持する
+    std::vector<std::vector<uint8_t>> romBuffers;
 };
 
 static void addChipsFromFile(FileContext& ctx, FmEngineHandle eng) {
@@ -164,6 +213,25 @@ static void addChipsFromFile(FileContext& ctx, FmEngineHandle eng) {
         FmEngine_SetGain(eng, chip_id,
                          chipDef.value("gain", 1.0f),
                          chipDef.value("gain", 1.0f));
+        // ROM が必要なチップは実行ファイルと同じフォルダから読み込む
+        for (const auto& entry : kRomTable) {
+            if (entry.chipName != chipName) continue;
+            ctx.romBuffers.push_back(loadRomFile(entry.filename));
+            const auto& rom = ctx.romBuffers.back();
+            if (rom.empty()) {
+                printf("    [ROM] %s: not found (%s) — ADPCM will be silent\n",
+                       entry.description.c_str(), entry.filename.c_str());
+                continue;
+            }
+            const FmResult res = FmEngine_SetMemory(
+                eng, chip_id, entry.memType, rom.data(), (uint32_t)rom.size());
+            if (res == FM_OK)
+                printf("    [ROM] %s: loaded %zu bytes\n",
+                       entry.description.c_str(), rom.size());
+            else
+                printf("    [ROM] %s: SetMemory failed (code=%d)\n",
+                       entry.description.c_str(), (int)res);
+        }
         ctx.slots.push_back({chip_id, true});
     }
 }
