@@ -6,17 +6,22 @@
   },
   "chips": {
     "OPL4": {
-      "_comment": "OPL4 (YMF278B) 9ch FM. clk=33868800Hz (標準クロック)",
+      "_comment": "OPL4 (YMF278B) 9ch FM. 0x105=0x01でnewflag=1が必須",
       "init": [
         {
           "reg": "0x01",
           "val": "0x00"
+        },
+        {
+          "reg": "0x05",
+          "val": "0x01",
+          "port": 1
         }
       ],
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH0 261Hz block=3 fnum=0x2B3",
+          "_comment": "CH0 261Hz block=3 fnum=0x2B3 pan=L",
           "init": [
             {
               "reg": "0x20",
@@ -52,7 +57,7 @@
             },
             {
               "reg": "0xc0",
-              "val": "0x31"
+              "val": "0x11"
             },
             {
               "reg": "0xa0",
@@ -74,7 +79,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH1 294Hz block=3 fnum=0x30A",
+          "_comment": "CH1 294Hz block=3 fnum=0x30A pan=R",
           "init": [
             {
               "reg": "0x21",
@@ -110,7 +115,7 @@
             },
             {
               "reg": "0xc1",
-              "val": "0x31"
+              "val": "0x21"
             },
             {
               "reg": "0xa1",
@@ -132,7 +137,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH2 330Hz block=3 fnum=0x36A",
+          "_comment": "CH2 330Hz block=3 fnum=0x36A pan=LR",
           "init": [
             {
               "reg": "0x22",
@@ -190,7 +195,7 @@
         },
         {
           "ch": 3,
-          "_comment": "CH3 349Hz block=3 fnum=0x39C",
+          "_comment": "CH3 349Hz block=3 fnum=0x39C pan=L",
           "init": [
             {
               "reg": "0x28",
@@ -226,7 +231,7 @@
             },
             {
               "reg": "0xc3",
-              "val": "0x31"
+              "val": "0x11"
             },
             {
               "reg": "0xa3",
@@ -248,7 +253,7 @@
         },
         {
           "ch": 4,
-          "_comment": "CH4 392Hz block=4 fnum=0x207",
+          "_comment": "CH4 392Hz block=4 fnum=0x207 pan=R",
           "init": [
             {
               "reg": "0x29",
@@ -284,7 +289,7 @@
             },
             {
               "reg": "0xc4",
-              "val": "0x31"
+              "val": "0x21"
             },
             {
               "reg": "0xa4",
@@ -306,7 +311,7 @@
         },
         {
           "ch": 5,
-          "_comment": "CH5 440Hz block=4 fnum=0x246",
+          "_comment": "CH5 440Hz block=4 fnum=0x246 pan=LR",
           "init": [
             {
               "reg": "0x2a",
@@ -364,7 +369,7 @@
         },
         {
           "ch": 6,
-          "_comment": "CH6 494Hz block=4 fnum=0x28E",
+          "_comment": "CH6 494Hz block=4 fnum=0x28E pan=L",
           "init": [
             {
               "reg": "0x30",
@@ -400,7 +405,7 @@
             },
             {
               "reg": "0xc6",
-              "val": "0x31"
+              "val": "0x11"
             },
             {
               "reg": "0xa6",
@@ -422,7 +427,7 @@
         },
         {
           "ch": 7,
-          "_comment": "CH7 523Hz block=4 fnum=0x2B4",
+          "_comment": "CH7 523Hz block=4 fnum=0x2B4 pan=R",
           "init": [
             {
               "reg": "0x31",
@@ -458,7 +463,7 @@
             },
             {
               "reg": "0xc7",
-              "val": "0x31"
+              "val": "0x21"
             },
             {
               "reg": "0xa7",
@@ -480,7 +485,7 @@
         },
         {
           "ch": 8,
-          "_comment": "CH8 587Hz block=4 fnum=0x309",
+          "_comment": "CH8 587Hz block=4 fnum=0x309 pan=LR",
           "init": [
             {
               "reg": "0x32",
