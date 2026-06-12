@@ -16,7 +16,7 @@
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH0 261Hz",
+          "_comment": "CH0 261Hz block=3 fnum=0x2B0",
           "init": [
             {
               "reg": "0x20",
@@ -74,7 +74,7 @@
         },
         {
           "ch": 1,
-          "_comment": "CH1 294Hz",
+          "_comment": "CH1 294Hz block=3 fnum=0x307",
           "init": [
             {
               "reg": "0x21",
@@ -132,7 +132,7 @@
         },
         {
           "ch": 2,
-          "_comment": "CH2 330Hz",
+          "_comment": "CH2 330Hz block=3 fnum=0x366",
           "init": [
             {
               "reg": "0x22",
@@ -190,7 +190,7 @@
         },
         {
           "ch": 3,
-          "_comment": "CH3 349Hz",
+          "_comment": "CH3 349Hz block=3 fnum=0x398",
           "init": [
             {
               "reg": "0x28",
@@ -248,7 +248,7 @@
         },
         {
           "ch": 4,
-          "_comment": "CH4 392Hz",
+          "_comment": "CH4 392Hz block=4 fnum=0x205",
           "init": [
             {
               "reg": "0x29",
@@ -306,7 +306,7 @@
         },
         {
           "ch": 5,
-          "_comment": "CH5 440Hz",
+          "_comment": "CH5 440Hz block=4 fnum=0x244",
           "init": [
             {
               "reg": "0x2a",
@@ -364,7 +364,7 @@
         },
         {
           "ch": 6,
-          "_comment": "CH6 494Hz",
+          "_comment": "CH6 494Hz block=4 fnum=0x28B",
           "init": [
             {
               "reg": "0x30",
@@ -422,7 +422,7 @@
         },
         {
           "ch": 7,
-          "_comment": "CH7 523Hz",
+          "_comment": "CH7 523Hz block=4 fnum=0x2B1",
           "init": [
             {
               "reg": "0x31",
@@ -480,7 +480,7 @@
         },
         {
           "ch": 8,
-          "_comment": "CH8 587Hz",
+          "_comment": "CH8 587Hz block=4 fnum=0x306",
           "init": [
             {
               "reg": "0x32",
