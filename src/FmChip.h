@@ -311,27 +311,75 @@ private:
     void generateNative(float* out_l, float* out_r, uint32_t n) {
         typename ChipImpl::output_data out_data{};
         constexpr float kScale = 1.0f / 32768.0f;
-        // ymfm_output<N> の data 配列サイズで出力チャンネル数を判定する。
-        // ただし OPLL (ymfm_output<2>) の data[0]=FM合計, data[1]=Rhythm合計
-        // であり L/R ではないため、OUTPUTS=2 でもモノラルとして扱う必要がある。
-        // OPM/OPN2 等の真のステレオは TType で区別する。
+        constexpr uint32_t kOutputs =
+            sizeof(out_data.data) / sizeof(out_data.data[0]);
+
+        // 出力モードを TType で分類:
+        //
+        //   TrueStereo : OPM/OPN2/OPL3/OPL4
+        //                data[0]=L, data[1]=R
+        //
+        //   OpnaStereo : OPNA/OPNB/OPNBB
+        //                data[0]=FM-L, data[1]=FM-R, data[2]=SSG(mix)
+        //                out_l = data[0]+data[2], out_r = data[1]+data[2]
+        //
+        //   OpnMono    : OPN (IsOpnA=false)
+        //                data[0]=FM, data[1]=SSG-A, data[2]=SSG-B, data[3]=SSG-C
+        //                out_l = out_r = data[0]+data[1]+data[2]+data[3]
+        //
+        //   MixMono    : OPL/OPL2/Y8950/OPLL/OPLLP/OPLLX/VRC7
+        //                data[0]=melody, data[1]=rhythm
+        //                out_l = out_r = data[0]+data[1]
+        //
+        //   Mono       : OUTPUTS=1
+        //                out_l = out_r = data[0]
         constexpr bool isTrueStereo =
-            (sizeof(out_data.data) / sizeof(out_data.data[0])) >= 2 &&
+            kOutputs >= 2 &&
             (TType == ChipType::OPM   ||
-             TType == ChipType::OPN   ||
-             TType == ChipType::OPNA  ||
-             TType == ChipType::OPNB  ||
-             TType == ChipType::OPNBB ||
              TType == ChipType::OPN2  ||
              TType == ChipType::OPL3  ||
              TType == ChipType::OPL4);
+        constexpr bool isOpnaStereo =
+            TType == ChipType::OPNA  ||
+            TType == ChipType::OPNB  ||
+            TType == ChipType::OPNBB;
+        constexpr bool isOpnMono =
+            TType == ChipType::OPN;
+        constexpr bool isMixMono =
+            kOutputs >= 2 &&
+            (TType == ChipType::OPL   ||
+             TType == ChipType::OPL2  ||
+             TType == ChipType::Y8950 ||
+             TType == ChipType::OPLL  ||
+             TType == ChipType::OPLLP ||
+             TType == ChipType::OPLLX ||
+             TType == ChipType::VRC7);
+
         for (uint32_t i = 0; i < n; ++i) {
             m_chip.generate(&out_data);
-            out_l[i] = static_cast<float>(out_data.data[0]) * kScale;
-            if constexpr (isTrueStereo)
+            if constexpr (isTrueStereo) {
+                // OPM/OPN2/OPL3/OPL4: data[0]=L, data[1]=R
+                out_l[i] = static_cast<float>(out_data.data[0]) * kScale;
                 out_r[i] = static_cast<float>(out_data.data[1]) * kScale;
-            else
-                out_r[i] = out_l[i];
+            } else if constexpr (isOpnaStereo) {
+                // OPNA/OPNB/OPNBB: data[0]=FM-L, data[1]=FM-R, data[2]=SSG(mix)
+                out_l[i] = static_cast<float>(out_data.data[0] + out_data.data[2]) * kScale;
+                out_r[i] = static_cast<float>(out_data.data[1] + out_data.data[2]) * kScale;
+            } else if constexpr (isOpnMono) {
+                // OPN: data[0]=FM, data[1-3]=SSG(A,B,C) → 全合算
+                const int32_t mix = out_data.data[0]
+                    + (kOutputs > 1 ? out_data.data[1] : 0)
+                    + (kOutputs > 2 ? out_data.data[2] : 0)
+                    + (kOutputs > 3 ? out_data.data[3] : 0);
+                out_l[i] = out_r[i] = static_cast<float>(mix) * kScale;
+            } else if constexpr (isMixMono) {
+                // OPL/OPLL 系: data[0]=melody, data[1]=rhythm → 合算
+                out_l[i] = out_r[i] = static_cast<float>(
+                    out_data.data[0] + out_data.data[1]) * kScale;
+            } else {
+                out_l[i] = out_r[i] =
+                    static_cast<float>(out_data.data[0]) * kScale;
+            }
         }
     }
 
