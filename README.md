@@ -18,14 +18,14 @@ YMEngine/
 ├── src/
 │   ├── FmChip.h           ymfm ラッパー・LinearResampler
 │   ├── FmEngine.h         複数チップ管理・SPSC キュー・ゲイン
-│   ├── ExternalChip.h     外部ライブラリチップ (SSG/SN76489/SCC/SAA1099)
+│   ├── ExternalChip.h     外部ライブラリチップ (SSG/DCSG/SCC/SAA)
 │   ├── WasapiOutput.h     WASAPI リアルタイム出力・デバイス列挙
 │   ├── FmEngineApi.h  ★  DLL 公開用 C ファサード (宣言)
 │   ├── FmEngineApi.cpp★  DLL 公開用 C ファサード (実装)
 │   ├── FmEngineApi.def★  MSVC エクスポート定義
 │   ├── FmEngineApi.rc ★  DLL バージョン情報リソース
 │   ├── main.cpp           全チップ全チャンネルテスト (JSON 駆動)
-│   └── test_patches.json  テスト用レジスタパッチ定義
+│   └── patches/           チップ別テスト用パッチ定義 (JSON)
 ├── README.md
 └── README_ymfm.md         内部 C++ API リファレンス
 ```
@@ -62,15 +62,15 @@ cmake --build build --config Release
 cmake --build build --target SAASound --config Release
 
 # 成果物
-#   build/bin/FmEngineApi.dll   ← DLL 本体
-#   build/bin/FmEngineApi.pdb   ← デバッグシンボル
-#   build/lib/FmEngineApi.lib   ← インポートライブラリ
-#   build/bin/SAASound.dll      ← SAA1099 用 DLL (オプション)
-#   build/bin/sample_app.exe    ← 全チップテストアプリ
-#   build/bin/test_patches.json ← テスト用パッチ定義
+#   build/bin/FmEngineApi.dll      ← DLL 本体
+#   build/bin/FmEngineApi.pdb      ← デバッグシンボル
+#   build/lib/FmEngineApi.lib      ← インポートライブラリ
+#   build/bin/SAASound.dll         ← SAA1099 用 DLL (オプション)
+#   build/bin/sample_app.exe       ← 全チップテストアプリ
+#   build/bin/patches/             ← テスト用パッチ定義 (JSON)
 ```
 
-> **Note**: SAASound.dll は `FmEngineApi.dll` と同じディレクトリに配置してください。  
+> **Note**: `SAASound.dll` は `FmEngineApi.dll` と同じディレクトリに配置してください。  
 > 存在しない場合は SAA1099 チップの追加時にエラーになりますが、他のチップには影響しません。
 
 ## DLL の使い方
@@ -90,12 +90,12 @@ uint32_t opnaId;
 FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
 
 // 外部ライブラリチップ追加
-uint32_t psgId;
-FmEngine_AddExtChip(eng, FM_CHIP_EXT_SSG, 0, &psgId);
+uint32_t ssgId;
+FmEngine_AddExtChip(eng, FM_CHIP_EXT_SSG, 0, &ssgId);
 
 // ゲイン設定 (1.0 = 0 dB)
 FmEngine_SetGain(eng, opnaId, 1.0f, 1.0f);
-FmEngine_SetGain(eng, psgId,  0.7f, 0.7f);
+FmEngine_SetGain(eng, ssgId,  0.7f, 0.7f);
 
 // WASAPI 再生 (デフォルトデバイス、Shared mode)
 WasapiHandle wasapi = Wasapi_Create(eng, 0);
@@ -105,7 +105,7 @@ Wasapi_Start(wasapi);
 // ymfm 系: write(chip_id, reg, value, port)
 FmEngine_Write(eng, opnaId, 0xB4, 0xC0, 0);
 // SSG 系:  write(chip_id, reg_num, value, port=0)
-FmEngine_Write(eng, psgId,  0x08, 0x0F, 0);
+FmEngine_Write(eng, ssgId,  0x08, 0x0F, 0);
 
 // 停止・解放
 Wasapi_Stop(wasapi);
@@ -115,10 +115,8 @@ FmEngine_Destroy(eng);
 
 ### オーディオデバイスの明示指定
 
-複数のオーディオデバイスがある場合、デバイスを列挙して明示的に指定できます。
-
 ```c
-// デバイス列挙 (呼び出しのたびにリストが更新される)
+// デバイス列挙
 uint32_t count = Wasapi_GetDeviceCount();
 for (uint32_t i = 0; i < count; ++i) {
     wchar_t id[256] = {}, name[256] = {};
@@ -153,6 +151,11 @@ static class FmEngineApi {
         IntPtr engine, uint chipId, byte reg, byte value, uint port);
     [DllImport(DLL)] public static extern int     FmEngine_SetGain(
         IntPtr engine, uint chipId, float gainL, float gainR);
+    [DllImport(DLL)] public static extern int     FmEngine_SetMemory(
+        IntPtr engine, uint chipId, int memType,
+        byte[] data, uint size);
+    [DllImport(DLL)] public static extern uint    FmEngine_GetMemorySize(
+        IntPtr engine, uint chipId, int memType);
     [DllImport(DLL)] public static extern uint    Wasapi_GetDeviceCount();
     [DllImport(DLL)] public static extern int     Wasapi_GetDeviceId(
         uint index, [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buf, uint bufLen);
@@ -181,17 +184,31 @@ static class FmEngineApi {
 
 ## 全チップテスト (sample_app)
 
-`test_patches.json` にレジスタパッチを記述し、全チップ全チャンネルを順番に鳴らします。
+`patches/` 以下に チップごとの JSON パッチファイルを用意しています。  
+`sample_app.exe` はこれらを読み込み、各チャンネルを順番に発音します。
 
 ```bash
-# デフォルト設定で実行
+# デフォルト: patches/all.json (全チップ) を使用
 sample_app.exe
 
-# パッチファイルを指定
-sample_app.exe my_patches.json
+# チップを指定
+sample_app.exe patches/opna.json
+
+# 複数ファイルを順番に処理
+sample_app.exe patches/opl2.json patches/opna.json
+
+# サンプルレートとデバイスを指定
+sample_app.exe -r 44100 -d "Realtek" patches/all.json
 ```
 
-`test_patches.json` の構造:
+オプション:
+
+| オプション | 説明 |
+|---|---|
+| `-r <rate>` | サンプルレートを Hz で指定 (省略時 48000) |
+| `-d <name>` | デバイス名を部分一致で指定 (省略時デフォルトデバイス) |
+
+### JSON パッチフォーマット
 
 ```json
 {
@@ -200,23 +217,58 @@ sample_app.exe my_patches.json
   "chips": {
     "OPNA": {
       "gain": 1.0,
-      "init": [ {"reg": "0x22", "val": "0x00"} ],
+      "init": [ {"reg": "0x29", "val": "0x80"} ],
       "channels": [
         {
           "ch": 0, "port": 0,
           "note_ms": 800,
-          "init":    [ {"reg": "0xA0", "val": "0x8A"} ],
-          "key_on":  [ {"reg": "0x28", "val": "0xF0"} ],
-          "key_off": [ {"reg": "0x28", "val": "0x00"} ]
+          "init":    [ {"reg": "0xA0", "val": "0x8A", "port": 0} ],
+          "key_on":  [ {"reg": "0x28", "val": "0xF0", "port": 0} ],
+          "key_off": [ {"reg": "0x28", "val": "0x00", "port": 0} ]
         }
       ]
-    },
-    "SSG": { ... }
+    }
   }
 }
 ```
 
-チップ名キー (`"OPNA"`, `"SSG"` 等) は以下の識別子と対応します。
+レジスタエントリの `"port"` は省略可能で、省略時はチャンネルレベルの `"port"` 値が使われます。  
+OPL3/OPL4 は bank0 が `port=0`、bank1 が `port=1` です。
+
+### patches/ ファイル一覧
+
+| ファイル | チップ | FM ch | SSG ch | リズム ch | 備考 |
+|---|---|---|---|---|---|
+| `y8950.json` | Y8950 | 9+5\* | — | — | \*drums.sb リズム5ch |
+| `opl.json`   | OPL (YM3526) | 9 | — | — | |
+| `opl2.json`  | OPL2 (YM3812) | 9 | — | 5 | drums.sb |
+| `opl3.json`  | OPL3 (YMF262) | 12 | — | 5 | bank0/1各6ch(4OP×3+2OP×3)、drums.sb |
+| `opl4.json`  | OPL4 (YMF278B) | 12 | — | 5 | bank0/1各6ch(4OP×3+2OP×3)、drums.sb |
+| `opll.json`  | OPLL (YM2413) | 9 | — | 5 | 内蔵リズム |
+| `opllp.json` | OPLLP (YMF281) | 9 | — | 5 | 内蔵リズム |
+| `opllx.json` | OPLLX (YM2423) | 9 | — | 5 | 内蔵リズム |
+| `opn.json`   | OPN (YM2203) | 3 | 3 | — | |
+| `opn2.json`  | OPN2 (YM2612) | 6 | — | — | |
+| `opna.json`  | OPNA (YM2608) | 6 | 3 | 6 | ADPCM-A (要 ym2608.rom) |
+| `opnb.json`  | OPNB (YM2610) | 4 | 3 | — | CH0/3無効(仕様) |
+| `opnbb.json` | OPNBB (YM2610B) | 6 | 3 | — | |
+| `opm.json`   | OPM (YM2151) | 8 | — | — | |
+| `opz.json`   | OPZ (YM2414) | 8 | — | — | |
+| `vrc7.json`  | VRC7 (DS1001) | 6 | — | — | |
+| `ssg.json`   | SSG (YM2149) | — | 3 | — | |
+| `dcsg.json`  | DCSG (SN76489) | — | 3+1\* | — | \*3tone+1noise |
+| `scc.json`   | SCC/K051649 | — | 5 | — | |
+| `saa.json`   | SAA1099 | — | 6 | — | |
+| `all.json`   | 全20チップ | — | — | — | 上記全て |
+
+OPL3/OPL4 の FM 12ch は C4〜B4 の半音スケールです:
+
+```
+bank0: CH0+CH3 (4OP C4) → CH1+CH4 (4OP C#4) → CH2+CH5 (4OP D4)
+       CH6 (2OP D#4) → CH7 (2OP E4) → CH8 (2OP F4)
+bank1: CH9+CH12 (4OP F#4) → CH10+CH13 (4OP G4) → CH11+CH14 (4OP G#4)
+       CH15 (2OP A4) → CH16 (2OP A#4) → CH17 (2OP B4)
+```
 
 ## 対応チップ
 
@@ -227,8 +279,8 @@ sample_app.exe my_patches.json
 | `FM_CHIP_Y8950`  | Y8950   | 3.58 MHz  | MSX-Audio |
 | `FM_CHIP_OPL`    | YM3526  | 3.58 MHz  | 初期 AdLib カード |
 | `FM_CHIP_OPL2`   | YM3812  | 3.58 MHz  | AdLib, Sound Blaster |
-| `FM_CHIP_OPL3`   | YMF262  | 14.3 MHz  | Sound Blaster 16 |
-| `FM_CHIP_OPL4`   | YMF278B | 16.93 MHz | OPL4 (ROM/RAM PCM 付き) |
+| `FM_CHIP_OPL3`   | YMF262  | 14.32 MHz | Sound Blaster 16 |
+| `FM_CHIP_OPL4`   | YMF278B | 33.87 MHz | OPL4 (ROM/RAM PCM 付き) |
 | `FM_CHIP_OPN`    | YM2203  | 3.99 MHz  | PC-8801, PC-9801 |
 | `FM_CHIP_OPNA`   | YM2608  | 7.99 MHz  | PC-8801mkIISR, PC-9801 |
 | `FM_CHIP_OPNB`   | YM2610  | 8.00 MHz  | NEO GEO |
@@ -245,13 +297,112 @@ sample_app.exe my_patches.json
 
 | C 定数 | チップ | 標準クロック | ライブラリ | JSON キー |
 |---|---|---|---|---|
-| `FM_CHIP_EXT_SSG`     | YM2149 (SSG) | 3.58 MHz | emu2149   | `"PSG"` |
-| `FM_CHIP_EXT_DCSG`    | SN76489      | 3.58 MHz | emu76489  | `"SN76489"` |
-| `FM_CHIP_EXT_SCC`     | SCC/K051649  | 3.58 MHz | emu2212   | `"SCC"` |
-| `FM_CHIP_EXT_SAA`     | SAA1099      | 8.00 MHz | SAASound.dll (動的ロード) | `"SAA1099"` |
+| `FM_CHIP_EXT_SSG`  | YM2149 (SSG) | 3.58 MHz | emu2149          | `"SSG"`  |
+| `FM_CHIP_EXT_DCSG` | SN76489      | 3.58 MHz | emu76489         | `"DCSG"` |
+| `FM_CHIP_EXT_SCC`  | SCC/K051649  | 3.58 MHz | emu2212          | `"SCC"`  |
+| `FM_CHIP_EXT_SAA`  | SAA1099      | 8.00 MHz | SAASound.dll (動的) | `"SAA"` |
 
-> **SAA1099 の注意**: `SAASound.dll` が実行時に `LoadLibrary` でロードされます。  
+> **SAA1099**: `SAASound.dll` が実行時に `LoadLibrary` でロードされます。  
 > `FmEngineApi.dll` と同じディレクトリに配置してください。
+
+## 外部メモリ (ADPCM/PCM ROM)
+
+ADPCM や PCM を内蔵するチップは外部 ROM/RAM からサンプルデータを読み取ります。
+
+| チップ | 必要なメモリ種別 | 定数 |
+|---|---|---|
+| OPNA (YM2608)   | ADPCM-A リズム ROM | `FM_MEM_ADPCM_A` |
+| OPNA (YM2608)   | ADPCM-B サンプル RAM/ROM | `FM_MEM_ADPCM_B` |
+| OPNB (YM2610)   | ADPCM-A ROM, ADPCM-B ROM | `FM_MEM_ADPCM_A`, `FM_MEM_ADPCM_B` |
+| OPNBB (YM2610B) | ADPCM-A ROM, ADPCM-B ROM | `FM_MEM_ADPCM_A`, `FM_MEM_ADPCM_B` |
+| Y8950           | ADPCM-B RAM/ROM | `FM_MEM_ADPCM_B` |
+| OPL4 (YMF278B)  | PCM サンプル ROM | `FM_MEM_PCM` |
+
+```c
+// ROM ファイルを読み込んでチップに設定する例
+FILE* f = fopen("ym2608.rom", "rb");
+fseek(f, 0, SEEK_END);  uint32_t sz = (uint32_t)ftell(f);  rewind(f);
+uint8_t* buf = (uint8_t*)malloc(sz);
+fread(buf, 1, sz, f);  fclose(f);
+
+uint32_t opnaId;
+FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
+// Wasapi_Start() より前に設定すること
+FmEngine_SetMemory(eng, opnaId, FM_MEM_ADPCM_A, buf, sz);
+
+WasapiHandle wasapi = Wasapi_Create(eng, 0);
+Wasapi_Start(wasapi);
+// buf は Wasapi_Stop() まで解放しないこと
+Wasapi_Stop(wasapi);
+free(buf);
+```
+
+> **注意**: `FmEngine_SetMemory` はスレッドセーフではありません。`Wasapi_Start()` より前に呼んでください。
+
+### sample_app での ROM 自動ロード
+
+`sample_app.exe` は **実行ファイルと同じフォルダ** に以下のファイルが存在すれば自動的にロードします。  
+ファイルが存在しない場合は ADPCM チャンネルが無音になるだけで、FM/SSG チャンネルは影響を受けません。
+
+| ファイル名 | 対象チップ | 用途 |
+|---|---|---|
+| `ym2608.rom` | OPNA | ADPCM-A リズム ROM |
+| `ym2610.rom` | OPNB, OPNBB | ADPCM-A ROM |
+| `ym2610b.rom` | OPNB, OPNBB | ADPCM-B ROM |
+
+ROMファイルの入手はエンドユーザーの責任で行ってください。
+
+## 出力チャンネルの構成
+
+`FmChip.h` の `generateNative` でチップごとに以下のミックス処理を行います。
+
+| 分類 | 対象チップ | L 出力 | R 出力 |
+|---|---|---|---|
+| TrueStereo | OPM, OPN2, OPL3, OPL4 | data[0] (FM-L) | data[1] (FM-R) |
+| OpnaStereo | OPNA, OPNB, OPNBB | data[0]+data[2] (FM-L+SSG) | data[1]+data[2] (FM-R+SSG) |
+| OpnMono | OPN | data[0]+data[1]+data[2]+data[3] (FM+SSG×3) | 同左 |
+| MixMono | OPL/OPL2/Y8950/OPLL系 | data[0]+data[1] (melody+rhythm) | 同左 |
+| Mono | その他 | data[0] | 同左 |
+
+OPL3/OPL4 のリズムチャンネルは仕様上 data[1] (R ch) にのみ出力されます。
+
+## fnum 計算メモ
+
+チップごとの FM 周波数番号 (fnum) 計算式:
+
+### OPL 系 (OPL/OPL2/OPL3/Y8950)
+
+```
+fm_sr  = clk / (DEFAULT_PRESCALE * OPERATORS)
+       = clk / 72   (OPL/OPL2/Y8950: prescale=4, ops=18)
+       = clk / 288  (OPL3: prescale=8, ops=36)
+       = clk / 684  (OPL4: prescale=19, ops=36)
+fnum = freq × 2^(20−block) / fm_sr
+```
+
+### OPLL 系 (OPLL/OPLLP/OPLLX/VRC7)
+
+```
+fm_sr = 3579545 / 72 ≈ 49716 Hz
+fnum = freq × 2^(19−block) / fm_sr   ← 指数が OPL と 1 異なる
+fnum の最大値は 511 (9 bit)
+```
+
+### OPN 系 (OPN/OPN2/OPNA/OPNB/OPNBB/OPZ)
+
+```
+fm_sr  = clk / (prescale × OPERATORS)
+       = clk / 72   (OPN:  prescale=6, CHANNELS=3, ops=12)
+       = clk / 144  (OPNA/OPNB/OPNBB/OPN2: prescale=6, CHANNELS=6, ops=24)
+fnum = freq × 2^(21−block) / fm_sr   ← 指数が OPL と 1 異なる
+```
+
+### OPM (YM2151)
+
+OPM は fnum ではなく **key_code** 方式です。  
+`0x28+ch` に `(octave<<4)|note_code`、`0x30+ch` に key_fraction を書きます。  
+note_code: `C=0x0, C#=0x1, D=0x2, D#=0x4, E=0x5, F=0x6, F#=0x8, G=0x9, G#=0xA, A#=0xD, B=0xE`  
+(実際の周波数は `ymfm_fm.ipp` の `s_phase_step` テーブルを参照)
 
 ## ライセンス
 
@@ -260,46 +411,3 @@ sample_app.exe my_patches.json
 - **SAASound**: GPL-2.0 (stripwax) — 配布時はライセンス条件を確認してください
 - **nlohmann/json**: MIT (nlohmann)
 - **このエンジンコード**: MIT
-
-## 外部メモリ (ADPCM/PCM ROM)
-
-ADPCM や PCM を内蔵するチップは外部 ROM/RAM からサンプルデータを読み取ります。  
-`FmEngine_SetMemory` で ROM データを設定してください。
-
-| チップ | 必要なメモリ種別 | 用途 |
-|---|---|---|
-| OPNA (YM2608)  | `FM_MEM_ADPCM_B` | ADPCM-B サンプル |
-| OPNB (YM2610)  | `FM_MEM_ADPCM_A`, `FM_MEM_ADPCM_B` | ADPCM-A / ADPCM-B サンプル |
-| OPNBB (YM2610B)| `FM_MEM_ADPCM_A`, `FM_MEM_ADPCM_B` | ADPCM-A / ADPCM-B サンプル |
-| Y8950          | `FM_MEM_ADPCM_B` | ADPCM-B サンプル |
-| OPL4 (YMF278B) | `FM_MEM_PCM`     | PCM サンプル ROM |
-
-```c
-// ROM ファイルを読み込む
-FILE* f = fopen("adpcm_rom.bin", "rb");
-fseek(f, 0, SEEK_END);
-uint32_t romSize = (uint32_t)ftell(f);
-rewind(f);
-uint8_t* romData = (uint8_t*)malloc(romSize);
-fread(romData, 1, romSize, f);
-fclose(f);
-
-// チップ追加後、Wasapi_Start() より前に設定する
-uint32_t opnaId;
-FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
-FmEngine_SetMemory(eng, opnaId, FM_MEM_ADPCM_B, romData, romSize);
-
-// 設定済みサイズの確認
-uint32_t sz = FmEngine_GetMemorySize(eng, opnaId, FM_MEM_ADPCM_B);
-printf("ADPCM-B ROM: %u bytes\n", sz);
-
-// 再生開始
-WasapiHandle wasapi = Wasapi_Create(eng, 0);
-Wasapi_Start(wasapi);
-
-// romData は Wasapi_Stop() まで解放しないこと
-Wasapi_Stop(wasapi);
-free(romData);
-```
-
-> **注意**: `FmEngine_SetMemory` はスレッドセーフではありません。`Wasapi_Start()` より前に呼んでください。
