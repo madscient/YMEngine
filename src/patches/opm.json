@@ -6,149 +6,113 @@
   },
   "chips": {
     "OPM": {
-      "_comment": "OPM (YM2151) 8ch. op offset: CH c → M1=c, M2=c+8, C1=c+16, C2=c+24",
+      "_comment": "OPM (YM2151) 8ch FM. CON=7 (all-carrier), C4-C5 chromatic scale",
       "init": [
         {
-          "reg": "0x01",
-          "val": "0x00"
-        },
-        {
           "reg": "0x08",
-          "val": "0x00"
-        },
-        {
-          "reg": "0x0F",
-          "val": "0x00"
-        },
-        {
-          "reg": "0x18",
-          "val": "0x00"
-        },
-        {
-          "reg": "0x19",
-          "val": "0x00"
-        },
-        {
-          "reg": "0x1B",
           "val": "0x00"
         }
       ],
       "channels": [
         {
           "ch": 0,
-          "_comment": "CH0 C4(262Hz→262Hz) pan=L",
+          "_comment": "CH1 C4 KC=0x40",
           "init": [
             {
               "reg": "0x20",
-              "val": "0x40"
+              "val": "0xC7"
             },
             {
               "reg": "0x28",
-              "val": "0x3e"
+              "val": "0x40"
             },
             {
               "reg": "0x30",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x38",
               "val": "0x00"
             },
             {
-              "reg": "0x40",
-              "val": "0x13"
+              "reg": "0x38",
+              "val": "0x03"
             },
             {
               "reg": "0x60",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x68",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x70",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x78",
+              "val": "0x1F"
             },
             {
               "reg": "0x80",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x88",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x98",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x90",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x98",
+              "val": "0x00"
             },
             {
               "reg": "0xa0",
               "val": "0x00"
             },
             {
-              "reg": "0xc0",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe0",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x48",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x68",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x88",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xa8",
               "val": "0x00"
             },
             {
-              "reg": "0xc8",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe8",
+              "reg": "0xa0",
               "val": "0x0F"
             },
             {
-              "reg": "0x50",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x70",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x90",
-              "val": "0x1F"
+              "reg": "0xa8",
+              "val": "0x0F"
             },
             {
               "reg": "0xb0",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd0",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf0",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x58",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x78",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x98",
-              "val": "0x1F"
             },
             {
               "reg": "0xb8",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd8",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf8",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x40",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x48",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x50",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x58",
+              "val": "0x00"
             }
           ],
           "key_on": [
@@ -166,119 +130,103 @@
         },
         {
           "ch": 1,
-          "_comment": "CH1 D4(294Hz→294Hz) pan=R",
+          "_comment": "CH2 D4 KC=0x42",
           "init": [
             {
               "reg": "0x21",
-              "val": "0x80"
+              "val": "0xC7"
             },
             {
               "reg": "0x29",
-              "val": "0x41"
+              "val": "0x42"
             },
             {
               "reg": "0x31",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x39",
               "val": "0x00"
             },
             {
-              "reg": "0x41",
-              "val": "0x13"
+              "reg": "0x39",
+              "val": "0x03"
             },
             {
               "reg": "0x61",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x69",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x71",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x79",
+              "val": "0x1F"
             },
             {
               "reg": "0x81",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x89",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x99",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x91",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x99",
+              "val": "0x00"
             },
             {
               "reg": "0xa1",
               "val": "0x00"
             },
             {
-              "reg": "0xc1",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe1",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x49",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x69",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x89",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xa9",
               "val": "0x00"
             },
             {
-              "reg": "0xc9",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe9",
+              "reg": "0xa1",
               "val": "0x0F"
             },
             {
-              "reg": "0x51",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x71",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x91",
-              "val": "0x1F"
+              "reg": "0xa9",
+              "val": "0x0F"
             },
             {
               "reg": "0xb1",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd1",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf1",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x59",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x79",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x99",
-              "val": "0x1F"
             },
             {
               "reg": "0xb9",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd9",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf9",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x41",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x49",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x51",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x59",
+              "val": "0x00"
             }
           ],
           "key_on": [
@@ -296,119 +244,103 @@
         },
         {
           "ch": 2,
-          "_comment": "CH2 E4(330Hz→330Hz) pan=LR",
+          "_comment": "CH3 E4 KC=0x46",
           "init": [
             {
               "reg": "0x22",
-              "val": "0xc0"
+              "val": "0xC7"
             },
             {
               "reg": "0x2a",
-              "val": "0x43"
+              "val": "0x46"
             },
             {
               "reg": "0x32",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x3a",
               "val": "0x00"
             },
             {
-              "reg": "0x42",
-              "val": "0x13"
+              "reg": "0x3a",
+              "val": "0x03"
             },
             {
               "reg": "0x62",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x6a",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x72",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x7a",
+              "val": "0x1F"
             },
             {
               "reg": "0x82",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x8a",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9a",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x92",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9a",
+              "val": "0x00"
             },
             {
               "reg": "0xa2",
               "val": "0x00"
             },
             {
-              "reg": "0xc2",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe2",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x4a",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x6a",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x8a",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xaa",
               "val": "0x00"
             },
             {
-              "reg": "0xca",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xea",
+              "reg": "0xa2",
               "val": "0x0F"
             },
             {
-              "reg": "0x52",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x72",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x92",
-              "val": "0x1F"
+              "reg": "0xaa",
+              "val": "0x0F"
             },
             {
               "reg": "0xb2",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd2",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf2",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x5a",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x7a",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x9a",
-              "val": "0x1F"
             },
             {
               "reg": "0xba",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xda",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xfa",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x42",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x4a",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x52",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x5a",
+              "val": "0x00"
             }
           ],
           "key_on": [
@@ -426,119 +358,103 @@
         },
         {
           "ch": 3,
-          "_comment": "CH3 F4(349Hz→349Hz) pan=L",
+          "_comment": "CH4 F4 KC=0x48",
           "init": [
             {
               "reg": "0x23",
-              "val": "0x40"
+              "val": "0xC7"
             },
             {
               "reg": "0x2b",
-              "val": "0x45"
+              "val": "0x48"
             },
             {
               "reg": "0x33",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x3b",
               "val": "0x00"
             },
             {
-              "reg": "0x43",
-              "val": "0x13"
+              "reg": "0x3b",
+              "val": "0x03"
             },
             {
               "reg": "0x63",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x6b",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x73",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x7b",
+              "val": "0x1F"
             },
             {
               "reg": "0x83",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x8b",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9b",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x93",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9b",
+              "val": "0x00"
             },
             {
               "reg": "0xa3",
               "val": "0x00"
             },
             {
-              "reg": "0xc3",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe3",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x4b",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x6b",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x8b",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xab",
               "val": "0x00"
             },
             {
-              "reg": "0xcb",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xeb",
+              "reg": "0xa3",
               "val": "0x0F"
             },
             {
-              "reg": "0x53",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x73",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x93",
-              "val": "0x1F"
+              "reg": "0xab",
+              "val": "0x0F"
             },
             {
               "reg": "0xb3",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd3",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf3",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x5b",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x7b",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x9b",
-              "val": "0x1F"
             },
             {
               "reg": "0xbb",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xdb",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xfb",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x43",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x4b",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x53",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x5b",
+              "val": "0x00"
             }
           ],
           "key_on": [
@@ -556,119 +472,103 @@
         },
         {
           "ch": 4,
-          "_comment": "CH4 G4(392Hz→392Hz) pan=R",
+          "_comment": "CH5 G4 KC=0x4a",
           "init": [
             {
               "reg": "0x24",
-              "val": "0x80"
+              "val": "0xC7"
             },
             {
               "reg": "0x2c",
-              "val": "0x47"
+              "val": "0x4a"
             },
             {
               "reg": "0x34",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x3c",
               "val": "0x00"
             },
             {
-              "reg": "0x44",
-              "val": "0x13"
+              "reg": "0x3c",
+              "val": "0x03"
             },
             {
               "reg": "0x64",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x6c",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x74",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x7c",
+              "val": "0x1F"
             },
             {
               "reg": "0x84",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x8c",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9c",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x94",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9c",
+              "val": "0x00"
             },
             {
               "reg": "0xa4",
               "val": "0x00"
             },
             {
-              "reg": "0xc4",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe4",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x4c",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x6c",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x8c",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xac",
               "val": "0x00"
             },
             {
-              "reg": "0xcc",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xec",
+              "reg": "0xa4",
               "val": "0x0F"
             },
             {
-              "reg": "0x54",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x74",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x94",
-              "val": "0x1F"
+              "reg": "0xac",
+              "val": "0x0F"
             },
             {
               "reg": "0xb4",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd4",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf4",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x5c",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x7c",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x9c",
-              "val": "0x1F"
             },
             {
               "reg": "0xbc",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xdc",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xfc",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x44",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x4c",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x54",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x5c",
+              "val": "0x00"
             }
           ],
           "key_on": [
@@ -686,119 +586,103 @@
         },
         {
           "ch": 5,
-          "_comment": "CH5 A4(440Hz→440Hz) pan=LR",
+          "_comment": "CH6 A4 KC=0x4d",
           "init": [
             {
               "reg": "0x25",
-              "val": "0xc0"
+              "val": "0xC7"
             },
             {
               "reg": "0x2d",
-              "val": "0x4a"
+              "val": "0x4d"
             },
             {
               "reg": "0x35",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x3d",
               "val": "0x00"
             },
             {
-              "reg": "0x45",
-              "val": "0x13"
+              "reg": "0x3d",
+              "val": "0x03"
             },
             {
               "reg": "0x65",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x6d",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x75",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x7d",
+              "val": "0x1F"
             },
             {
               "reg": "0x85",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x8d",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9d",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x95",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9d",
+              "val": "0x00"
             },
             {
               "reg": "0xa5",
               "val": "0x00"
             },
             {
-              "reg": "0xc5",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe5",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x4d",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x6d",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x8d",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xad",
               "val": "0x00"
             },
             {
-              "reg": "0xcd",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xed",
+              "reg": "0xa5",
               "val": "0x0F"
             },
             {
-              "reg": "0x55",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x75",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x95",
-              "val": "0x1F"
+              "reg": "0xad",
+              "val": "0x0F"
             },
             {
               "reg": "0xb5",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd5",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf5",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x5d",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x7d",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x9d",
-              "val": "0x1F"
             },
             {
               "reg": "0xbd",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xdd",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xfd",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x45",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x4d",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x55",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x5d",
+              "val": "0x00"
             }
           ],
           "key_on": [
@@ -816,119 +700,103 @@
         },
         {
           "ch": 6,
-          "_comment": "CH6 B4(494Hz→494Hz) pan=L",
+          "_comment": "CH7 B4 KC=0x4f",
           "init": [
             {
               "reg": "0x26",
-              "val": "0x40"
+              "val": "0xC7"
             },
             {
               "reg": "0x2e",
-              "val": "0x4d"
+              "val": "0x4f"
             },
             {
               "reg": "0x36",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x3e",
               "val": "0x00"
             },
             {
-              "reg": "0x46",
-              "val": "0x13"
+              "reg": "0x3e",
+              "val": "0x03"
             },
             {
               "reg": "0x66",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x6e",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x76",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x7e",
+              "val": "0x1F"
             },
             {
               "reg": "0x86",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x8e",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x96",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9e",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x96",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9e",
+              "val": "0x00"
             },
             {
               "reg": "0xa6",
               "val": "0x00"
             },
             {
-              "reg": "0xc6",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe6",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x4e",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x6e",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x8e",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xae",
               "val": "0x00"
             },
             {
-              "reg": "0xce",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xee",
+              "reg": "0xa6",
               "val": "0x0F"
             },
             {
-              "reg": "0x56",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x76",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x96",
-              "val": "0x1F"
+              "reg": "0xae",
+              "val": "0x0F"
             },
             {
               "reg": "0xb6",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd6",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf6",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x5e",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x7e",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x9e",
-              "val": "0x1F"
             },
             {
               "reg": "0xbe",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xde",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xfe",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x46",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x4e",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x56",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x5e",
+              "val": "0x00"
             }
           ],
           "key_on": [
@@ -946,119 +814,103 @@
         },
         {
           "ch": 7,
-          "_comment": "CH7 C5(523Hz→523Hz) pan=LR",
+          "_comment": "CH8 C5 KC=0x50",
           "init": [
             {
               "reg": "0x27",
-              "val": "0xc0"
+              "val": "0xC7"
             },
             {
               "reg": "0x2f",
-              "val": "0x4e"
+              "val": "0x50"
             },
             {
               "reg": "0x37",
-              "val": "0x0"
-            },
-            {
-              "reg": "0x3f",
               "val": "0x00"
             },
             {
-              "reg": "0x47",
-              "val": "0x13"
+              "reg": "0x3f",
+              "val": "0x03"
             },
             {
               "reg": "0x67",
-              "val": "0x20"
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x6f",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x77",
+              "val": "0x1F"
+            },
+            {
+              "reg": "0x7f",
+              "val": "0x1F"
             },
             {
               "reg": "0x87",
-              "val": "0x1F"
+              "val": "0x00"
+            },
+            {
+              "reg": "0x8f",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x97",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9f",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x97",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x9f",
+              "val": "0x00"
             },
             {
               "reg": "0xa7",
               "val": "0x00"
             },
             {
-              "reg": "0xc7",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xe7",
-              "val": "0x0F"
-            },
-            {
-              "reg": "0x4f",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x6f",
-              "val": "0x20"
-            },
-            {
-              "reg": "0x8f",
-              "val": "0x1F"
-            },
-            {
               "reg": "0xaf",
               "val": "0x00"
             },
             {
-              "reg": "0xcf",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xef",
+              "reg": "0xa7",
               "val": "0x0F"
             },
             {
-              "reg": "0x57",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x77",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x97",
-              "val": "0x1F"
+              "reg": "0xaf",
+              "val": "0x0F"
             },
             {
               "reg": "0xb7",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xd7",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xf7",
               "val": "0x0F"
-            },
-            {
-              "reg": "0x5f",
-              "val": "0x13"
-            },
-            {
-              "reg": "0x7f",
-              "val": "0x00"
-            },
-            {
-              "reg": "0x9f",
-              "val": "0x1F"
             },
             {
               "reg": "0xbf",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xdf",
-              "val": "0x00"
-            },
-            {
-              "reg": "0xff",
               "val": "0x0F"
+            },
+            {
+              "reg": "0x47",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x4f",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x57",
+              "val": "0x00"
+            },
+            {
+              "reg": "0x5f",
+              "val": "0x00"
             }
           ],
           "key_on": [
