@@ -93,9 +93,13 @@ FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
 uint32_t ssgId;
 FmEngine_AddExtChip(eng, FM_CHIP_EXT_SSG, 0, &ssgId);
 
-// ゲイン設定 (1.0 = 0 dB)
+// ゲイン設定 (1.0 = 0 dB、L/R 独立指定可能)
 FmEngine_SetGain(eng, opnaId, 1.0f, 1.0f);
-FmEngine_SetGain(eng, ssgId,  0.7f, 0.7f);
+FmEngine_SetGain(eng, ssgId,  0.9f, 0.7f);  // 例: L=0.9, R=0.7 でパン寄せ
+
+// 設定値の取得
+float gl, gr;
+FmEngine_GetGain(eng, opnaId, &gl, &gr);
 
 // WASAPI 再生 (デフォルトデバイス、Shared mode)
 WasapiHandle wasapi = Wasapi_Create(eng, 0);
@@ -111,6 +115,15 @@ FmEngine_Write(eng, ssgId,  0x08, 0x0F, 0);
 Wasapi_Stop(wasapi);
 Wasapi_Destroy(wasapi);
 FmEngine_Destroy(eng);
+```
+
+### ゲイン設定
+
+`FmEngine_SetGain` / `FmEngine_GetGain` は **L/R 独立** したゲインです。チップ単位 (チップ追加直後の `generateNative` 出力に対して) 適用され、チャンネル単位の調整はできません。
+
+```c
+FmResult FmEngine_SetGain(FmEngineHandle engine, uint32_t chip_id, float gain_l, float gain_r);
+FmResult FmEngine_GetGain(FmEngineHandle engine, uint32_t chip_id, float* out_gain_l, float* out_gain_r);
 ```
 
 ### オーディオデバイスの明示指定
@@ -151,6 +164,8 @@ static class FmEngineApi {
         IntPtr engine, uint chipId, byte reg, byte value, uint port);
     [DllImport(DLL)] public static extern int     FmEngine_SetGain(
         IntPtr engine, uint chipId, float gainL, float gainR);
+    [DllImport(DLL)] public static extern int     FmEngine_GetGain(
+        IntPtr engine, uint chipId, out float gainL, out float gainR);
     [DllImport(DLL)] public static extern int     FmEngine_SetMemory(
         IntPtr engine, uint chipId, int memType,
         byte[] data, uint size);
@@ -216,7 +231,8 @@ sample_app.exe -r 44100 -d "Realtek" patches/all.json
   "global": { "note_ms": 800, "rest_ms": 200 },
   "chips": {
     "OPNA": {
-      "gain": 1.0,
+      "gain_l": 0.9,
+      "gain_r": 1.0,
       "init": [ {"reg": "0x29", "val": "0x80"} ],
       "channels": [
         {
@@ -227,13 +243,18 @@ sample_app.exe -r 44100 -d "Realtek" patches/all.json
           "key_off": [ {"reg": "0x28", "val": "0x00", "port": 0} ]
         }
       ]
-    }
+    },
+    "OPM": { "$ref": "opm.json" }
   }
 }
 ```
 
 レジスタエントリの `"port"` は省略可能で、省略時はチャンネルレベルの `"port"` 値が使われます。  
 OPL3/OPL4 は bank0 が `port=0`、bank1 が `port=1` です。
+
+**ゲイン設定**: `"gain"` は L/R 共通値 (省略時 1.0)。`"gain_l"` / `"gain_r"` を指定すると左右別々のゲインになり、`"gain"` より優先されます。
+
+**`"$ref"` による参照**: チップ定義の代わりに `{"$ref": "他のファイル名.json"}` を書くと、参照先ファイル内の `chips.<同名チップ>` の定義を読み込んで使用します。パスは参照元ファイルからの相対パスです。多重参照 (`$ref` の参照先がさらに `$ref` を持つ) や循環参照の検出にも対応しています。これにより `all.json` は各チップ用 JSON への参照だけで構成できます。
 
 ### patches/ ファイル一覧
 
@@ -249,7 +270,7 @@ OPL3/OPL4 は bank0 が `port=0`、bank1 が `port=1` です。
 | `opllx.json` | OPLLX (YM2423) | 9 | — | 5 | 内蔵リズム |
 | `opn.json`   | OPN (YM2203) | 3 | 3 | — | |
 | `opn2.json`  | OPN2 (YM2612) | 6 | — | — | |
-| `opna.json`  | OPNA (YM2608) | 6 | 3 | 6 | ADPCM-A (要 ym2608.rom) |
+| `opna.json`  | OPNA (YM2608) | 6 | 3 | 6 | ADPCM-A (要 ym2608.rom)、gain_l/gain_r 設定例 |
 | `opnb.json`  | OPNB (YM2610) | 4 | 3 | — | CH0/3無効(仕様) |
 | `opnbb.json` | OPNBB (YM2610B) | 6 | 3 | — | |
 | `opm.json`   | OPM (YM2151) | 8 | — | — | |
@@ -259,7 +280,7 @@ OPL3/OPL4 は bank0 が `port=0`、bank1 が `port=1` です。
 | `dcsg.json`  | DCSG (SN76489) | — | 3+1\* | — | \*3tone+1noise |
 | `scc.json`   | SCC/K051649 | — | 5 | — | |
 | `saa.json`   | SAA1099 | — | 6 | — | |
-| `all.json`   | 全20チップ | — | — | — | 上記全て |
+| `all.json`   | 全20チップ | — | — | — | 各チップ JSON への `$ref` 参照のみで構成 |
 
 OPL3/OPL4 の FM 12ch は C4〜B4 の半音スケールです:
 
@@ -399,10 +420,23 @@ fnum = freq × 2^(21−block) / fm_sr   ← 指数が OPL と 1 異なる
 
 ### OPM (YM2151)
 
-OPM は fnum ではなく **key_code** 方式です。  
-`0x28+ch` に `(octave<<4)|note_code`、`0x30+ch` に key_fraction を書きます。  
-note_code: `C=0x0, C#=0x1, D=0x2, D#=0x4, E=0x5, F=0x6, F#=0x8, G=0x9, G#=0xA, A#=0xD, B=0xE`  
-(実際の周波数は `ymfm_fm.ipp` の `s_phase_step` テーブルを参照)
+OPM は fnum ではなく **key_code (KC)** 方式です。  
+`0x28+ch` に key_code (`KC = (octave<<4)|note_code`)、`0x30+ch` に key_fraction (通常 0) を書きます。
+
+note_code は12平均律と素直に対応しておらず、`s_phase_step` テーブル (`ymfm_fm.ipp`) を逆算しないと正確な周波数が得られません。実測した代表値:
+
+| 音名 | KC (reg 0x28) | 実周波数 |
+|---|---|---|
+| C4 | `0x3E` | 261.6 Hz |
+| D4 | `0x41` | 293.6 Hz |
+| E4 | `0x44` | 329.6 Hz |
+| F4 | `0x45` | 349.3 Hz |
+| G4 | `0x48` | 391.9 Hz |
+| A4 | `0x4A` | 439.9 Hz |
+| B4 | `0x4D` | 493.9 Hz |
+| C5 | `0x4E` | 523.2 Hz |
+
+他の音程が必要な場合は `s_phase_step` テーブルを参照して `(octave, note_code, key_fraction)` を逆算すること。単純に `(octave<<4)|0,1,2,4,5,6,8,9,A,C,D,E` (半音ごとの理論値) を使うと最大で半音以上ずれる。
 
 ## ライセンス
 
