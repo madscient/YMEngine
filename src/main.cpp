@@ -14,9 +14,19 @@
 //     "sample_rate": 48000,
 //     "global": { "note_ms": 800, "rest_ms": 200 },
 //     "chips": {
-//       "OPL2": { "gain": 1.0, "init": [...], "channels": [...] }
+//       "OPL2": { "gain": 1.0, "init": [...], "channels": [...] },
+//       "OPNA": { "gain_l": 0.8, "gain_r": 1.0, "init": [...], "channels": [...] },
+//       "OPM":  { "$ref": "opm.json" }
 //     }
 //   }
+//
+//   gain        : L/R 共通ゲイン (省略時 1.0)
+//   gain_l/gain_r: 左右個別ゲイン (指定時 "gain" より優先)
+//   "$ref"      : 他の JSON ファイル内の同名チップ定義を参照する。
+//                 参照先パスは参照元ファイルからの相対パス。
+//                 例: all.json の "OPM": {"$ref": "opm.json"} は
+//                     opm.json 内の "chips"."OPM" を読み込んで使用する。
+//                 これにより all.json は各チップ用 JSON への参照だけで構成できる。
 //
 // 注意: AddChip は Wasapi_Start より前に全て完了させること。
 //       (WASAPI スレッドとの競合防止)
@@ -165,6 +175,67 @@ static bool loadJson(const char* path, json& out) {
     }
 }
 
+// basePath と同じディレクトリを基準に相対パス refPath を解決する
+static std::string resolveRefPath(const std::string& basePath, const std::string& refPath) {
+    const auto pos = basePath.find_last_of("\\/");
+    if (pos == std::string::npos) return refPath;
+    return basePath.substr(0, pos + 1) + refPath;
+}
+
+// "chips" オブジェクト内の各チップ定義について
+// {"$ref": "other.json"} 形式の参照を解決し、参照先ファイル内の
+// "chips".<同名チップ> の定義に置き換える。
+// 参照解決の循環防止のため visitedPaths に自分自身のパスを積んでから呼ぶこと。
+static void resolveChipRefs(json& chips, const std::string& currentPath,
+                             std::vector<std::string>& visitedPaths,
+                             int depth = 0) {
+    if (depth > 8) {
+        fprintf(stderr, "  [WARN] $ref nesting too deep (>8), aborting resolution\n");
+        return;
+    }
+    for (auto it = chips.begin(); it != chips.end(); ++it) {
+        const std::string chipName = it.key();
+        json& chipDef = it.value();
+        if (!chipDef.is_object() || !chipDef.contains("$ref")) continue;
+
+        const std::string refRelPath = chipDef["$ref"].get<std::string>();
+        const std::string refFullPath = resolveRefPath(currentPath, refRelPath);
+
+        // 循環参照チェック
+        bool cyclic = false;
+        for (const auto& p : visitedPaths) {
+            if (p == refFullPath) { cyclic = true; break; }
+        }
+        if (cyclic) {
+            fprintf(stderr, "  [WARN] %s: circular $ref to %s, skipping\n",
+                    chipName.c_str(), refFullPath.c_str());
+            chipDef = json::object();
+            continue;
+        }
+
+        json refRoot;
+        if (!loadJson(refFullPath.c_str(), refRoot)) {
+            fprintf(stderr, "  [WARN] %s: failed to load $ref %s\n",
+                    chipName.c_str(), refFullPath.c_str());
+            chipDef = json::object();
+            continue;
+        }
+        if (!refRoot.contains("chips") || !refRoot["chips"].contains(chipName)) {
+            fprintf(stderr, "  [WARN] %s: $ref %s has no chips.\"%s\"\n",
+                    chipName.c_str(), refFullPath.c_str(), chipName.c_str());
+            chipDef = json::object();
+            continue;
+        }
+
+        // 参照先がさらに $ref を含む場合に備えて再帰的に解決
+        visitedPaths.push_back(refFullPath);
+        resolveChipRefs(refRoot["chips"], refFullPath, visitedPaths, depth + 1);
+        visitedPaths.pop_back();
+
+        chipDef = refRoot["chips"][chipName];
+    }
+}
+
 // =========================================================
 //  1 ファイル処理 (チップ追加フェーズ)
 //  WASAPI_Start より前に呼ぶこと。
@@ -210,9 +281,15 @@ static void addChipsFromFile(FileContext& ctx, FmEngineHandle eng) {
             continue;
         }
 
-        FmEngine_SetGain(eng, chip_id,
-                         chipDef.value("gain", 1.0f),
-                         chipDef.value("gain", 1.0f));
+        // gain: 単一値 "gain" (L/R 共通、後方互換) または
+        //       "gain_l" / "gain_r" で左右個別に指定可能。
+        //       両方ある場合は gain_l/gain_r が優先。
+        {
+            const float baseGain = chipDef.value("gain", 1.0f);
+            const float gainL = chipDef.value("gain_l", baseGain);
+            const float gainR = chipDef.value("gain_r", baseGain);
+            FmEngine_SetGain(eng, chip_id, gainL, gainR);
+        }
         // ROM が必要なチップは実行ファイルと同じフォルダから読み込む
         for (const auto& entry : kRomTable) {
             if (entry.chipName != chipName) continue;
@@ -356,6 +433,11 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < jsonFiles.size(); ++i) {
         ctxs[i].path  = jsonFiles[i];
         ctxs[i].valid = loadJson(jsonFiles[i], ctxs[i].root);
+        if (ctxs[i].valid && ctxs[i].root.contains("chips") &&
+            ctxs[i].root["chips"].is_object()) {
+            std::vector<std::string> visited{ ctxs[i].path };
+            resolveChipRefs(ctxs[i].root["chips"], ctxs[i].path, visited);
+        }
         addChipsFromFile(ctxs[i], eng);
     }
 
