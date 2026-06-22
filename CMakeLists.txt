@@ -13,23 +13,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(YMFM_DIR "${CMAKE_SOURCE_DIR}/extern/ymfm/src" CACHE PATH "ymfm src dir")
 
 # -------------------------------------------------------
-#  外部チップライブラリのパス
-#  git submodule add https://github.com/digital-sound-antiques/emu2149  extern/emu2149
-#  git submodule add https://github.com/digital-sound-antiques/emu76489 extern/emu76489
-#  git submodule add https://github.com/digital-sound-antiques/emu2212  extern/emu2212
-#  git submodule add https://github.com/stripwax/SAASound               extern/SAASound
-#  git submodule add https://github.com/nlohmann/json                   extern/nlohmann_json
-#  git submodule add https://github.com/thestk/rtaudio                  extern/rtaudio
-#
-#  SAASound は独立 DLL としてビルドし実行時に LoadLibrary でロードする。
-#  FmEngineApi とは別ターゲットとして add_subdirectory で追加する。
+#  依存ライブラリのパス
+#  git submodule add https://github.com/nlohmann/json  extern/nlohmann_json
+#  git submodule add https://github.com/thestk/rtaudio extern/rtaudio
 # -------------------------------------------------------
-set(EMU2149_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2149"  CACHE PATH "emu2149 dir")
-set(EMU76489_DIR "${CMAKE_SOURCE_DIR}/extern/emu76489" CACHE PATH "emu76489 dir")
-set(EMU2212_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2212"  CACHE PATH "emu2212 dir")
 set(NLOHMANN_DIR "${CMAKE_SOURCE_DIR}/extern/nlohmann_json/single_include" CACHE PATH "nlohmann/json include dir")
-set(SAASOUND_DIR "${CMAKE_SOURCE_DIR}/extern/SAASound" CACHE PATH "SAASound dir")
-set(RTAUDIO_DIR  "${CMAKE_SOURCE_DIR}/extern/rtaudio"  CACHE PATH "RtAudio dir")
+set(RTAUDIO_DIR  "${CMAKE_SOURCE_DIR}/extern/rtaudio" CACHE PATH "RtAudio dir")
 
 # -------------------------------------------------------
 #  RtAudio サブプロジェクト (sample_app 専用)
@@ -61,36 +50,6 @@ else()
     message(STATUS "  Run: git submodule add https://github.com/thestk/rtaudio extern/rtaudio")
 endif()
 
-# -------------------------------------------------------
-#  SAASound サブプロジェクト
-#  EXCLUDE_FROM_ALL で cmake --build . 時は除外し、
-#  SAASound ターゲットを明示的にビルドする必要がある場合のみビルドされる。
-#  Visual Studio では .sln に SAASound プロジェクトが追加される。
-# -------------------------------------------------------
-if (EXISTS "${SAASOUND_DIR}/CMakeLists.txt")
-    # SAASound の CMake 変数を事前設定
-    set(SAMPLE_RATE_HZ  "44100"   CACHE STRING "SAASound output sample rate" FORCE)
-    set(EXTERNAL_CLK_HZ "8000000" CACHE STRING "SAASound external clock Hz"  FORCE)
-    # USE_CONFIG_FILE はデフォルト ON のまま使う。
-    # OFF にすると SAAImpl.h の m_output_bitmask 宣言が除外され
-    # SAAImpl.cpp がコンパイルエラーになる (SAASound リポジトリの既知の問題)。
-    add_subdirectory(${SAASOUND_DIR} ${CMAKE_BINARY_DIR}/SAASound)
-
-    if (TARGET SAASound)
-        if (MSVC)
-            set_target_properties(SAASound PROPERTIES
-                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-                PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
-                DEBUG_POSTFIX            ""   # RtAudio の CMAKE_DEBUG_POSTFIX="d" の影響を防ぐ
-            )
-        endif()
-        message(STATUS "SAASound subproject added from ${SAASOUND_DIR}")
-    endif()
-else()
-    message(STATUS "SAASound not found at ${SAASOUND_DIR} -- SAA1099 disabled.")
-    message(STATUS "  Run: git submodule add https://github.com/stripwax/SAASound extern/SAASound")
-endif()
-
 # =======================================================
 #  ターゲット 1: FmEngineApi.dll
 # =======================================================
@@ -105,26 +64,11 @@ add_library(FmEngineApi SHARED
     ${YMFM_DIR}/ymfm_opz.cpp
     ${YMFM_DIR}/ymfm_misc.cpp
     ${YMFM_DIR}/ymfm_adpcm.cpp
-    # 外部チップ ソース (SAASound は除く)
-    ${EMU2149_DIR}/emu2149.c
-    ${EMU76489_DIR}/emu76489.c
-    ${EMU2212_DIR}/emu2212.c
-)
-
-# .c ファイルを C として明示コンパイル (MSVC は混在プロジェクトでも C++ 扱いになる場合がある)
-set_source_files_properties(
-    ${EMU2149_DIR}/emu2149.c
-    ${EMU76489_DIR}/emu76489.c
-    ${EMU2212_DIR}/emu2212.c
-    PROPERTIES LANGUAGE C
 )
 
 target_include_directories(FmEngineApi PRIVATE
     src/
     ${YMFM_DIR}
-    ${EMU2149_DIR}
-    ${EMU76489_DIR}
-    ${EMU2212_DIR}
 )
 
 # FMENGINE_EXPORTS → FmEngineApi.cpp 内で dllexport になる

@@ -194,26 +194,7 @@ static const RomEntry kRomTable[] = {
 
 
 
-struct ChipEntry { std::string name; bool isExt; int type; };
 
-static const ChipEntry kChipTable[] = {
-    {"Y8950",  false, FM_CHIP_Y8950 }, {"OPL",   false, FM_CHIP_OPL   },
-    {"OPL2",   false, FM_CHIP_OPL2  }, {"OPL3",  false, FM_CHIP_OPL3  },
-    {"OPL4",   false, FM_CHIP_OPL4  }, {"OPN",   false, FM_CHIP_OPN   },
-    {"OPNA",   false, FM_CHIP_OPNA  }, {"OPNB",  false, FM_CHIP_OPNB  },
-    {"OPNBB",  false, FM_CHIP_OPNBB }, {"OPN2",  false, FM_CHIP_OPN2  },
-    {"OPM",    false, FM_CHIP_OPM   }, {"OPLL",  false, FM_CHIP_OPLL  },
-    {"OPLLP",  false, FM_CHIP_OPLLP }, {"OPLLX", false, FM_CHIP_OPLLX },
-    {"OPZ",    false, FM_CHIP_OPZ   }, {"VRC7",  false, FM_CHIP_VRC7  },
-    {"SSG",    true,  FM_CHIP_EXT_SSG  }, {"DCSG", true, FM_CHIP_EXT_DCSG },
-    {"SCC",    true,  FM_CHIP_EXT_SCC  }, {"SAA",  true, FM_CHIP_EXT_SAA  },
-};
-
-static const ChipEntry* findChipEntry(const std::string& name) {
-    for (const auto& e : kChipTable)
-        if (e.name == name) return &e;
-    return nullptr;
-}
 
 // =========================================================
 //  JSON ファイル読み込み
@@ -318,21 +299,14 @@ static void addChipsFromFile(FileContext& ctx, FmEngineHandle eng) {
     for (auto it = chips.begin(); it != chips.end(); ++it) {
         const std::string chipName = it.key();
         const auto& chipDef = it.value();
-        const ChipEntry* entry = findChipEntry(chipName);
 
-        if (!entry) {
+        uint32_t chip_id = 0;
+        const FmResult res = FmEngine_AddChip(eng, chipName.c_str(), 0, &chip_id);
+        if (res == FM_ERR_UNKNOWN_CHIP) {
             printf("  [SKIP] %s : unknown chip type\n", chipName.c_str());
             ctx.slots.push_back({0, false});
             continue;
         }
-
-        uint32_t chip_id = 0;
-        FmResult res;
-        if (entry->isExt)
-            res = FmEngine_AddExtChip(eng, (FmChipTypeExt)entry->type, 0, &chip_id);
-        else
-            res = FmEngine_AddChip(eng, (FmChipType)entry->type, 0, &chip_id);
-
         if (res != FM_OK) {
             printf("  [SKIP] %s : AddChip failed (code=%d)\n", chipName.c_str(), (int)res);
             ctx.slots.push_back({0, false});
@@ -455,6 +429,15 @@ int main(int argc, char* argv[]) {
     // ① エンジン作成
     FmEngineHandle eng = FmEngine_Create(sampleRate);
     if (!eng) { fputs("FmEngine_Create failed\n", stderr); return 1; }
+
+    // 対応チップ一覧を表示
+    {
+        const uint32_t n = FmEngine_Inquiry(eng);
+        printf("Supported chips (%u):", n);
+        for (uint32_t i = 0; i < n; ++i)
+            printf(" %s", FmEngine_GetSupportedChip(eng, i));
+        printf("\n\n");
+    }
 
     // ② RtAudio 初期化・デバイス列挙
     RtAudio audio;

@@ -20,6 +20,7 @@
 #include "ymfm_opm.h"
 #include "ymfm_opz.h"
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <vector>
 #include <cassert>
@@ -485,7 +486,7 @@ inline FmChipImpl<ymfm::ym2610, ChipType::OPNB>::FmChipImpl(uint32_t clock)
 { m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
 
 // =========================================================
-//  ファクトリ関数
+//  ファクトリ関数 (ChipType 版)
 // =========================================================
 inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock = 0) {
     auto resolve = [](uint32_t c, uint32_t def) { return c ? c : def; };
@@ -507,5 +508,64 @@ inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock = 0) {
         case ChipType::OPZ:    return std::make_unique<FmChipImpl<ymfm::ym2414,  ChipType::OPZ   >>(resolve(clock, FmClock::OPZ));
         case ChipType::VRC7:   return std::make_unique<FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >>(resolve(clock, FmClock::VRC7));
     }
+    return nullptr;
+}
+
+// =========================================================
+//  文字列ベースファクトリ / チップ名列挙
+//  (createChip の後に置くこと — createChipByName が createChip を呼ぶため)
+// =========================================================
+
+struct ChipEntry {
+    const char* name;
+    ChipType    type;
+    uint32_t    defaultClock;
+};
+
+inline const ChipEntry* chipTable() {
+    static const ChipEntry kTable[] = {
+        { "Y8950",  ChipType::Y8950,  FmClock::Y8950  },
+        { "OPL",    ChipType::OPL,    FmClock::OPL    },
+        { "OPL2",   ChipType::OPL2,   FmClock::OPL2   },
+        { "OPL3",   ChipType::OPL3,   FmClock::OPL3   },
+        { "OPL4",   ChipType::OPL4,   FmClock::OPL4   },
+        { "OPN",    ChipType::OPN,    FmClock::OPN    },
+        { "OPNA",   ChipType::OPNA,   FmClock::OPNA   },
+        { "OPNB",   ChipType::OPNB,   FmClock::OPNB   },
+        { "OPNBB",  ChipType::OPNBB,  FmClock::OPNBB  },
+        { "OPN2",   ChipType::OPN2,   FmClock::OPN2   },
+        { "OPM",    ChipType::OPM,    FmClock::OPM    },
+        { "OPLL",   ChipType::OPLL,   FmClock::OPLL   },
+        { "OPLLP",  ChipType::OPLLP,  FmClock::OPLLP  },
+        { "OPLLX",  ChipType::OPLLX,  FmClock::OPLLX  },
+        { "OPZ",    ChipType::OPZ,    FmClock::OPZ    },
+        { "VRC7",   ChipType::VRC7,   FmClock::VRC7   },
+        { nullptr,  ChipType::Y8950,  0               },  // sentinel
+    };
+    return kTable;
+}
+
+inline uint32_t chipTableSize() {
+    uint32_t n = 0;
+    for (const ChipEntry* e = chipTable(); e->name; ++e) ++n;
+    return n;
+}
+
+// 名前からチップを作成。未知の名前なら nullptr
+inline std::unique_ptr<FmChip> createChipByName(const char* name, uint32_t clock = 0) {
+    if (!name) return nullptr;
+    for (const ChipEntry* e = chipTable(); e->name; ++e) {
+        if (std::strcmp(e->name, name) == 0)
+            return createChip(e->type, clock ? clock : e->defaultClock);
+    }
+    return nullptr;
+}
+
+// index 番目のチップ名を返す。範囲外は nullptr
+inline const char* chipNameByIndex(uint32_t index) {
+    const ChipEntry* e = chipTable();
+    uint32_t i = 0;
+    for (; e->name; ++e, ++i)
+        if (i == index) return e->name;
     return nullptr;
 }
