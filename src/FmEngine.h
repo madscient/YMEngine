@@ -8,7 +8,6 @@
 //   dBToLinear() を通常の inline static 関数にする。
 
 #include "FmChip.h"
-#include "ExternalChip.h"
 #include <atomic>
 #include <array>
 #include <memory>
@@ -79,18 +78,29 @@ public:
     explicit FmEngine(uint32_t sample_rate = 44100)
         : m_sample_rate(sample_rate) {}
 
-    // ymfmチップ追加。clock=0 で標準クロックを使用。
+    // チップ追加 (ChipType 版)。clock=0 で標準クロックを使用。
     uint32_t addChip(ChipType type, uint32_t clock = 0) {
         auto chip = createChip(type, clock);
         chip->setTargetRate(m_sample_rate);
         return registerChip(std::move(chip));
     }
 
-    // 外部ライブラリチップ追加 (SSG/SN76489/SCC/SAA1099)
-    uint32_t addExtChip(ChipTypeExt type, uint32_t clock = 0) {
-        auto ext  = createExtChip(type, clock, m_sample_rate);
-        auto chip = std::make_unique<ExtChipAdapter>(std::move(ext));
+    // チップ追加 (文字列版)。未知の名前なら UINT32_MAX を返す。
+    uint32_t addChipByName(const char* name, uint32_t clock = 0) {
+        auto chip = createChipByName(name, clock);
+        if (!chip) return UINT32_MAX;
+        chip->setTargetRate(m_sample_rate);
         return registerChip(std::move(chip));
+    }
+
+    // 対応チップ数
+    uint32_t supportedChipCount() const {
+        return chipTableSize();
+    }
+
+    // index 番目の対応チップ名。範囲外は nullptr
+    const char* supportedChipName(uint32_t index) const {
+        return chipNameByIndex(index);
     }
 
     uint32_t sampleRate() const { return m_sample_rate; }
@@ -113,21 +123,39 @@ public:
         return m_gains[chip_id]->gain_r.load(std::memory_order_relaxed);
     }
 
+    void getGain(uint32_t chip_id, float& out_l, float& out_r) const {
+        assert(chip_id < m_gains.size());
+        out_l = m_gains[chip_id]->gain_l.load(std::memory_order_relaxed);
+        out_r = m_gains[chip_id]->gain_r.load(std::memory_order_relaxed);
+    }
+
+    uint32_t nativeRate(uint32_t chip_id) const {
+        if (chip_id >= m_chips.size()) return 0;
+        return m_chips[chip_id]->nativeRate();
+    }
+
+    const char* getChipName(uint32_t chip_id) const {
+        if (chip_id >= m_chips.size()) return nullptr;
+        return m_chips[chip_id]->name();
+    }
+
     // 外部メモリ設定 (ADPCM/PCM ROM/RAM)
     // chip_id: addChip() で取得した ID
-    // access_type: ymfm::ACCESS_ADPCM_A / ACCESS_ADPCM_B / ACCESS_PCM
+    // access_type: ymfm::ACCESS_ADPCM_A(1) / ACCESS_ADPCM_B(2) / ACCESS_PCM(3)
     // data: ROM データへのポインタ (呼び出し元が寿命を管理すること)
     // size: データサイズ (バイト)
     // ※ オーディオスレッド起動前に呼ぶこと (スレッドセーフではない)
-    void setMemory(uint32_t chip_id, ymfm::access_class access_type,
+    void setMemory(uint32_t chip_id, int access_type,
                    const uint8_t* data, uint32_t size) {
         assert(chip_id < m_chips.size());
-        m_chips[chip_id]->setMemory(access_type, data, size);
+        m_chips[chip_id]->setMemory(
+            static_cast<ymfm::access_class>(access_type), data, size);
     }
 
-    uint32_t memorySize(uint32_t chip_id, ymfm::access_class access_type) const {
+    uint32_t getMemorySize(uint32_t chip_id, int access_type) const {
         if (chip_id >= m_chips.size()) return 0;
-        return m_chips[chip_id]->memorySize(access_type);
+        return m_chips[chip_id]->memorySize(
+            static_cast<ymfm::access_class>(access_type));
     }
 
     // レジスタ書き込み (任意スレッドから呼べる)
