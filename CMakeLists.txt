@@ -19,6 +19,7 @@ set(YMFM_DIR "${CMAKE_SOURCE_DIR}/extern/ymfm/src" CACHE PATH "ymfm src dir")
 #  git submodule add https://github.com/digital-sound-antiques/emu2212  extern/emu2212
 #  git submodule add https://github.com/stripwax/SAASound               extern/SAASound
 #  git submodule add https://github.com/nlohmann/json                   extern/nlohmann_json
+#  git submodule add https://github.com/thestk/rtaudio                  extern/rtaudio
 #
 #  SAASound は独立 DLL としてビルドし実行時に LoadLibrary でロードする。
 #  FmEngineApi とは別ターゲットとして add_subdirectory で追加する。
@@ -28,6 +29,37 @@ set(EMU76489_DIR "${CMAKE_SOURCE_DIR}/extern/emu76489" CACHE PATH "emu76489 dir"
 set(EMU2212_DIR  "${CMAKE_SOURCE_DIR}/extern/emu2212"  CACHE PATH "emu2212 dir")
 set(NLOHMANN_DIR "${CMAKE_SOURCE_DIR}/extern/nlohmann_json/single_include" CACHE PATH "nlohmann/json include dir")
 set(SAASOUND_DIR "${CMAKE_SOURCE_DIR}/extern/SAASound" CACHE PATH "SAASound dir")
+set(RTAUDIO_DIR  "${CMAKE_SOURCE_DIR}/extern/rtaudio"  CACHE PATH "RtAudio dir")
+
+# -------------------------------------------------------
+#  RtAudio サブプロジェクト (sample_app 専用)
+#  FmEngineApi.dll には含まれない。
+#  注意: RtAudio は CMAKE_DEBUG_POSTFIX を "d" に設定するため、
+#        add_subdirectory の前後でリセットする。
+# -------------------------------------------------------
+if (EXISTS "${RTAUDIO_DIR}/CMakeLists.txt")
+    set(RTAUDIO_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(RTAUDIO_TARGETNAME_UNINSTALL "RtAudioUninstall" CACHE STRING "" FORCE)
+    # RtAudio が CMAKE_DEBUG_POSTFIX を上書きする前に退避
+    set(_saved_debug_postfix "${CMAKE_DEBUG_POSTFIX}")
+    add_subdirectory(${RTAUDIO_DIR} ${CMAKE_BINARY_DIR}/rtaudio EXCLUDE_FROM_ALL)
+    # RtAudio による変更を元に戻す
+    set(CMAKE_DEBUG_POSTFIX "${_saved_debug_postfix}" CACHE STRING "" FORCE)
+    # rtaudio ターゲット自身も DEBUG_POSTFIX を上書きして "d" サフィックスを除去し、
+    # sample_app と同じ bin/ に配置する
+    if (TARGET rtaudio AND MSVC)
+        set_target_properties(rtaudio PROPERTIES
+            DEBUG_POSTFIX            ""
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+            ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+            PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
+        )
+    endif()
+    message(STATUS "RtAudio subproject added from ${RTAUDIO_DIR}")
+else()
+    message(STATUS "RtAudio not found at ${RTAUDIO_DIR} -- sample_app will not build.")
+    message(STATUS "  Run: git submodule add https://github.com/thestk/rtaudio extern/rtaudio")
+endif()
 
 # -------------------------------------------------------
 #  SAASound サブプロジェクト
@@ -49,6 +81,7 @@ if (EXISTS "${SAASOUND_DIR}/CMakeLists.txt")
             set_target_properties(SAASound PROPERTIES
                 RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
                 PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
+                DEBUG_POSTFIX            ""   # RtAudio の CMAKE_DEBUG_POSTFIX="d" の影響を防ぐ
             )
         endif()
         message(STATUS "SAASound subproject added from ${SAASOUND_DIR}")
@@ -104,12 +137,8 @@ if (MSVC)
     )
 endif()
 
-# WASAPI / COM リンク
-target_link_libraries(FmEngineApi PRIVATE
-    ole32
-    uuid
-    avrt
-)
+# FmEngineApi.dll は音声出力バックエンドに依存しない
+target_link_libraries(FmEngineApi PRIVATE)
 
 # バージョン情報を DLL に埋め込む (Windows リソース)
 if (MSVC)
@@ -131,6 +160,7 @@ if (MSVC)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
+        DEBUG_POSTFIX            ""   # RtAudio の CMAKE_DEBUG_POSTFIX="d" の影響を防ぐ
     )
 endif()
 
@@ -143,45 +173,57 @@ endif()
 
 # =======================================================
 #  ターゲット 2: sample_app.exe  (使用例)
-#  DLL の .lib にリンクする形でビルド
+#  DLL の .lib + RtAudio にリンクする形でビルド
 # =======================================================
-add_executable(sample_app src/main.cpp)
+if (TARGET rtaudio)
+    add_executable(sample_app src/main.cpp)
 
-target_include_directories(sample_app PRIVATE
-    src/
-    ${NLOHMANN_DIR}
-)
-
-target_link_libraries(sample_app PRIVATE FmEngineApi)
-
-if (MSVC)
-    set_target_properties(sample_app PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    target_include_directories(sample_app PRIVATE
+        src/
+        ${NLOHMANN_DIR}
+        ${RTAUDIO_DIR}
     )
-    target_compile_options(sample_app PRIVATE /W4 /wd4100 /utf-8)
+
+    target_link_libraries(sample_app PRIVATE FmEngineApi rtaudio)
+
+    if (MSVC)
+        set_target_properties(sample_app PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        )
+        target_compile_options(sample_app PRIVATE /W4 /wd4100 /utf-8)
+    endif()
+
+    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(sample_app PRIVATE -Wall -Wextra)
+    endif()
+
+else()
+    message(WARNING "RtAudio not available -- sample_app will not be built.")
 endif()
 
 # patches/ ディレクトリの JSON ファイルをビルド出力ディレクトリにコピー
-set(PATCHES_SRC_DIR "${CMAKE_SOURCE_DIR}/src/patches")
-if (EXISTS "${PATCHES_SRC_DIR}")
-    file(GLOB PATCH_FILES "${PATCHES_SRC_DIR}/*.json")
-    foreach(PATCH_FILE ${PATCH_FILES})
-        add_custom_command(TARGET sample_app POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:sample_app>/patches"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${PATCH_FILE}"
-                "$<TARGET_FILE_DIR:sample_app>/patches/"
-            COMMENT "Copying ${PATCH_FILE}"
-        )
-    endforeach()
-    # cmake 構成時にもコピー
-    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/bin/patches")
-    foreach(PATCH_FILE ${PATCH_FILES})
-        configure_file("${PATCH_FILE}" "${CMAKE_BINARY_DIR}/bin/patches/" COPYONLY)
-    endforeach()
-else()
-    message(WARNING "patches/ directory not found at ${PATCHES_SRC_DIR}")
+if (TARGET sample_app)
+    set(PATCHES_SRC_DIR "${CMAKE_SOURCE_DIR}/src/patches")
+    if (EXISTS "${PATCHES_SRC_DIR}")
+        file(GLOB PATCH_FILES "${PATCHES_SRC_DIR}/*.json")
+        foreach(PATCH_FILE ${PATCH_FILES})
+            add_custom_command(TARGET sample_app POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "$<TARGET_FILE_DIR:sample_app>/patches"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${PATCH_FILE}"
+                    "$<TARGET_FILE_DIR:sample_app>/patches/"
+                COMMENT "Copying ${PATCH_FILE}"
+            )
+        endforeach()
+        # cmake 構成時にもコピー
+        file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/bin/patches")
+        foreach(PATCH_FILE ${PATCH_FILES})
+            configure_file("${PATCH_FILE}" "${CMAKE_BINARY_DIR}/bin/patches/" COPYONLY)
+        endforeach()
+    else()
+        message(WARNING "patches/ directory not found at ${PATCHES_SRC_DIR}")
+    endif()
 endif()
 
 # =======================================================

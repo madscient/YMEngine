@@ -20,13 +20,3 @@ EXPORTS
     FmEngine_SetMemory
     FmEngine_GetMemorySize
     FmEngine_Generate
-    Wasapi_Create
-    Wasapi_CreateWithDevice
-    Wasapi_GetDeviceCount
-    Wasapi_GetDeviceId
-    Wasapi_GetDeviceName
-    Wasapi_IsDefaultDevice
-    Wasapi_Destroy
-    Wasapi_Start
-    Wasapi_Stop
-    Wasapi_GetSampleRate

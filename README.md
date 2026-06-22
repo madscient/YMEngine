@@ -1,7 +1,9 @@
 # YMEngine
 
-**ymfm** をコアとした Windows 向け FM 音源エンジン。  
-ymfm 16種 + 外部ライブラリ 4種 の計20種のチップに対応し、WASAPI でリアルタイム再生します。
+**ymfm** をコアとした FM 音源エンジン DLL。  
+ymfm 16種 + 外部ライブラリ 4種 の計20種のチップに対応します。  
+DLL は波形生成・リサンプリングまでを担い、オーディオ出力はアプリケーション側が担当します。  
+付属の `sample_app` は **RtAudio** を使用した実装例です（Windows/macOS/Linux 対応）。
 
 ## ファイル構成
 
@@ -14,17 +16,17 @@ YMEngine/
 │   ├── emu76489/          ← git submodule (digital-sound-antiques/emu76489)
 │   ├── emu2212/           ← git submodule (digital-sound-antiques/emu2212)
 │   ├── SAASound/          ← git submodule (stripwax/SAASound) ※独立DLL
-│   └── nlohmann_json/     ← git submodule (nlohmann/json)
+│   ├── nlohmann_json/     ← git submodule (nlohmann/json)
+│   └── rtaudio/           ← git submodule (thestk/rtaudio) ※sample_app専用
 ├── src/
 │   ├── FmChip.h           ymfm ラッパー・LinearResampler
 │   ├── FmEngine.h         複数チップ管理・SPSC キュー・ゲイン
 │   ├── ExternalChip.h     外部ライブラリチップ (SSG/DCSG/SCC/SAA)
-│   ├── WasapiOutput.h     WASAPI リアルタイム出力・デバイス列挙
 │   ├── FmEngineApi.h  ★  DLL 公開用 C ファサード (宣言)
 │   ├── FmEngineApi.cpp★  DLL 公開用 C ファサード (実装)
 │   ├── FmEngineApi.def★  MSVC エクスポート定義
 │   ├── FmEngineApi.rc ★  DLL バージョン情報リソース
-│   ├── main.cpp           全チップ全チャンネルテスト (JSON 駆動)
+│   ├── main.cpp           全チップ全チャンネルテスト (JSON 駆動、RtAudio使用)
 │   └── patches/           チップ別テスト用パッチ定義 (JSON)
 ├── README.md
 └── README_ymfm.md         内部 C++ API リファレンス
@@ -47,9 +49,12 @@ git submodule add https://github.com/digital-sound-antiques/emu76489      extern
 git submodule add https://github.com/digital-sound-antiques/emu2212       extern/emu2212
 git submodule add https://github.com/stripwax/SAASound                    extern/SAASound
 git submodule add https://github.com/nlohmann/json                        extern/nlohmann_json
+git submodule add https://github.com/thestk/rtaudio                       extern/rtaudio
 ```
 
-## ビルド (Visual Studio 2022)
+## ビルド
+
+### Windows (Visual Studio 2022)
 
 ```bash
 # 構成生成 (.sln に FmEngineApi / SAASound / sample_app が追加される)
@@ -70,19 +75,33 @@ cmake --build build --target SAASound --config Release
 #   build/bin/patches/             ← テスト用パッチ定義 (JSON)
 ```
 
+### Linux / macOS
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+# 成果物
+#   build/libFmEngineApi.so        ← 共有ライブラリ
+#   build/sample_app               ← 全チップテストアプリ
+#   build/bin/patches/             ← テスト用パッチ定義 (JSON)
+```
+
 > **Note**: `SAASound.dll` は `FmEngineApi.dll` と同じディレクトリに配置してください。  
-> 存在しない場合は SAA1099 チップの追加時にエラーになりますが、他のチップには影響しません。
+> 存在しない場合は SAA1099 チップの追加時にエラーになりますが、他のチップには影響しません。  
+> `extern/rtaudio` がない場合は `sample_app` のビルドがスキップされます（`FmEngineApi.dll` 自体はビルドされます）。
 
 ## DLL の使い方
 
 利用側は **`FmEngineApi.h` だけを include** し、`FmEngineApi.lib` にリンクします。  
-`FmEngine.h` / `WasapiOutput.h` / ymfm / emu2149 等のヘッダは不要です。
+`FmEngine.h` / ymfm / emu2149 等の内部ヘッダは不要です。  
+DLL はオーディオ出力機能を持ちません。アプリケーションが任意のオーディオ API（RtAudio / WASAPI / ALSA 等）を使って `FmEngine_Generate()` を呼び出し、得られた float32 の波形データをデバイスに送出します。
 
 ```c
 #include "FmEngineApi.h"
 #pragma comment(lib, "FmEngineApi.lib")
 
-// エンジン作成 (48000 Hz)
+// エンジン作成 (デバイスのサンプルレートに合わせる)
 FmEngineHandle eng = FmEngine_Create(48000);
 
 // ymfm チップ追加 (clock=0 で標準クロック自動選択)
@@ -97,23 +116,19 @@ FmEngine_AddExtChip(eng, FM_CHIP_EXT_SSG, 0, &ssgId);
 FmEngine_SetGain(eng, opnaId, 1.0f, 1.0f);
 FmEngine_SetGain(eng, ssgId,  0.9f, 0.7f);  // 例: L=0.9, R=0.7 でパン寄せ
 
-// 設定値の取得
-float gl, gr;
-FmEngine_GetGain(eng, opnaId, &gl, &gr);
-
-// WASAPI 再生 (デフォルトデバイス、Shared mode)
-WasapiHandle wasapi = Wasapi_Create(eng, 0);
-Wasapi_Start(wasapi);
-
-// レジスタ書き込み (任意スレッドから安全)
+// レジスタ書き込み (任意スレッドからスレッドセーフ)
 // ymfm 系: write(chip_id, reg, value, port)
 FmEngine_Write(eng, opnaId, 0xB4, 0xC0, 0);
 // SSG 系:  write(chip_id, reg_num, value, port=0)
 FmEngine_Write(eng, ssgId,  0x08, 0x0F, 0);
 
-// 停止・解放
-Wasapi_Stop(wasapi);
-Wasapi_Destroy(wasapi);
+// --- アプリのオーディオコールバック内で呼ぶ ---
+// out_l / out_r : float32 非インターリーブバッファ、範囲 [-1.0, 1.0]
+float out_l[512], out_r[512];
+FmEngine_Generate(eng, out_l, out_r, 512);
+// ここで out_l/out_r をデバイスフォーマットに変換してデバイスに書き込む
+
+// 解放
 FmEngine_Destroy(eng);
 ```
 
@@ -126,30 +141,60 @@ FmResult FmEngine_SetGain(FmEngineHandle engine, uint32_t chip_id, float gain_l,
 FmResult FmEngine_GetGain(FmEngineHandle engine, uint32_t chip_id, float* out_gain_l, float* out_gain_r);
 ```
 
-### オーディオデバイスの明示指定
+### RtAudio を使ったオーディオ出力 (sample_app の実装例)
 
-```c
-// デバイス列挙
-uint32_t count = Wasapi_GetDeviceCount();
-for (uint32_t i = 0; i < count; ++i) {
-    wchar_t id[256] = {}, name[256] = {};
-    Wasapi_GetDeviceId(i, id, 256);
-    Wasapi_GetDeviceName(i, name, 256);
-    int isDefault = Wasapi_IsDefaultDevice(i);
+`FmEngine_Generate()` を RtAudio のコールバックから呼ぶ基本パターンです。
+
+```cpp
+#include "FmEngineApi.h"
+#include "RtAudio.h"
+
+struct AudioState { FmEngineHandle eng; };
+
+int callback(void* outBuf, void*, unsigned int nFrames,
+             double, RtAudioStreamStatus, void* userData) {
+    auto* st = static_cast<AudioState*>(userData);
+    static std::vector<float> L, R;
+    L.resize(nFrames); R.resize(nFrames);
+
+    FmEngine_Generate(st->eng, L.data(), R.data(), nFrames);
+
+    // インターリーブ stereo に変換
+    auto* dst = static_cast<float*>(outBuf);
+    for (unsigned i = 0; i < nFrames; ++i) {
+        dst[i * 2]     = L[i];
+        dst[i * 2 + 1] = R[i];
+    }
+    return 0;
 }
 
-// デバイスIDを指定して作成
-WasapiHandle wasapi = Wasapi_CreateWithDevice(eng, 0, id);
+int main() {
+    FmEngineHandle eng = FmEngine_Create(48000);
+    // ... AddChip, SetMemory, SetGain ...
 
-// デバイスのサンプルレートを取得
-uint32_t devRate = Wasapi_GetSampleRate(wasapi);
+    RtAudio audio;
+    AudioState st{ eng };
+    RtAudio::StreamParameters out;
+    out.deviceId  = audio.getDefaultOutputDevice();
+    out.nChannels = 2;
+    unsigned int frames = 512;
+    audio.openStream(&out, nullptr, RTAUDIO_FLOAT32, 48000, &frames, callback, &st);
+    audio.startStream();
+
+    // ... FmEngine_Write で発音 ...
+
+    audio.stopStream();
+    audio.closeStream();
+    FmEngine_Destroy(eng);
+}
 ```
+
+RtAudio は Windows (WASAPI/ASIO/DirectSound)、macOS (CoreAudio)、Linux (ALSA/PulseAudio/Jack) を透過的にサポートします。
 
 ### C# (P/Invoke) からの使用例
 
 ```csharp
 using System.Runtime.InteropServices;
-using System.Text;
 
 static class FmEngineApi {
     const string DLL = "FmEngineApi";
@@ -171,49 +216,32 @@ static class FmEngineApi {
         byte[] data, uint size);
     [DllImport(DLL)] public static extern uint    FmEngine_GetMemorySize(
         IntPtr engine, uint chipId, int memType);
-    [DllImport(DLL)] public static extern uint    Wasapi_GetDeviceCount();
-    [DllImport(DLL)] public static extern int     Wasapi_GetDeviceId(
-        uint index, [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buf, uint bufLen);
-    [DllImport(DLL)] public static extern int     Wasapi_GetDeviceName(
-        uint index, [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buf, uint bufLen);
-    [DllImport(DLL)] public static extern int     Wasapi_IsDefaultDevice(uint index);
-    [DllImport(DLL)] public static extern IntPtr  Wasapi_Create(IntPtr engine, int exclusive);
-    [DllImport(DLL)] public static extern IntPtr  Wasapi_CreateWithDevice(
-        IntPtr engine, int exclusive,
-        [MarshalAs(UnmanagedType.LPWStr)] string deviceId);
-    [DllImport(DLL)] public static extern uint    Wasapi_GetSampleRate(IntPtr wasapi);
-    [DllImport(DLL)] public static extern void    Wasapi_Destroy(IntPtr wasapi);
-    [DllImport(DLL)] public static extern int     Wasapi_Start(IntPtr wasapi);
-    [DllImport(DLL)] public static extern int     Wasapi_Stop(IntPtr wasapi);
+    // out_l / out_r : float[] をピン留めして IntPtr を渡す
+    [DllImport(DLL)] public static extern int     FmEngine_Generate(
+        IntPtr engine, IntPtr out_l, IntPtr out_r, uint samples);
 }
 ```
 
-## WASAPI 動作モード
-
-| モード | 説明 |
-|---|---|
-| Shared mode (`exclusive=0`) | デフォルト。`GetMixFormat` で取得したデバイスのネイティブフォーマットで初期化し、float32 出力を自前変換して書き込む。`AUTOCONVERTPCM` 非依存。 |
-| Exclusive mode (`exclusive=1`) | デバイスを占有し最小レイテンシで動作。`IsFormatSupported` で非対応と判定された場合は Shared mode に自動降格する。 |
-
-対応フォーマット: Float32 / Int16 / Int24 / Int32 (デバイスに応じて自動選択)
+オーディオ出力には NAudio・BASS・PortAudio.NET など .NET 向けのライブラリと組み合わせてください。
 
 ## 全チップテスト (sample_app)
 
-`patches/` 以下に チップごとの JSON パッチファイルを用意しています。  
-`sample_app.exe` はこれらを読み込み、各チャンネルを順番に発音します。
+`patches/` 以下にチップごとの JSON パッチファイルを用意しています。  
+`sample_app` はこれらを読み込み、各チャンネルを順番に発音します。  
+RtAudio を使用しているため、Windows/macOS/Linux で動作します。
 
 ```bash
 # デフォルト: patches/all.json (全チップ) を使用
-sample_app.exe
+sample_app
 
 # チップを指定
-sample_app.exe patches/opna.json
+sample_app patches/opna.json
 
 # 複数ファイルを順番に処理
-sample_app.exe patches/opl2.json patches/opna.json
+sample_app patches/opl2.json patches/opna.json
 
 # サンプルレートとデバイスを指定
-sample_app.exe -r 44100 -d "Realtek" patches/all.json
+sample_app -r 44100 -d "Realtek" patches/all.json
 ```
 
 オプション:
@@ -348,17 +376,14 @@ fread(buf, 1, sz, f);  fclose(f);
 
 uint32_t opnaId;
 FmEngine_AddChip(eng, FM_CHIP_OPNA, 0, &opnaId);
-// Wasapi_Start() より前に設定すること
+// オーディオストリーム開始前に設定すること
 FmEngine_SetMemory(eng, opnaId, FM_MEM_ADPCM_A, buf, sz);
 
-WasapiHandle wasapi = Wasapi_Create(eng, 0);
-Wasapi_Start(wasapi);
-// buf は Wasapi_Stop() まで解放しないこと
-Wasapi_Stop(wasapi);
-free(buf);
+// ... audio.startStream() ...
+// buf は audio.stopStream() まで解放しないこと
 ```
 
-> **注意**: `FmEngine_SetMemory` はスレッドセーフではありません。`Wasapi_Start()` より前に呼んでください。
+> **注意**: `FmEngine_SetMemory` はスレッドセーフではありません。オーディオストリーム開始前に呼んでください。
 
 ### sample_app での ROM 自動ロード
 
@@ -453,4 +478,5 @@ YMEngine の標準クロックは `FmClock::OPM = 3'579'545` Hz (`FmChip.h`) の
 - **emu2149 / emu76489 / emu2212**: MIT (digital-sound-antiques)
 - **SAASound**: GPL-2.0 (stripwax) — 配布時はライセンス条件を確認してください
 - **nlohmann/json**: MIT (nlohmann)
+- **RtAudio**: MIT (Gary P. Scavone) — sample_app のみが依存、DLL には含まれません
 - **このエンジンコード**: MIT

@@ -28,10 +28,11 @@
 //                     opm.json 内の "chips"."OPM" を読み込んで使用する。
 //                 これにより all.json は各チップ用 JSON への参照だけで構成できる。
 //
-// 注意: AddChip は Wasapi_Start より前に全て完了させること。
-//       (WASAPI スレッドとの競合防止)
+// 注意: AddChip はオーディオストリーム開始前に全て完了させること。
+//       (オーディオコールバックスレッドとの競合防止)
 
 #include "FmEngineApi.h"
+#include "RtAudio.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -39,10 +40,51 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
-#include <windows.h>
+#ifdef _WIN32
+#  include <windows.h>   // ExitProcess, Sleep, GetModuleFileNameA
+#else
+#  include <unistd.h>    // readlink
+#  include <time.h>      // nanosleep
+#endif
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
+
+// =========================================================
+//  RtAudio コールバック
+//  RtAudio がオーディオバッファを必要とするたびに呼ばれる。
+//  outputBuffer : インターリーブ float32 L/R
+// =========================================================
+struct AudioState {
+    FmEngineHandle eng    = nullptr;
+    uint32_t       frames = 0;   // コールバック 1 回あたりのフレーム数
+    // 作業用の非インターリーブバッファ (コールバック内で使い回す)
+    std::vector<float> workL;
+    std::vector<float> workR;
+};
+
+static int rtAudioCallback(void* outBuf, void* /*inBuf*/,
+                            unsigned int nFrames,
+                            double /*streamTime*/,
+                            RtAudioStreamStatus /*status*/,
+                            void* userData) {
+    auto* st = static_cast<AudioState*>(userData);
+    if (!st->eng) return 0;
+
+    // 作業バッファを必要なサイズに拡張
+    if (st->workL.size() < nFrames) st->workL.resize(nFrames, 0.0f);
+    if (st->workR.size() < nFrames) st->workR.resize(nFrames, 0.0f);
+
+    FmEngine_Generate(st->eng, st->workL.data(), st->workR.data(), nFrames);
+
+    // 非インターリーブ L/R → インターリーブ stereo
+    auto* dst = static_cast<float*>(outBuf);
+    for (unsigned int i = 0; i < nFrames; ++i) {
+        dst[i * 2    ] = st->workL[i];
+        dst[i * 2 + 1] = st->workR[i];
+    }
+    return 0;
+}
 
 // =========================================================
 //  ヘルパー
@@ -57,19 +99,22 @@ static uint32_t parseVal(const json& j) {
 static void check(FmResult r, const char* msg) {
     if (r != FM_OK) {
         fprintf(stderr, "ERROR %s: code=%d\n", msg, (int)r);
+#ifdef _WIN32
         ExitProcess(1);
+#else
+        exit(1);
+#endif
     }
 }
 
-static std::string toMB(const wchar_t* wstr) {
-    if (!wstr || wstr[0] == L'\0') return {};
-    const UINT cp = GetACP();
-    const int  n  = WideCharToMultiByte(cp, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
-    if (n <= 0) return {};
-    std::string buf(n, '\0');
-    WideCharToMultiByte(cp, 0, wstr, -1, buf.data(), n, nullptr, nullptr);
-    buf.resize(n - 1);
-    return buf;
+static void sleepMs(uint32_t ms) {
+#ifdef _WIN32
+    Sleep(ms);
+#else
+    struct timespec ts{ static_cast<time_t>(ms / 1000),
+                        static_cast<long>((ms % 1000) * 1000000L) };
+    nanosleep(&ts, nullptr);
+#endif
 }
 
 static void applyRegs(FmEngineHandle eng, uint32_t chip_id,
@@ -94,9 +139,22 @@ static void applyRegs(FmEngineHandle eng, uint32_t chip_id,
 
 // 実行ファイルのフォルダを取得
 static std::string getExeDir() {
+#ifdef _WIN32
     char buf[MAX_PATH] = {};
     GetModuleFileNameA(nullptr, buf, MAX_PATH);
     std::string path(buf);
+#else
+    // Linux/macOS: /proc/self/exe または argv[0] ベースのフォールバック
+    char buf[4096] = {};
+#  if defined(__linux__)
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len < 0) len = 0;
+    buf[len] = '\0';
+#  else
+    buf[0] = '\0';  // macOS 等は別途対応が必要
+#  endif
+    std::string path(buf);
+#endif
     const auto pos = path.find_last_of("\\/");
     return (pos != std::string::npos) ? path.substr(0, pos + 1) : "";
 }
@@ -362,12 +420,12 @@ static void playChipsFromFile(const FileContext& ctx, FmEngineHandle eng) {
             if (chDef.contains("key_on"))
                 applyRegs(eng, chip_id, chDef["key_on"], chPort);
 
-            Sleep(note_ms);
+            sleepMs(note_ms);
 
             if (chDef.contains("key_off"))
                 applyRegs(eng, chip_id, chDef["key_off"], chPort);
 
-            Sleep(rest_ms);
+            sleepMs(rest_ms);
         }
     }
     printf("\n");
@@ -398,37 +456,49 @@ int main(int argc, char* argv[]) {
     FmEngineHandle eng = FmEngine_Create(sampleRate);
     if (!eng) { fputs("FmEngine_Create failed\n", stderr); return 1; }
 
-    // ② デバイス列挙・選択
-    const uint32_t devCount = Wasapi_GetDeviceCount();
-    wchar_t selectedId[256] = {};
-
-    for (uint32_t i = 0; i < devCount; ++i) {
-        wchar_t id[256] = {}, name[256] = {};
-        Wasapi_GetDeviceId(i, id, 256);
-        Wasapi_GetDeviceName(i, name, 256);
-        const bool isDef = Wasapi_IsDefaultDevice(i) != 0;
-        const std::string mb = toMB(name);
-        printf("  [%u] %s%s\n", i, mb.c_str(), isDef ? " (default)" : "");
-
-        if (deviceName) {
-            if (mb.find(deviceName) != std::string::npos)
-                wcscpy_s(selectedId, id);
-        } else if (isDef && selectedId[0] == L'\0') {
-            wcscpy_s(selectedId, id);
-        }
-    }
-    printf("\n");
-
-    WasapiHandle wasapi = (selectedId[0] != L'\0')
-        ? Wasapi_CreateWithDevice(eng, 0, selectedId)
-        : Wasapi_Create(eng, 0);
-    if (!wasapi) {
-        fputs("Wasapi_Create failed\n", stderr);
+    // ② RtAudio 初期化・デバイス列挙
+    RtAudio audio;
+    if (audio.getDeviceCount() == 0) {
+        fputs("RtAudio: no audio devices found\n", stderr);
         FmEngine_Destroy(eng);
         return 1;
     }
+    {
+        std::vector<unsigned int> ids = audio.getDeviceIds();
+        unsigned int defaultId = audio.getDefaultOutputDevice();
+        for (unsigned int id : ids) {
+            RtAudio::DeviceInfo info = audio.getDeviceInfo(id);
+            if (info.outputChannels < 2) continue;
+            const bool isDef = (id == defaultId);
+            printf("  [%u] %s%s\n", id, info.name.c_str(), isDef ? " (default)" : "");
+        }
+        printf("\n");
+    }
 
-    // ③ 全ファイルを読み込み、全チップを先に追加 (WASAPI 開始前)
+    // デバイス選択: -d で部分一致、なければデフォルト
+    unsigned int selectedId = audio.getDefaultOutputDevice();
+    if (selectedId == 0) {
+        // getDefaultOutputDevice() が 0 を返す場合は最初の出力デバイスを使う
+        for (unsigned int id : audio.getDeviceIds()) {
+            if (audio.getDeviceInfo(id).outputChannels >= 2) {
+                selectedId = id;
+                break;
+            }
+        }
+    }
+    if (deviceName) {
+        for (unsigned int id : audio.getDeviceIds()) {
+            RtAudio::DeviceInfo info = audio.getDeviceInfo(id);
+            if (info.outputChannels >= 2 &&
+                info.name.find(deviceName) != std::string::npos) {
+                selectedId = id;
+                break;
+            }
+        }
+    }
+    printf("Using device id=%u\n\n", selectedId);
+
+    // ③ 全ファイルを読み込み、全チップを先に追加 (ストリーム開始前)
     std::vector<FileContext> ctxs(jsonFiles.size());
     for (size_t i = 0; i < jsonFiles.size(); ++i) {
         ctxs[i].path  = jsonFiles[i];
@@ -441,16 +511,51 @@ int main(int argc, char* argv[]) {
         addChipsFromFile(ctxs[i], eng);
     }
 
-    // ④ WASAPI 開始 (全 AddChip 完了後)
-    check(Wasapi_Start(wasapi), "Wasapi_Start");
+    // ④ RtAudio ストリーム開始 (全 AddChip 完了後)
+    AudioState audioState;
+    audioState.eng = eng;
+
+    RtAudio::StreamParameters outParams;
+    outParams.deviceId     = selectedId;
+    outParams.nChannels    = 2;
+    outParams.firstChannel = 0;
+
+    unsigned int bufferFrames = 512;
+
+    printf("Opening stream (device=%u, rate=%u, frames=%u)...\n",
+           selectedId, sampleRate, bufferFrames);
+    fflush(stdout);
+
+    RtAudioErrorType err = audio.openStream(
+        &outParams, nullptr,
+        RTAUDIO_FLOAT32, sampleRate,
+        &bufferFrames,
+        rtAudioCallback, &audioState);
+    if (err != RTAUDIO_NO_ERROR) {
+        fprintf(stderr, "RtAudio::openStream failed: %s\n", audio.getErrorText().c_str());
+        FmEngine_Destroy(eng);
+        return 1;
+    }
+    printf("Stream opened (bufferFrames=%u)\n", bufferFrames);
+    fflush(stdout);
+
+    err = audio.startStream();
+    if (err != RTAUDIO_NO_ERROR) {
+        fprintf(stderr, "RtAudio::startStream failed: %s\n", audio.getErrorText().c_str());
+        audio.closeStream();
+        FmEngine_Destroy(eng);
+        return 1;
+    }
+    printf("Stream started\n\n");
+    fflush(stdout);
 
     // ⑤ 各ファイルを発音テスト
     for (const auto& ctx : ctxs)
         playChipsFromFile(ctx, eng);
 
     // ⑥ 停止・解放
-    Wasapi_Stop(wasapi);
-    Wasapi_Destroy(wasapi);
+    if (audio.isStreamRunning()) audio.stopStream();
+    if (audio.isStreamOpen())    audio.closeStream();
     FmEngine_Destroy(eng);
     printf("Done.\n");
     return 0;
