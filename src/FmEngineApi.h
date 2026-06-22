@@ -92,7 +92,6 @@ typedef enum FmMemoryType {
 //  ※ extern "C" の外に置く
 // =========================================================
 struct FmEngineOpaque;
-struct WasapiOpaque;
 
 // =========================================================
 //  ハンドル typedef と関数宣言のみ extern "C" に入れる
@@ -102,7 +101,6 @@ extern "C" {
 #endif
 
 typedef struct FmEngineOpaque*  FmEngineHandle;
-typedef struct WasapiOpaque*    WasapiHandle;
 
 FMENGINE_API FmEngineHandle FMENGINE_CALL FmEngine_Create(uint32_t sample_rate);
 FMENGINE_API void           FMENGINE_CALL FmEngine_Destroy(FmEngineHandle engine);
@@ -129,7 +127,7 @@ FMENGINE_API FmResult       FMENGINE_CALL FmEngine_GetGain(
 // mem_type : FM_MEM_ADPCM_A / FM_MEM_ADPCM_B / FM_MEM_PCM
 // data     : ROM データへのポインタ (呼び出し元が寿命を管理すること)
 // size     : データサイズ (バイト)
-// オーディオ再生開始前 (Wasapi_Start より前) に呼ぶこと。
+// オーディオ出力開始前に呼ぶこと。
 FMENGINE_API FmResult       FMENGINE_CALL FmEngine_SetMemory(
     FmEngineHandle engine, uint32_t chip_id,
     FmMemoryType mem_type, const uint8_t* data, uint32_t size);
@@ -137,38 +135,12 @@ FMENGINE_API FmResult       FMENGINE_CALL FmEngine_SetMemory(
 // 設定済みメモリサイズを取得 (未設定の場合は 0)
 FMENGINE_API uint32_t       FMENGINE_CALL FmEngine_GetMemorySize(
     FmEngineHandle engine, uint32_t chip_id, FmMemoryType mem_type);
+
+// 波形を生成して out_l / out_r に書き込む (float32, [-1.0, 1.0])
+// スレッドセーフ: 任意スレッドから FmEngine_Write と並行して呼び出し可能。
+// アプリケーションのオーディオコールバックからこの関数を呼び出すこと。
 FMENGINE_API FmResult       FMENGINE_CALL FmEngine_Generate(
     FmEngineHandle engine, float* out_l, float* out_r, uint32_t samples);
-
-FMENGINE_API WasapiHandle   FMENGINE_CALL Wasapi_Create(
-    FmEngineHandle engine, int exclusive);
-
-// デバイスIDを明示指定して WASAPI 出力を作成する
-// device_id: Wasapi_GetDeviceId() で取得した文字列 (UTF-16LE、ワイド文字)
-FMENGINE_API WasapiHandle   FMENGINE_CALL Wasapi_CreateWithDevice(
-    FmEngineHandle engine, int exclusive, const wchar_t* device_id);
-
-// 利用可能な再生デバイスの数を返す
-// CoInitialize 済みのスレッドから呼ぶこと
-FMENGINE_API uint32_t       FMENGINE_CALL Wasapi_GetDeviceCount(void);
-
-// index 番目のデバイスIDを buf に書き込む (ワイド文字列)
-// buf_len: バッファの wchar_t 単位のサイズ (128以上推奨)
-// 戻り値: FM_OK、FM_ERR_INVALID_ARG (index 範囲外 / buf NULL)
-FMENGINE_API FmResult       FMENGINE_CALL Wasapi_GetDeviceId(
-    uint32_t index, wchar_t* buf, uint32_t buf_len);
-
-// index 番目のデバイス表示名を buf に書き込む (ワイド文字列)
-FMENGINE_API FmResult       FMENGINE_CALL Wasapi_GetDeviceName(
-    uint32_t index, wchar_t* buf, uint32_t buf_len);
-
-// index 番目のデバイスがデフォルトデバイスかどうかを返す (1=デフォルト, 0=その他)
-FMENGINE_API int            FMENGINE_CALL Wasapi_IsDefaultDevice(uint32_t index);
-
-FMENGINE_API void           FMENGINE_CALL Wasapi_Destroy(WasapiHandle wasapi);
-FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Start(WasapiHandle wasapi);
-FMENGINE_API FmResult       FMENGINE_CALL Wasapi_Stop(WasapiHandle wasapi);
-FMENGINE_API uint32_t       FMENGINE_CALL Wasapi_GetSampleRate(WasapiHandle wasapi);
 
 #ifdef __cplusplus
 } // extern "C"
