@@ -12,50 +12,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # -------------------------------------------------------
 set(YMFM_DIR "${CMAKE_SOURCE_DIR}/extern/ymfm/src" CACHE PATH "ymfm src dir")
 
-# -------------------------------------------------------
-#  依存ライブラリのパス
-#  git submodule add https://github.com/nlohmann/json  extern/nlohmann_json
-#  git submodule add https://github.com/thestk/rtaudio extern/rtaudio
-# -------------------------------------------------------
-set(NLOHMANN_DIR "${CMAKE_SOURCE_DIR}/extern/nlohmann_json/single_include" CACHE PATH "nlohmann/json include dir")
-set(RTAUDIO_DIR  "${CMAKE_SOURCE_DIR}/extern/rtaudio" CACHE PATH "RtAudio dir")
-
-# -------------------------------------------------------
-#  RtAudio サブプロジェクト (sample_app 専用)
-#  FmEngineApi.dll には含まれない。
-#  注意: RtAudio は CMAKE_DEBUG_POSTFIX を "d" に設定するため、
-#        add_subdirectory の前後でリセットする。
-# -------------------------------------------------------
-if (EXISTS "${RTAUDIO_DIR}/CMakeLists.txt")
-    set(RTAUDIO_BUILD_TESTING OFF CACHE BOOL "" FORCE)
-    set(RTAUDIO_TARGETNAME_UNINSTALL "RtAudioUninstall" CACHE STRING "" FORCE)
-    # RtAudio が CMAKE_DEBUG_POSTFIX を上書きする前に退避
-    set(_saved_debug_postfix "${CMAKE_DEBUG_POSTFIX}")
-    add_subdirectory(${RTAUDIO_DIR} ${CMAKE_BINARY_DIR}/rtaudio EXCLUDE_FROM_ALL)
-    # RtAudio による変更を元に戻す
-    set(CMAKE_DEBUG_POSTFIX "${_saved_debug_postfix}" CACHE STRING "" FORCE)
-    # rtaudio ターゲット自身も DEBUG_POSTFIX を上書きして "d" サフィックスを除去し、
-    # sample_app と同じ bin/ に配置する
-    if (TARGET rtaudio AND MSVC)
-        set_target_properties(rtaudio PROPERTIES
-            DEBUG_POSTFIX            ""
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-            ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-            PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
-        )
-    endif()
-    message(STATUS "RtAudio subproject added from ${RTAUDIO_DIR}")
-else()
-    message(STATUS "RtAudio not found at ${RTAUDIO_DIR} -- sample_app will not build.")
-    message(STATUS "  Run: git submodule add https://github.com/thestk/rtaudio extern/rtaudio")
-endif()
-
 # =======================================================
-#  ターゲット 1: FmEngineApi.dll
+#  ターゲット: FmEngineApi.dll / libFmEngineApi.so
 # =======================================================
 add_library(FmEngineApi SHARED
     src/FmEngineApi.cpp
-    # ymfm ソース
     ${YMFM_DIR}/ymfm_opl.cpp
     ${YMFM_DIR}/ymfm_opn.cpp
     ${YMFM_DIR}/ymfm_opm.cpp
@@ -71,112 +32,37 @@ target_include_directories(FmEngineApi PRIVATE
     ${YMFM_DIR}
 )
 
-# FMENGINE_EXPORTS → FmEngineApi.cpp 内で dllexport になる
 target_compile_definitions(FmEngineApi PRIVATE FMENGINE_EXPORTS)
 
-# .def ファイルでエクスポートシンボルを明示 (MSVC)
 if (MSVC)
     set_target_properties(FmEngineApi PROPERTIES
-        LINK_FLAGS "/DEF:\"${CMAKE_SOURCE_DIR}/src/FmEngineApi.def\""
+        LINK_FLAGS               "/DEF:\"${CMAKE_SOURCE_DIR}/src/FmEngineApi.def\""
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
+        DEBUG_POSTFIX            ""
     )
-endif()
-
-# FmEngineApi.dll は音声出力バックエンドに依存しない
-target_link_libraries(FmEngineApi PRIVATE)
-
-# バージョン情報を DLL に埋め込む (Windows リソース)
-if (MSVC)
-    target_sources(FmEngineApi PRIVATE src/FmEngineApi.rc)
-endif()
-
-# MSVC 最適化・警告設定
-if (MSVC)
     target_compile_options(FmEngineApi PRIVATE
         /Oi /GL /W4 /utf-8
         /wd4100   # unreferenced formal parameter (ymfm 内)
         /wd4244   # narrowing conversion (ymfm 内)
-        /wd4251   # dll-interface warning (内部クラスに不要)
+        /wd4251   # dll-interface warning
     )
     target_link_options(FmEngineApi PRIVATE /LTCG)
-
-    # .lib (インポートライブラリ) と .dll を build/bin に揃える
-    set_target_properties(FmEngineApi PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-        PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin"
-        DEBUG_POSTFIX            ""   # RtAudio の CMAKE_DEBUG_POSTFIX="d" の影響を防ぐ
-    )
+    target_sources(FmEngineApi PRIVATE src/FmEngineApi.rc)
 endif()
 
-# MinGW / Clang
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(FmEngineApi PRIVATE -O3 -Wall -Wextra)
-    # シンボルの可視性をデフォルト hidden にして FMENGINE_API のみ公開
-    target_compile_options(FmEngineApi PRIVATE -fvisibility=hidden)
+    target_compile_options(FmEngineApi PRIVATE -O3 -Wall -Wextra -fvisibility=hidden)
 endif()
 
 # =======================================================
-#  ターゲット 2: sample_app.exe  (使用例)
-#  DLL の .lib + RtAudio にリンクする形でビルド
-# =======================================================
-if (TARGET rtaudio)
-    add_executable(sample_app src/main.cpp)
-
-    target_include_directories(sample_app PRIVATE
-        src/
-        ${NLOHMANN_DIR}
-        ${RTAUDIO_DIR}
-    )
-
-    target_link_libraries(sample_app PRIVATE FmEngineApi rtaudio)
-
-    if (MSVC)
-        set_target_properties(sample_app PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-        )
-        target_compile_options(sample_app PRIVATE /W4 /wd4100 /utf-8)
-    endif()
-
-    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(sample_app PRIVATE -Wall -Wextra)
-    endif()
-
-else()
-    message(WARNING "RtAudio not available -- sample_app will not be built.")
-endif()
-
-# patches/ ディレクトリの JSON ファイルをビルド出力ディレクトリにコピー
-if (TARGET sample_app)
-    set(PATCHES_SRC_DIR "${CMAKE_SOURCE_DIR}/src/patches")
-    if (EXISTS "${PATCHES_SRC_DIR}")
-        file(GLOB PATCH_FILES "${PATCHES_SRC_DIR}/*.json")
-        foreach(PATCH_FILE ${PATCH_FILES})
-            add_custom_command(TARGET sample_app POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory
-                    "$<TARGET_FILE_DIR:sample_app>/patches"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${PATCH_FILE}"
-                    "$<TARGET_FILE_DIR:sample_app>/patches/"
-                COMMENT "Copying ${PATCH_FILE}"
-            )
-        endforeach()
-        # cmake 構成時にもコピー
-        file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/bin/patches")
-        foreach(PATCH_FILE ${PATCH_FILES})
-            configure_file("${PATCH_FILE}" "${CMAKE_BINARY_DIR}/bin/patches/" COPYONLY)
-        endforeach()
-    else()
-        message(WARNING "patches/ directory not found at ${PATCHES_SRC_DIR}")
-    endif()
-endif()
-
-# =======================================================
-#  インストール規則 (任意)
-#  cmake --install build --prefix install_dir
+#  インストール規則
+#  cmake --install build --prefix <dir>
 # =======================================================
 install(TARGETS FmEngineApi
-    RUNTIME DESTINATION bin          # .dll
-    LIBRARY DESTINATION lib          # .so
-    ARCHIVE DESTINATION lib          # .lib (import library)
+    RUNTIME DESTINATION bin    # .dll
+    LIBRARY DESTINATION lib    # .so
+    ARCHIVE DESTINATION lib    # .lib (import library)
 )
 install(FILES src/FmEngineApi.h DESTINATION include)
