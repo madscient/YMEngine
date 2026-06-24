@@ -1,5 +1,5 @@
 ; FmEngineApi.def
-LIBRARY "FmEngineApi"
+LIBRARY "YMFMEngine"
 
 EXPORTS
     FmEngine_Create
