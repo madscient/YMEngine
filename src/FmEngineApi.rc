@@ -23,11 +23,11 @@ BEGIN
         BEGIN
             VALUE "FileDescription",  "ymfm FM Sound Engine DLL"
             VALUE "FileVersion",      "2.0.0.0"
-            VALUE "ProductName",      "FmEngineApi"
+            VALUE "ProductName",      "YMFMEngine"
             VALUE "ProductVersion",   "2.0.0.0"
             VALUE "LegalCopyright",   "ymfm (C) Aaron Giles (BSD-3-Clause)"
-            VALUE "InternalName",     "FmEngineApi"
-            VALUE "OriginalFilename", "FmEngineApi.dll"
+            VALUE "InternalName",     "YMFMEngine"
+            VALUE "OriginalFilename", "YMFMEngine.dll"
         END
     END
     BLOCK "VarFileInfo"
