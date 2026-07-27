@@ -166,35 +166,37 @@ public:
 
     // サンプル生成 (オーディオスレッドから呼ぶ)
     void generate(float* out_l, float* out_r, uint32_t samples) {
-        // 1. キュー消化
+        // 1. キュー消化。
+        //    キーオン/オフレジスタ (FmChip::isKeyRegister() が true を返す
+        //    書き込み) を適用した直後だけ、出力バッファに余裕があれば最低1
+        //    サンプル生成してチップの内部クロックを1tick進める。
+        //
+        //    ymfm の m_keyon_live (fm_operator::keyonoff) はレジスタ書き込み時に
+        //    即座に更新されるが、実際にエンベロープジェネレータへ反映される
+        //    (clock_keystate 経由で start_attack/start_release が呼ばれる) のは
+        //    次の prepare() = 次のサンプル生成時のみ。まとめてキューを吐き出して
+        //    から N サンプルを一括生成すると、バッチ内の中間状態 (例: 直前の音の
+        //    キーオフ→次の音のキーオン) が一度も prepare() に観測されず、
+        //    ノートオンが無音のまま消えることがある。
+        //    キーオン/オフ以外 (周波数レジスタ等、ビブラート等で高頻度に
+        //    書き換わるもの) は毎回1サンプル生成を強制すると重すぎるため対象外。
+        uint32_t produced = 0;
         RegWriteCmd cmd;
         while (m_queue.pop(cmd)) {
-            m_chips[cmd.chip_id]->write(cmd.port, cmd.reg, cmd.value);
-        }
-
-        // 2. バッファクリア
-        std::fill(out_l, out_l + samples, 0.0f);
-        std::fill(out_r, out_r + samples, 0.0f);
-
-        // 3. 各チップ生成 → ゲイン付きミックス
-        assert(m_chips.size() == m_gains.size());
-        assert(m_chips.size() == m_work_bufs.size());
-        for (size_t i = 0; i < m_chips.size(); ++i) {
-            WorkBuf& wb = m_work_bufs[i];
-            wb.l.resize(samples);
-            wb.r.resize(samples);
-
-            m_chips[i]->generate(wb.l.data(), wb.r.data(), samples);
-
-            const float gl = m_gains[i]->gain_l.load(std::memory_order_relaxed);
-            const float gr = m_gains[i]->gain_r.load(std::memory_order_relaxed);
-            for (uint32_t s = 0; s < samples; ++s) {
-                out_l[s] += wb.l[s] * gl;
-                out_r[s] += wb.r[s] * gr;
+            FmChip& chip = *m_chips[cmd.chip_id];
+            chip.write(cmd.port, cmd.reg, cmd.value);
+            if (produced + 1 < samples && chip.isKeyRegister(cmd.port, cmd.reg)) {
+                mixSpan(out_l + produced, out_r + produced, 1);
+                ++produced;
             }
         }
 
-        // 4. ソフトクリップ
+        // 2. 残りをまとめて生成
+        if (produced < samples) {
+            mixSpan(out_l + produced, out_r + produced, samples - produced);
+        }
+
+        // 3. ソフトクリップ (バッファ全体に対して1回)
         for (uint32_t s = 0; s < samples; ++s) {
             out_l[s] = softClip(out_l[s]);
             out_r[s] = softClip(out_r[s]);
@@ -219,6 +221,30 @@ private:
         if (x >  1.5f) return  1.0f;
         if (x < -1.5f) return -1.0f;
         return x * (1.0f - (x * x) / 9.0f);
+    }
+
+    // 区間 [out_l, out_l+count) に対して、全チップ生成→ゲイン付きミックスを
+    // 行う (クリアも含む)。ソフトクリップは呼び出し元でまとめて行う。
+    void mixSpan(float* out_l, float* out_r, uint32_t count) {
+        std::fill(out_l, out_l + count, 0.0f);
+        std::fill(out_r, out_r + count, 0.0f);
+
+        assert(m_chips.size() == m_gains.size());
+        assert(m_chips.size() == m_work_bufs.size());
+        for (size_t i = 0; i < m_chips.size(); ++i) {
+            WorkBuf& wb = m_work_bufs[i];
+            wb.l.resize(count);
+            wb.r.resize(count);
+
+            m_chips[i]->generate(wb.l.data(), wb.r.data(), count);
+
+            const float gl = m_gains[i]->gain_l.load(std::memory_order_relaxed);
+            const float gr = m_gains[i]->gain_r.load(std::memory_order_relaxed);
+            for (uint32_t s = 0; s < count; ++s) {
+                out_l[s] += wb.l[s] * gl;
+                out_r[s] += wb.r[s] * gr;
+            }
+        }
     }
 
     struct WorkBuf {
