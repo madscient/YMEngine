@@ -176,6 +176,22 @@ public:
     virtual void        setMemory(ymfm::access_class access_type,
                                   const uint8_t* data, uint32_t size) {}
     virtual uint32_t    memorySize(ymfm::access_class access_type) const { return 0; }
+
+    // このレジスタ書き込みがキーオン/オフ (エンベロープジェネレータの
+    // アタック/リリース再トリガーを伴う) かどうかを返す。
+    //
+    // ymfm はキーオン/オフの「有効ビット」(m_keyon_live) をレジスタ書き込み時に
+    // 即座に更新するが、実際にエンベロープジェネレータへ反映する
+    // (clock_keystate 経由で start_attack/start_release を呼ぶ) のは
+    // 次のサンプル生成 (prepare()) のタイミングでのみ。そのため、同じ
+    // generate() 呼び出し内でキーオフ→キーオンのように連続して書き込まれると、
+    // 中間状態が一度も観測されないまま次の状態で上書きされ、ノートオンが
+    // 無音のまま消えることがある。
+    // FmEngine::generate() はこの関数が true を返すレジスタ書き込みの直後にだけ
+    // 最低1サンプル生成してチップの内部クロックを1tick進め、この取りこぼしを防ぐ。
+    // (頻繁に書き換えられる周波数レジスタ等はここに含めない — 毎回1サンプルずつ
+    //  生成を強制すると、ビブラート等で大きな性能劣化を招くため)
+    virtual bool        isKeyRegister(uint32_t port, uint8_t reg) const { return false; }
 };
 
 // =========================================================
@@ -301,6 +317,31 @@ public:
 
     uint32_t memorySize(ymfm::access_class access_type) const override {
         return m_iface.memorySize(access_type);
+    }
+
+    // チップファミリごとのキーオン/オフレジスタ判定。
+    // ymfm の実レジスタマップに基づく (extern/ymfm/src の各 *_registers::write() を参照):
+    //   OPN系  (OPN/OPNA/OPNB/OPNBB/OPN2) : port0 の reg 0x28
+    //   OPM/OPZ                          : reg 0x08
+    //   OPL系  (OPL/OPL2/OPL3/OPL4/Y8950) : reg 0xB0-0xBF (チャンネルキーオン) / 0xBD (リズム)
+    //   OPLL系 (OPLL/OPLLP/OPLLX/VRC7)    : reg 0x20-0x2F (チャンネルキーオン) / 0x0E (リズム)
+    bool isKeyRegister(uint32_t port, uint8_t reg) const override {
+        if constexpr (TType == ChipType::OPN  || TType == ChipType::OPNA ||
+                      TType == ChipType::OPNB || TType == ChipType::OPNBB ||
+                      TType == ChipType::OPN2) {
+            return port == 0 && reg == 0x28;
+        } else if constexpr (TType == ChipType::OPM || TType == ChipType::OPZ) {
+            return reg == 0x08;
+        } else if constexpr (TType == ChipType::OPL  || TType == ChipType::OPL2 ||
+                              TType == ChipType::OPL3 || TType == ChipType::OPL4 ||
+                              TType == ChipType::Y8950) {
+            return (reg & 0xf0) == 0xb0 || reg == 0xbd;
+        } else if constexpr (TType == ChipType::OPLL  || TType == ChipType::OPLLP ||
+                              TType == ChipType::OPLLX || TType == ChipType::VRC7) {
+            return (reg & 0xf0) == 0x20 || reg == 0x0e;
+        } else {
+            return false;
+        }
     }
 
     uint32_t    nativeRate() const override { return m_native_rate; }
