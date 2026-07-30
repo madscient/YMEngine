@@ -292,7 +292,10 @@ public:
     explicit FmChipImpl(uint32_t clock);
 
     void write(uint32_t port, uint8_t reg, uint8_t value) override {
-        const uint32_t addr_offset = (port != 0) ? 2 : 0;
+        // ポートセットごとに2オフセット (アドレス/データ) を割り当てる。
+        // ymfm 側の offset 分岐 (offset & N) に対応: port=0→0/1, port=1→2/3,
+        // port=2→4/5, ... (例: ymf278b(OPL4) は port2 が PCM/波形レジスタ)
+        const uint32_t addr_offset = port * 2;
         const uint32_t data_offset = addr_offset + 1;
         m_chip.write(addr_offset, reg);
         m_chip.write(data_offset, value);
