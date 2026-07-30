@@ -361,8 +361,13 @@ private:
 
         // 出力モードを TType で分類:
         //
-        //   TrueStereo : OPM/OPN2/OPL3/OPL4
+        //   TrueStereo : OPM/OPN2/OPL3
         //                data[0]=L, data[1]=R
+        //
+        //   Opl4Stereo : OPL4 (OUTPUTS=6, ymfm_opl.cpp ymf278b::generate 参照)
+        //                data[0..1]=DO0(FM ch2+3), data[2..3]=DO1(wave ch2+3),
+        //                data[4..5]=DO2(FM ch0+1 と wave ch0+1 のミックス済み L/R)
+        //                DO2 がチップのメイン出力なので data[4]/data[5] を使う
         //
         //   OpnaStereo : OPNA/OPNB/OPNBB
         //                data[0]=FM-L, data[1]=FM-R, data[2]=SSG(mix)
@@ -382,8 +387,10 @@ private:
             kOutputs >= 2 &&
             (TType == ChipType::OPM   ||
              TType == ChipType::OPN2  ||
-             TType == ChipType::OPL3  ||
-             TType == ChipType::OPL4);
+             TType == ChipType::OPL3);
+        constexpr bool isOpl4Stereo =
+            kOutputs >= 6 &&
+            TType == ChipType::OPL4;
         constexpr bool isOpnaStereo =
             TType == ChipType::OPNA  ||
             TType == ChipType::OPNB  ||
@@ -403,9 +410,13 @@ private:
         for (uint32_t i = 0; i < n; ++i) {
             m_chip.generate(&out_data);
             if constexpr (isTrueStereo) {
-                // OPM/OPN2/OPL3/OPL4: data[0]=L, data[1]=R
+                // OPM/OPN2/OPL3: data[0]=L, data[1]=R
                 out_l[i] = static_cast<float>(out_data.data[0]) * kScale;
                 out_r[i] = static_cast<float>(out_data.data[1]) * kScale;
+            } else if constexpr (isOpl4Stereo) {
+                // OPL4: DO2 (data[4]=L, data[5]=R) がミックス済みメイン出力
+                out_l[i] = static_cast<float>(out_data.data[4]) * kScale;
+                out_r[i] = static_cast<float>(out_data.data[5]) * kScale;
             } else if constexpr (isOpnaStereo) {
                 // OPNA/OPNB/OPNBB: data[0]=FM-L, data[1]=FM-R, data[2]=SSG(mix)
                 out_l[i] = static_cast<float>(out_data.data[0] + out_data.data[2]) * kScale;
