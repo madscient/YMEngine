@@ -326,7 +326,15 @@ public:
     // ymfm の実レジスタマップに基づく (extern/ymfm/src の各 *_registers::write() を参照):
     //   OPN系  (OPN/OPNA/OPNB/OPNBB/OPN2) : port0 の reg 0x28
     //   OPM/OPZ                          : reg 0x08
-    //   OPL系  (OPL/OPL2/OPL3/OPL4/Y8950) : reg 0xB0-0xBF (チャンネルキーオン) / 0xBD (リズム)
+    //   OPL系  (OPL/OPL2/OPL3/Y8950)      : reg 0xB0-0xBF (チャンネルキーオン) / 0xBD (リズム)
+    //   OPL4                              : FM部(port0/1)は上と同じ0xB0-0xBF/0xBD。
+    //                                       AWM/PCM部(port2)は reg 0x68-0x7F (24ch分、
+    //                                       ymfm_pcm.cpp の pcm_engine::write() 参照)。
+    //                                       AWM側を見逃すと、同一オーディオバッファ内での
+    //                                       keyoff→keyon連続書き込みがpending edge検出を
+    //                                       一度も観測できず、ノートオンが無音のまま消える
+    //                                       取りこぼしが発生する(2026年7月、繰り返しノート
+    //                                       オンでAWMが徐々に無音化する不具合の調査で発覚)。
     //   OPLL系 (OPLL/OPLLP/OPLLX/VRC7)    : reg 0x20-0x2F (チャンネルキーオン) / 0x0E (リズム)
     bool isKeyRegister(uint32_t port, uint8_t reg) const override {
         if constexpr (TType == ChipType::OPN  || TType == ChipType::OPNA ||
@@ -335,9 +343,11 @@ public:
             return port == 0 && reg == 0x28;
         } else if constexpr (TType == ChipType::OPM || TType == ChipType::OPZ) {
             return reg == 0x08;
+        } else if constexpr (TType == ChipType::OPL4) {
+            if (port == 2) return reg >= 0x68 && reg <= 0x7f;
+            return (reg & 0xf0) == 0xb0 || reg == 0xbd;
         } else if constexpr (TType == ChipType::OPL  || TType == ChipType::OPL2 ||
-                              TType == ChipType::OPL3 || TType == ChipType::OPL4 ||
-                              TType == ChipType::Y8950) {
+                              TType == ChipType::OPL3 || TType == ChipType::Y8950) {
             return (reg & 0xf0) == 0xb0 || reg == 0xbd;
         } else if constexpr (TType == ChipType::OPLL  || TType == ChipType::OPLLP ||
                               TType == ChipType::OPLLX || TType == ChipType::VRC7) {
