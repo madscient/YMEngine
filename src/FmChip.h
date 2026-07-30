@@ -23,6 +23,7 @@
 #include <cstring>
 #include <memory>
 #include <vector>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <algorithm>
@@ -177,21 +178,33 @@ public:
                                   const uint8_t* data, uint32_t size) {}
     virtual uint32_t    memorySize(ymfm::access_class access_type) const { return 0; }
 
-    // このレジスタ書き込みがキーオン/オフ (エンベロープジェネレータの
-    // アタック/リリース再トリガーを伴う) かどうかを返す。
+    // このレジスタ書き込みが「キーオン/オフ状態の実際の変化」を伴うかどうかを
+    // 判定し、伴う場合はそのチャンネルを識別するスロット番号 (0以上) を返す。
+    // 変化を伴わない (キーオンと無関係なレジスタ、またはキーオン関連ビットが
+    // 前回と同じ) 場合は -1 を返す。
+    // 呼ぶたびに直前に書き込まれた値を内部に記憶し、次回以降との差分検出に
+    // 使う (副作用があるため const ではない)。
     //
     // ymfm はキーオン/オフの「有効ビット」(m_keyon_live) をレジスタ書き込み時に
     // 即座に更新するが、実際にエンベロープジェネレータへ反映する
     // (clock_keystate 経由で start_attack/start_release を呼ぶ) のは
     // 次のサンプル生成 (prepare()) のタイミングでのみ。そのため、同じ
-    // generate() 呼び出し内でキーオフ→キーオンのように連続して書き込まれると、
-    // 中間状態が一度も観測されないまま次の状態で上書きされ、ノートオンが
-    // 無音のまま消えることがある。
-    // FmEngine::generate() はこの関数が true を返すレジスタ書き込みの直後にだけ
-    // 最低1サンプル生成してチップの内部クロックを1tick進め、この取りこぼしを防ぐ。
-    // (頻繁に書き換えられる周波数レジスタ等はここに含めない — 毎回1サンプルずつ
-    //  生成を強制すると、ビブラート等で大きな性能劣化を招くため)
-    virtual bool        isKeyRegister(uint32_t port, uint8_t reg) const { return false; }
+    // generate() 呼び出し内で「同じチャンネル」がキーオフ→キーオンのように
+    // 連続して書き込まれると、中間状態が一度も観測されないまま次の状態で
+    // 上書きされ、ノートオンが無音のまま消えることがある。
+    // FmEngine::generate() は、返されたスロット番号が「まだ観測されていない
+    // (直前に同じチャンネルへの変化が未観測のまま溜まっている)」場合にだけ、
+    // 直前に最低1サンプル生成してチップの内部クロックを1tick進める。
+    // 異なるチャンネル同士 (和音等) は互いに衝突しないため、まとめて適用して
+    // 問題ない — スロット番号を分けているのはそのため。
+    //
+    // OPL/OPLL 系のようにキーオンビットと F-Number 等が同一レジスタアドレスに
+    // 同居しているチップでは、レジスタアドレスだけで判定すると無関係な
+    // ビット (周波数等) の書き換えにまで反応してしまい、ビブラート等で
+    // 過剰な性能劣化を招く。そのため実装側では「キーオンに関係するビットだけ」
+    // を前回書き込み値とマスク比較し、それが実際に変化した場合にのみ有効な
+    // スロット番号を返すこと。
+    virtual int32_t     keyOnTransitionSlot(uint32_t port, uint8_t reg, uint8_t value) { return -1; }
 };
 
 // =========================================================
@@ -322,39 +335,26 @@ public:
         return m_iface.memorySize(access_type);
     }
 
-    // チップファミリごとのキーオン/オフレジスタ判定。
-    // ymfm の実レジスタマップに基づく (extern/ymfm/src の各 *_registers::write() を参照):
-    //   OPN系  (OPN/OPNA/OPNB/OPNBB/OPN2) : port0 の reg 0x28
-    //   OPM/OPZ                          : reg 0x08
-    //   OPL系  (OPL/OPL2/OPL3/Y8950)      : reg 0xB0-0xBF (チャンネルキーオン) / 0xBD (リズム)
-    //   OPL4                              : FM部(port0/1)は上と同じ0xB0-0xBF/0xBD。
-    //                                       AWM/PCM部(port2)は reg 0x68-0x7F (24ch分、
-    //                                       ymfm_pcm.cpp の pcm_engine::write() 参照)。
-    //                                       AWM側を見逃すと、同一オーディオバッファ内での
-    //                                       keyoff→keyon連続書き込みがpending edge検出を
-    //                                       一度も観測できず、ノートオンが無音のまま消える
-    //                                       取りこぼしが発生する(2026年7月、繰り返しノート
-    //                                       オンでAWMが徐々に無音化する不具合の調査で発覚)。
-    //   OPLL系 (OPLL/OPLLP/OPLLX/VRC7)    : reg 0x20-0x2F (チャンネルキーオン) / 0x0E (リズム)
-    bool isKeyRegister(uint32_t port, uint8_t reg) const override {
-        if constexpr (TType == ChipType::OPN  || TType == ChipType::OPNA ||
-                      TType == ChipType::OPNB || TType == ChipType::OPNBB ||
-                      TType == ChipType::OPN2) {
-            return port == 0 && reg == 0x28;
-        } else if constexpr (TType == ChipType::OPM || TType == ChipType::OPZ) {
-            return reg == 0x08;
-        } else if constexpr (TType == ChipType::OPL4) {
-            if (port == 2) return reg >= 0x68 && reg <= 0x7f;
-            return (reg & 0xf0) == 0xb0 || reg == 0xbd;
-        } else if constexpr (TType == ChipType::OPL  || TType == ChipType::OPL2 ||
-                              TType == ChipType::OPL3 || TType == ChipType::Y8950) {
-            return (reg & 0xf0) == 0xb0 || reg == 0xbd;
-        } else if constexpr (TType == ChipType::OPLL  || TType == ChipType::OPLLP ||
-                              TType == ChipType::OPLLX || TType == ChipType::VRC7) {
-            return (reg & 0xf0) == 0x20 || reg == 0x0e;
-        } else {
-            return false;
-        }
+    // 直前にこのレジスタへ書き込まれた値と比較し、「キーオン/オフに関係する
+    // ビットだけ」が実際に変化したかどうかを判定する。変化していなければ
+    // (例: OPL系で F-Number だけが書き換わった場合) -1 を返し、
+    // FmEngine::generate() 側での強制1サンプル生成をスキップさせる。
+    // 変化していれば、対象チャンネルを識別するスロット番号を返す
+    // (異なるチャンネル同士の書き込みを FmEngine 側で区別できるようにするため)。
+    //
+    // チップファミリごとのキーオン関連ビット位置は keyBitMask() を、
+    // チャンネルスロットの割り当ては keyChannelSlot() を参照。
+    int32_t keyOnTransitionSlot(uint32_t port, uint8_t reg, uint8_t value) override {
+        const uint8_t mask = keyBitMask(port, reg);
+        if (mask == 0) return -1; // キーオンと無関係なレジスタ
+
+        const size_t idx = shadowIndex(port, reg);
+        const uint8_t prevMasked = m_lastKeyRegValue[idx] & mask;
+        const uint8_t newMasked  = value & mask;
+        m_lastKeyRegValue[idx] = value;
+        if (prevMasked == newMasked) return -1; // 実際には変化していない
+
+        return static_cast<int32_t>(keyChannelSlot(port, reg, value));
     }
 
     uint32_t    nativeRate() const override { return m_native_rate; }
@@ -452,12 +452,112 @@ private:
     // ※ has_write_address_hi はクラス外 (namespace detail) で定義
     //    ここには型トレイトを一切書かない (MSVC C3856 回避)
 
+    // (port, reg) に対する「キーオン関連ビットのマスク」を返す。
+    // 0 ならキーオン/オフとは無関係なレジスタ。
+    // ymfm の実レジスタマップに基づく (extern/ymfm/src の各 *_registers::write() /
+    // ymfm_pcm.cpp の pcm_engine::write() を参照):
+    //   OPN系  (OPN/OPNA/OPNB/OPNBB/OPN2) : port0 の reg 0x28 (レジスタ全体がコマンド、
+    //                                       チャンネル選択+オペレータマスクで専用)
+    //   OPM/OPZ                          : reg 0x08 (同上、専用レジスタ)
+    //   OPL系  (OPL/OPL2/OPL3/Y8950)      : reg 0xB0-0xBF の bit5 (チャンネルキーオン、
+    //                                       他ビットは block/F-Number 上位で無関係) /
+    //                                       reg 0xBD の bit0-5 (リズム gate+楽器選択)
+    //   OPL4                              : FM部(port0/1)は上記OPL系と同じ。
+    //                                       AWM/PCM部(port2)は reg 0x68-0x7F の bit7
+    //                                       (ymfm_pcm.h ch_keyon() 参照。同一レジスタの
+    //                                       他ビットは damp/lfo_reset/panpot でキーオンとは
+    //                                       無関係)。AWM側を見逃すと、同一オーディオバッファ
+    //                                       内でのkeyoff→keyon連続書き込みが一度も観測され
+    //                                       ず、ノートオンが無音のまま消える取りこぼしが
+    //                                       発生する(2026年7月、繰り返しノートオンでAWMが
+    //                                       徐々に無音化する不具合の調査で発覚)。
+    //   OPLL系 (OPLL/OPLLP/OPLLX/VRC7)    : reg 0x20-0x2F の bit4 (チャンネルキーオン、
+    //                                       他ビットは block/F-Number上位/sustainで無関係) /
+    //                                       reg 0x0E の bit0-5 (リズム gate+楽器選択)
+    //
+    // OPL/OPLL 系はキーオンビットと F-Number 等が同一レジスタアドレスに同居する
+    // ため、アドレスだけで判定すると無関係な周波数書き換え (ビブラート等) にまで
+    // 反応し、過剰な性能劣化を招く。ビットマスクで絞ることでこれを避ける。
+    static uint8_t keyBitMask(uint32_t port, uint8_t reg) {
+        if constexpr (TType == ChipType::OPN  || TType == ChipType::OPNA ||
+                      TType == ChipType::OPNB || TType == ChipType::OPNBB ||
+                      TType == ChipType::OPN2) {
+            return (port == 0 && reg == 0x28) ? 0xFF : 0;
+        } else if constexpr (TType == ChipType::OPM || TType == ChipType::OPZ) {
+            return (reg == 0x08) ? 0xFF : 0;
+        } else if constexpr (TType == ChipType::OPL4) {
+            if (port == 2) return (reg >= 0x68 && reg <= 0x7f) ? 0x80 : 0;
+            return keyBitMaskOpl(reg);
+        } else if constexpr (TType == ChipType::OPL  || TType == ChipType::OPL2 ||
+                              TType == ChipType::OPL3 || TType == ChipType::Y8950) {
+            return keyBitMaskOpl(reg);
+        } else if constexpr (TType == ChipType::OPLL  || TType == ChipType::OPLLP ||
+                              TType == ChipType::OPLLX || TType == ChipType::VRC7) {
+            if (reg == 0x0e) return 0x3F;             // リズム: gate(bit5)+楽器選択(bit0-4)
+            if ((reg & 0xf0) == 0x20) return 0x10;    // チャンネルキーオン: bit4
+            return 0;
+        } else {
+            return 0;
+        }
+    }
+
+    static uint8_t keyBitMaskOpl(uint8_t reg) {
+        if (reg == 0xbd) return 0x3F;              // リズム: gate(bit5)+楽器選択(bit0-4)
+        if ((reg & 0xf0) == 0xb0) return 0x20;     // チャンネルキーオン: bit5
+        return 0;
+    }
+
+    // m_lastKeyRegValue 内のインデックス。port は 0-3 を想定 (現行チップは
+    // 最大でも OPL4 の port2 まで)。それ以上の port は畳み込まれる (実害なし)。
+    static size_t shadowIndex(uint32_t port, uint8_t reg) {
+        constexpr size_t kShadowPorts = 4;
+        return (static_cast<size_t>(port) % kShadowPorts) * 256 + reg;
+    }
+
+    // keyBitMask() が非0 (=このレジスタ書き込みはキーオン関連) と判定した後に
+    // 呼ばれる。実際に変化があったチャンネルを識別する、チップ内で一意な
+    // コンパクトな番号 (0-63、FmEngine 側で uint64_t のビットマスクとして
+    // 「未観測のまま重なっていないか」を追跡するのに使う) を返す。
+    //   OPN 系 (3ch)            : value の bit0-1 (チャンネル 0-2)
+    //   OPNA/OPNB/OPNBB/OPN2(6ch): value の bit0-1 + bit2*3 (チャンネル 0-5)
+    //   OPM/OPZ                 : value の bit0-2 (チャンネル 0-7)
+    //   OPL系 (0xB0-0xBF/0xBD)   : reg 下位4bit + (port!=0 ? 9 : 0) (チャンネル
+    //                              0-17)、0xBD (リズム) は固定スロット31
+    //   OPL4 AWM (port2)        : reg-0x68 (チャンネル 0-23) をスロット32-55に配置
+    //   OPLL系 (0x20-0x2F/0x0E)  : reg 下位4bit (チャンネル 0-8)、0x0E (リズム)
+    //                              は固定スロット31
+    static uint32_t keyChannelSlot(uint32_t port, uint8_t reg, uint8_t value) {
+        if constexpr (TType == ChipType::OPN) {
+            return value & 0x03u;
+        } else if constexpr (TType == ChipType::OPNA || TType == ChipType::OPNB ||
+                              TType == ChipType::OPNBB || TType == ChipType::OPN2) {
+            return (value & 0x03u) + ((value >> 2) & 0x01u) * 3u;
+        } else if constexpr (TType == ChipType::OPM || TType == ChipType::OPZ) {
+            return value & 0x07u;
+        } else if constexpr (TType == ChipType::OPL4) {
+            if (port == 2) return 32u + (static_cast<uint32_t>(reg) - 0x68u);
+            if (reg == 0xbd) return 31u;
+            return (reg & 0x0fu) + (port != 0 ? 9u : 0u);
+        } else if constexpr (TType == ChipType::OPL  || TType == ChipType::OPL2 ||
+                              TType == ChipType::OPL3 || TType == ChipType::Y8950) {
+            if (reg == 0xbd) return 31u;
+            return (reg & 0x0fu) + (port != 0 ? 9u : 0u);
+        } else if constexpr (TType == ChipType::OPLL  || TType == ChipType::OPLLP ||
+                              TType == ChipType::OPLLX || TType == ChipType::VRC7) {
+            if (reg == 0x0e) return 31u;
+            return reg & 0x0fu;
+        } else {
+            return 0u;
+        }
+    }
+
     MemoryYmfmInterface m_iface;  // 外部メモリアクセス対応インターフェース
     ChipImpl           m_chip;
     uint32_t           m_clock;
     uint32_t           m_native_rate = 0;
     uint32_t           m_target_rate = 0;
     LinearResampler    m_resampler;
+    std::array<uint8_t, 4 * 256> m_lastKeyRegValue{}; // keyOnTransitionSlot() 用の直前値キャッシュ
 };
 
 // =========================================================
