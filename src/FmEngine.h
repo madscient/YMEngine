@@ -167,9 +167,11 @@ public:
     // サンプル生成 (オーディオスレッドから呼ぶ)
     void generate(float* out_l, float* out_r, uint32_t samples) {
         // 1. キュー消化。
-        //    キーオン/オフレジスタ (FmChip::isKeyRegister() が true を返す
-        //    書き込み) を適用した直後だけ、出力バッファに余裕があれば最低1
-        //    サンプル生成してチップの内部クロックを1tick進める。
+        //    キーオン/オフに関係するビットが実際に変化した書き込み
+        //    (FmChip::keyOnTransitionSlot() が非負を返す書き込み) のうち、
+        //    「同じチャンネルへの変化が直前に未観測のまま溜まっている」場合
+        //    にだけ、適用前に最低1サンプル生成してチップの内部クロックを
+        //    1tick進める。
         //
         //    ymfm の m_keyon_live (fm_operator::keyonoff) はレジスタ書き込み時に
         //    即座に更新されるが、実際にエンベロープジェネレータへ反映される
@@ -178,16 +180,35 @@ public:
         //    から N サンプルを一括生成すると、バッチ内の中間状態 (例: 直前の音の
         //    キーオフ→次の音のキーオン) が一度も prepare() に観測されず、
         //    ノートオンが無音のまま消えることがある。
-        //    キーオン/オフ以外 (周波数レジスタ等、ビブラート等で高頻度に
-        //    書き換わるもの) は毎回1サンプル生成を強制すると重すぎるため対象外。
+        //
+        //    ただし「異なるチャンネル」同士の変化は互いに衝突しない (例: 和音で
+        //    多数のチャンネルが同時にキーオンする場合、まとめて適用しても
+        //    問題ない — むしろ本来同時に鳴るべき音なので、まとめて適用する方が
+        //    正しい)。そのため keyOnTransitionSlot() が返すチャンネルスロット
+        //    ごとに「直前のtick以降、未観測の変化があるか」を m_keyDirtyMask
+        //    (チップごとの64bitビットマスク) で追跡し、本当に同じチャンネルが
+        //    再度変化しようとしたときにだけティックを強制する。これにより
+        //    OPL/OPLL 系のビブラートだけでなく、和音のような多チャンネル同時
+        //    変化でも不要な1サンプル生成を避けられる。
+        std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
+
         uint32_t produced = 0;
         RegWriteCmd cmd;
         while (m_queue.pop(cmd)) {
             FmChip& chip = *m_chips[cmd.chip_id];
-            chip.write(cmd.port, cmd.reg, cmd.value);
-            if (produced + 1 < samples && chip.isKeyRegister(cmd.port, cmd.reg)) {
-                mixSpan(out_l + produced, out_r + produced, 1);
-                ++produced;
+            const int32_t slot = chip.keyOnTransitionSlot(cmd.port, cmd.reg, cmd.value);
+            if (slot >= 0) {
+                const uint64_t bit = (slot < 64) ? (uint64_t{1} << slot) : ~uint64_t{0};
+                if ((m_keyDirtyMask[cmd.chip_id] & bit) != 0 && produced + 1 < samples) {
+                    // 同じチャンネルへの変化が未観測のまま重なる → 先に確定させる
+                    mixSpan(out_l + produced, out_r + produced, 1);
+                    ++produced;
+                    std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
+                }
+                chip.write(cmd.port, cmd.reg, cmd.value);
+                m_keyDirtyMask[cmd.chip_id] |= bit;
+            } else {
+                chip.write(cmd.port, cmd.reg, cmd.value);
             }
         }
 
@@ -214,6 +235,7 @@ private:
         m_chips.push_back(std::move(chip));
         m_gains.push_back(std::make_unique<ChipGain>());
         m_work_bufs.emplace_back();
+        m_keyDirtyMask.push_back(0);
         return id;
     }
 
@@ -257,4 +279,5 @@ private:
     std::vector<std::unique_ptr<ChipGain>>   m_gains;   // unique_ptr: atomic は vector 再確保でムーブ不可
     std::vector<WorkBuf>                     m_work_bufs;
     SpscQueue<RegWriteCmd, 4096>             m_queue;
+    std::vector<uint64_t>                    m_keyDirtyMask; // generate() 内でのみ使用 (チップごとの未観測キーオン変化スロット)
 };
