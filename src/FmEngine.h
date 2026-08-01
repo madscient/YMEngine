@@ -184,29 +184,30 @@ public:
         //    ただし「異なるチャンネル」同士の変化は互いに衝突しない (例: 和音で
         //    多数のチャンネルが同時にキーオンする場合、まとめて適用しても
         //    問題ない — むしろ本来同時に鳴るべき音なので、まとめて適用する方が
-        //    正しい)。そのため keyOnTransitionSlot() が返すチャンネルスロット
-        //    ごとに「直前のtick以降、未観測の変化があるか」を m_keyDirtyMask
-        //    (チップごとの64bitビットマスク) で追跡し、本当に同じチャンネルが
-        //    再度変化しようとしたときにだけティックを強制する。これにより
-        //    OPL/OPLL 系のビブラートだけでなく、和音のような多チャンネル同時
-        //    変化でも不要な1サンプル生成を避けられる。
+        //    正しい)。そのため keyOnTransitionMask() が返すチャンネルスロットの
+        //    ビットマスクごとに「直前のtick以降、未観測の変化があるか」を
+        //    m_keyDirtyMask (チップごとの64bitビットマスク) で追跡し、本当に
+        //    同じチャンネルが再度変化しようとしたときにだけティックを強制する。
+        //    これにより OPL/OPLL 系のビブラートだけでなく、和音や (OPL/OPLL の
+        //    ビルトインリズム音源のように1レジスタに複数の打楽器チャンネルが
+        //    同居しているケースを含め) 多チャンネル同時変化でも不要な1サンプル
+        //    生成を避けられる。
         std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
 
         uint32_t produced = 0;
         RegWriteCmd cmd;
         while (m_queue.pop(cmd)) {
             FmChip& chip = *m_chips[cmd.chip_id];
-            const int32_t slot = chip.keyOnTransitionSlot(cmd.port, cmd.reg, cmd.value);
-            if (slot >= 0) {
-                const uint64_t bit = (slot < 64) ? (uint64_t{1} << slot) : ~uint64_t{0};
-                if ((m_keyDirtyMask[cmd.chip_id] & bit) != 0 && produced + 1 < samples) {
+            const uint64_t mask = chip.keyOnTransitionMask(cmd.port, cmd.reg, cmd.value);
+            if (mask != 0) {
+                if ((m_keyDirtyMask[cmd.chip_id] & mask) != 0 && produced + 1 < samples) {
                     // 同じチャンネルへの変化が未観測のまま重なる → 先に確定させる
                     mixSpan(out_l + produced, out_r + produced, 1);
                     ++produced;
                     std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
                 }
                 chip.write(cmd.port, cmd.reg, cmd.value);
-                m_keyDirtyMask[cmd.chip_id] |= bit;
+                m_keyDirtyMask[cmd.chip_id] |= mask;
             } else {
                 chip.write(cmd.port, cmd.reg, cmd.value);
             }

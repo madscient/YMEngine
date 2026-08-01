@@ -178,10 +178,10 @@ public:
                                   const uint8_t* data, uint32_t size) {}
     virtual uint32_t    memorySize(ymfm::access_class access_type) const { return 0; }
 
-    // このレジスタ書き込みが「キーオン/オフ状態の実際の変化」を伴うかどうかを
-    // 判定し、伴う場合はそのチャンネルを識別するスロット番号 (0以上) を返す。
-    // 変化を伴わない (キーオンと無関係なレジスタ、またはキーオン関連ビットが
-    // 前回と同じ) 場合は -1 を返す。
+    // このレジスタ書き込みで「キーオン/オフ状態が実際に変化した」チャンネルの
+    // 集合を、チャンネルスロットのビットマスク (各ビットが1チャンネルに対応)
+    // として返す。変化を伴わない (キーオンと無関係なレジスタ、またはキーオン
+    // 関連ビットが前回と同じ) 場合は 0 を返す。
     // 呼ぶたびに直前に書き込まれた値を内部に記憶し、次回以降との差分検出に
     // 使う (副作用があるため const ではない)。
     //
@@ -192,19 +192,22 @@ public:
     // generate() 呼び出し内で「同じチャンネル」がキーオフ→キーオンのように
     // 連続して書き込まれると、中間状態が一度も観測されないまま次の状態で
     // 上書きされ、ノートオンが無音のまま消えることがある。
-    // FmEngine::generate() は、返されたスロット番号が「まだ観測されていない
+    // FmEngine::generate() は、返されたビットマスクが「まだ観測されていない
     // (直前に同じチャンネルへの変化が未観測のまま溜まっている)」場合にだけ、
     // 直前に最低1サンプル生成してチップの内部クロックを1tick進める。
     // 異なるチャンネル同士 (和音等) は互いに衝突しないため、まとめて適用して
-    // 問題ない — スロット番号を分けているのはそのため。
+    // 問題ない — ビットを分けているのはそのため。
     //
     // OPL/OPLL 系のようにキーオンビットと F-Number 等が同一レジスタアドレスに
     // 同居しているチップでは、レジスタアドレスだけで判定すると無関係な
     // ビット (周波数等) の書き換えにまで反応してしまい、ビブラート等で
     // 過剰な性能劣化を招く。そのため実装側では「キーオンに関係するビットだけ」
-    // を前回書き込み値とマスク比較し、それが実際に変化した場合にのみ有効な
-    // スロット番号を返すこと。
-    virtual int32_t     keyOnTransitionSlot(uint32_t port, uint8_t reg, uint8_t value) { return -1; }
+    // を前回書き込み値とマスク比較すること。
+    // また OPL/OPLL のリズム音源レジスタのように、1レジスタに複数の独立した
+    // チャンネル (打楽器) が同居している場合は、実際に変化したビットごとに
+    // 別々のチャンネルスロットを割り当てること (同一ドラムパターン内で複数の
+    // 打楽器が同時にオン/オフしても、互いに衝突させないため)。
+    virtual uint64_t    keyOnTransitionMask(uint32_t port, uint8_t reg, uint8_t value) { return 0; }
 };
 
 // =========================================================
@@ -337,24 +340,27 @@ public:
 
     // 直前にこのレジスタへ書き込まれた値と比較し、「キーオン/オフに関係する
     // ビットだけ」が実際に変化したかどうかを判定する。変化していなければ
-    // (例: OPL系で F-Number だけが書き換わった場合) -1 を返し、
+    // (例: OPL系で F-Number だけが書き換わった場合) 0 を返し、
     // FmEngine::generate() 側での強制1サンプル生成をスキップさせる。
-    // 変化していれば、対象チャンネルを識別するスロット番号を返す
-    // (異なるチャンネル同士の書き込みを FmEngine 側で区別できるようにするため)。
+    // 変化していれば、実際に変化したビットごとに対応するチャンネルスロットを
+    // 割り当てたビットマスクを返す (リズム音源レジスタのように1レジスタに
+    // 複数の独立したチャンネルが同居する場合、変化したチャンネルの分だけ
+    // ビットが立つ)。
     //
     // チップファミリごとのキーオン関連ビット位置は keyBitMask() を、
-    // チャンネルスロットの割り当ては keyChannelSlot() を参照。
-    int32_t keyOnTransitionSlot(uint32_t port, uint8_t reg, uint8_t value) override {
+    // チャンネルスロットの割り当ては keyChannelSlotMask() を参照。
+    uint64_t keyOnTransitionMask(uint32_t port, uint8_t reg, uint8_t value) override {
         const uint8_t mask = keyBitMask(port, reg);
-        if (mask == 0) return -1; // キーオンと無関係なレジスタ
+        if (mask == 0) return 0; // キーオンと無関係なレジスタ
 
         const size_t idx = shadowIndex(port, reg);
         const uint8_t prevMasked = m_lastKeyRegValue[idx] & mask;
         const uint8_t newMasked  = value & mask;
         m_lastKeyRegValue[idx] = value;
-        if (prevMasked == newMasked) return -1; // 実際には変化していない
+        if (prevMasked == newMasked) return 0; // 実際には変化していない
 
-        return static_cast<int32_t>(keyChannelSlot(port, reg, value));
+        const uint8_t changedBits = static_cast<uint8_t>(prevMasked ^ newMasked);
+        return keyChannelSlotMask(port, reg, value, changedBits);
     }
 
     uint32_t    nativeRate() const override { return m_native_rate; }
@@ -514,40 +520,55 @@ private:
         return (static_cast<size_t>(port) % kShadowPorts) * 256 + reg;
     }
 
+    // リズム音源レジスタ (OPL の 0xBD, OPLL の 0x0E) 用。
+    // bit0-4 は5つの独立した打楽器 (BD/SD/TOM/TC/HH) のキー、bit5 はリズム
+    // モード全体のマスターゲート。打楽器ごとに baseSlot..baseSlot+4 の
+    // 個別スロットを割り当てることで、複数の打楽器が同時にオン/オフしても
+    // 互いに衝突させない (通常のドラムパターンで毎回ティックが発生するのを防ぐ)。
+    // ただしマスターゲート (bit5) 自体が変化した場合は、全打楽器の可聴性が
+    // 一括で変わるため、5スロット全部を対象に含める。
+    static uint64_t rhythmSlotMask(uint8_t changedBits, uint32_t baseSlot) {
+        uint64_t result = 0;
+        for (uint32_t b = 0; b < 5; ++b)
+            if (changedBits & (1u << b)) result |= (uint64_t{1} << (baseSlot + b));
+        if (changedBits & 0x20u) result |= (uint64_t{0x1F} << baseSlot);
+        return result;
+    }
+
     // keyBitMask() が非0 (=このレジスタ書き込みはキーオン関連) と判定した後に
-    // 呼ばれる。実際に変化があったチャンネルを識別する、チップ内で一意な
-    // コンパクトな番号 (0-63、FmEngine 側で uint64_t のビットマスクとして
-    // 「未観測のまま重なっていないか」を追跡するのに使う) を返す。
-    //   OPN 系 (3ch)            : value の bit0-1 (チャンネル 0-2)
-    //   OPNA/OPNB/OPNBB/OPN2(6ch): value の bit0-1 + bit2*3 (チャンネル 0-5)
-    //   OPM/OPZ                 : value の bit0-2 (チャンネル 0-7)
-    //   OPL系 (0xB0-0xBF/0xBD)   : reg 下位4bit + (port!=0 ? 9 : 0) (チャンネル
-    //                              0-17)、0xBD (リズム) は固定スロット31
-    //   OPL4 AWM (port2)        : reg-0x68 (チャンネル 0-23) をスロット32-55に配置
-    //   OPLL系 (0x20-0x2F/0x0E)  : reg 下位4bit (チャンネル 0-8)、0x0E (リズム)
-    //                              は固定スロット31
-    static uint32_t keyChannelSlot(uint32_t port, uint8_t reg, uint8_t value) {
+    // 呼ばれる。実際に変化があったチャンネル (打楽器を含む) 分だけビットを
+    // 立てたビットマスクを返す (FmEngine 側で「未観測のまま重なっていないか」
+    // を追跡するのに使う)。
+    //   OPN 系 (3ch)            : value の bit0-1 → チャンネル 0-2
+    //   OPNA/OPNB/OPNBB/OPN2(6ch): value の bit0-1 + bit2*3 → チャンネル 0-5
+    //   OPM/OPZ                 : value の bit0-2 → チャンネル 0-7
+    //   OPL系 (0xB0-0xBF)        : reg 下位4bit + (port!=0 ? 9 : 0) → チャンネル 0-17
+    //   OPL系 (0xBD, リズム)     : 打楽器ごとにスロット 18-22 (rhythmSlotMask 参照)
+    //   OPL4 AWM (port2)        : reg-0x68 → チャンネル 0-23 をスロット32-55に配置
+    //   OPLL系 (0x20-0x2F)       : reg 下位4bit → チャンネル 0-8
+    //   OPLL系 (0x0E, リズム)    : 打楽器ごとにスロット 9-13 (rhythmSlotMask 参照)
+    static uint64_t keyChannelSlotMask(uint32_t port, uint8_t reg, uint8_t value, uint8_t changedBits) {
         if constexpr (TType == ChipType::OPN) {
-            return value & 0x03u;
+            return uint64_t{1} << (value & 0x03u);
         } else if constexpr (TType == ChipType::OPNA || TType == ChipType::OPNB ||
                               TType == ChipType::OPNBB || TType == ChipType::OPN2) {
-            return (value & 0x03u) + ((value >> 2) & 0x01u) * 3u;
+            return uint64_t{1} << ((value & 0x03u) + ((value >> 2) & 0x01u) * 3u);
         } else if constexpr (TType == ChipType::OPM || TType == ChipType::OPZ) {
-            return value & 0x07u;
+            return uint64_t{1} << (value & 0x07u);
         } else if constexpr (TType == ChipType::OPL4) {
-            if (port == 2) return 32u + (static_cast<uint32_t>(reg) - 0x68u);
-            if (reg == 0xbd) return 31u;
-            return (reg & 0x0fu) + (port != 0 ? 9u : 0u);
+            if (port == 2) return uint64_t{1} << (32u + (static_cast<uint32_t>(reg) - 0x68u));
+            if (reg == 0xbd) return rhythmSlotMask(changedBits, 18u);
+            return uint64_t{1} << ((reg & 0x0fu) + (port != 0 ? 9u : 0u));
         } else if constexpr (TType == ChipType::OPL  || TType == ChipType::OPL2 ||
                               TType == ChipType::OPL3 || TType == ChipType::Y8950) {
-            if (reg == 0xbd) return 31u;
-            return (reg & 0x0fu) + (port != 0 ? 9u : 0u);
+            if (reg == 0xbd) return rhythmSlotMask(changedBits, 18u);
+            return uint64_t{1} << ((reg & 0x0fu) + (port != 0 ? 9u : 0u));
         } else if constexpr (TType == ChipType::OPLL  || TType == ChipType::OPLLP ||
                               TType == ChipType::OPLLX || TType == ChipType::VRC7) {
-            if (reg == 0x0e) return 31u;
-            return reg & 0x0fu;
+            if (reg == 0x0e) return rhythmSlotMask(changedBits, 9u);
+            return uint64_t{1} << (reg & 0x0fu);
         } else {
-            return 0u;
+            return 0;
         }
     }
 
