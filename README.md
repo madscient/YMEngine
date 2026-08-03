@@ -5,6 +5,8 @@
 
 ymfm が対応する16種のチップをサポートし、チップ名文字列 (`"OPNA"`, `"OPL2"` 等) でインスタンスを作成できます。DLL はオーディオ出力機能を持ちません。アプリケーションのオーディオコールバックから `FmEngine_Generate()` を呼び出すことで波形データを取得します。
 
+SSG/PSG や PCM 音源など ymfm がカバーしないチップはスコープ外です。それらを組み合わせる場合はアプリケーション側の責任で別途統合してください。
+
 テストツールおよび API のドキュメントは **[FmEngineApiTest](https://github.com/your-org/FmEngineApiTest)** を参照してください。
 
 ## ファイル構成
@@ -21,7 +23,8 @@ YMEngine/
 │   ├── FmEngineApi.cpp★  DLL 公開用 C ファサード (実装)
 │   ├── FmEngineApi.def★  MSVC エクスポート定義
 │   └── FmEngineApi.rc ★  DLL バージョン情報リソース
-└── README.md
+├── README.md
+└── README_ymfm.md         DLL を介さず C++ から直接使う場合の API リファレンス
 ```
 
 `★` は DLL のビルドに直接関係するファイルです。  
@@ -46,9 +49,9 @@ cmake --build build --config Release
 
 成果物:
 ```
-build/bin/FmEngineApi.dll   ← DLL 本体
-build/bin/FmEngineApi.pdb   ← デバッグシンボル
-build/lib/FmEngineApi.lib   ← インポートライブラリ
+build/bin/YMFMEngine.dll   ← DLL 本体
+build/bin/YMFMEngine.pdb   ← デバッグシンボル
+build/lib/YMFMEngine.lib   ← インポートライブラリ
 ```
 
 ### Linux / macOS
@@ -87,13 +90,15 @@ cmake --build build
 
 | チップ | L 出力 | R 出力 |
 |---|---|---|
-| OPM, OPN2, OPL3, OPL4 | FM-L | FM-R |
+| OPM, OPN2, OPL3 | FM-L | FM-R |
+| OPL4 | DO2 (FM ch0+1 と wave ch0+1 のミックス済み L) | DO2 R |
 | OPNA, OPNB, OPNBB | FM-L + SSG | FM-R + SSG |
 | OPN | FM + SSG (モノラル) | 同左 |
 | OPL/OPL2/Y8950/OPLL系 | melody + rhythm | 同左 |
 | その他 | data[0] | 同左 |
 
-OPL3/OPL4 のリズムチャンネルは R チャンネルのみに出力されます (仕様)。
+OPL3 のリズムチャンネルは R チャンネルのみに出力されます (仕様)。  
+OPL4 (YMF278B) は FM/wave 合計6出力 (DO0/DO1/DO2) を持ちますが、本エンジンはメイン出力である DO2 (FM ch0+1 と wave ch0+1 のミックス済み L/R) のみを使用します。
 
 ## fnum / key_code 計算メモ
 
