@@ -3,14 +3,18 @@
 DLL を介さず C++ から直接使う場合の API リファレンスです。  
 DLL 経由で使う場合は [README.md](README.md) を参照してください。
 
+このエンジンは ymfm がカバーするチップのみをスコープとします。SSG/PSG や PCM 音源など ymfm 以外のチップを組み合わせる場合は、アプリケーション側の責任で別途統合してください。
+
+エンジン自体はオーディオ出力機能を持ちません。`FmEngine::generate()` (または DLL 経由なら `FmEngine_Generate()`) は波形データを返すだけで、実際の再生デバイスへの出力はアプリケーション側で行ってください。
+
 ## 構成
 
 ```
 src/
 ├── FmChip.h        ymfm ラッパー・LinearResampler (チップ抽象化)
 ├── FmEngine.h      複数チップ管理 + SPSC キュー + ゲイン
-├── ExternalChip.h  外部ライブラリチップラッパー (SSG/SN76489/SCC/SAA1099)
-└── WasapiOutput.h  WASAPI リアルタイム出力・デバイス列挙
+├── FmEngineApi.h   DLL 公開用 C ファサード (宣言)
+└── FmEngineApi.cpp DLL 公開用 C ファサード (実装)
 ```
 
 ## セットアップ
@@ -19,47 +23,33 @@ src/
 git submodule update --init --recursive
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
-cmake --build build --target SAASound --config Release  # SAA1099 を使う場合
 ```
 
 ## 基本的な使い方
 
 ```cpp
 #include "FmEngine.h"
-#include "ExternalChip.h"   // 外部チップを使う場合
-#include "WasapiOutput.h"
 
 // ① エンジンを 48000 Hz で作成
 FmEngine engine(48000);
 
-// ② ymfm チップ追加 (clock=0 で標準クロック自動選択)
+// ② チップ追加 (clock=0 で標準クロック自動選択)
 uint32_t opnaId = engine.addChip(ChipType::OPNA);
 uint32_t opl3Id = engine.addChip(ChipType::OPL3);
 
-// ③ 外部ライブラリチップ追加
-uint32_t psgId = engine.addExtChip(ChipTypeExt::SSG);
-uint32_t sngId = engine.addExtChip(ChipTypeExt::SN76489);
-uint32_t sccId = engine.addExtChip(ChipTypeExt::SCC);
-uint32_t saaId = engine.addExtChip(ChipTypeExt::SAA1099); // SAASound.dll が必要
-
-// ④ ゲイン設定 (1.0 = 0 dB)
+// ③ ゲイン設定 (1.0 = 0 dB)
 engine.setGain(opnaId, 1.0f);
 engine.setGain(opl3Id, ChipGain::dBToLinear(-6.0f));
-engine.setGain(psgId,  0.7f);
 
-// ⑤ デフォルトデバイスで WASAPI 出力を開く (false = Shared mode)
-WasapiOutput output(engine, false);
-output.start();
-
-// ⑥ レジスタ書き込み (任意スレッドから安全)
-// ymfm 系: write(chip_id, reg, value, port)
+// ④ レジスタ書き込み (任意スレッドから安全)
+// write(chip_id, reg, value, port)
 //   port=0: bank0 (offset 0/1)、port!=0: bank1 (offset 2/3)
 engine.write(opnaId, 0xB4, 0xC0);     // CH0 L/R ON
-// SSG 系: write(chip_id, reg_num, value, port=0)
-engine.write(psgId, 0x08, 0x0F);      // CH A volume=15
 
-// ⑦ 停止
-output.stop();
+// ⑤ 波形生成 (アプリケーションが用意するオーディオコールバック内から呼ぶ)
+void audioCallback(float* out_l, float* out_r, uint32_t frames) {
+    engine.generate(out_l, out_r, frames);
+}
 ```
 
 ## write() のセマンティクス
@@ -74,60 +64,16 @@ engine.write(chip_id, reg, value, port)
 ```
 
 `port=0` → `addr_offset=0 / data_offset=1` (bank0)  
-`port!=0` → `addr_offset=2 / data_offset=3` (bank1、OPN2/OPNA 等の bank 選択)
-
-外部チップ (SSG/SN76489/SCC/SAA1099) はライブラリごとに異なるインターフェースを持ちますが、`ExternalChip.h` 内のラッパーがそれぞれ適切に変換します。
-
-## デバイスの明示指定
-
-```cpp
-#include "WasapiOutput.h"
-
-// デバイス列挙
-// enumerateWasapiDevices() は COM を内部で自己管理するため
-// CoInitialize 済みかどうかを問わず呼べる
-std::vector<WasapiDeviceInfo> devices = enumerateWasapiDevices();
-for (const auto& d : devices) {
-    // d.id        : デバイスID (wstring)
-    // d.name      : 表示名 (wstring)
-    // d.isDefault : デフォルトデバイスか
-}
-
-// デバイスIDを指定して初期化
-WasapiOutput output(engine, false, devices[1].id);
-```
-
-## WASAPI 動作モード
-
-| モード | 説明 |
-|---|---|
-| Shared mode (`exclusive=false`) | `GetMixFormat` で取得したネイティブフォーマットで `Initialize`。float32 → デバイスフォーマットへの変換は自前実装 (`AUTOCONVERTPCM` 非依存)。 |
-| Exclusive mode (`exclusive=true`) | `IsFormatSupported` で確認後に初期化。非対応の場合は Shared mode に自動降格。 |
-
-対応デバイスフォーマット: Float32 / Int16 / Int24 / Int32
-
-デバイスとエンジンのサンプルレートが異なる場合、`renderLoop` 内で線形補間リサンプリングを行います。
+`port!=0` → `addr_offset=2 / data_offset=3` (bank1、OPN2/OPNA 等の bank 選択。OPL4 は port2 が AWM/PCM 側レジスタ)
 
 ## スレッドモデル
 
 ```
-[アプリスレッド]   engine.write()    →  SPSC キュー (lock-free)
-[WASAPIスレッド]   engine.generate() ←  キュー消化 → リサンプル → ゲイン → ミックス → WASAPI
+[アプリの任意スレッド]     engine.write()    →  SPSC キュー (lock-free)
+[アプリのオーディオスレッド] engine.generate() ←  キュー消化 → リサンプル → ゲイン → ミックス
 ```
 
-`write()` と `generate()` はロックフリーキューで完全に分離されており、レジスタ書き込みがオーディオスレッドをブロックすることはありません。`setGain()` は `std::atomic<float>` を使用しているため任意スレッドから安全に呼べます。
-
-## SAASound (SAA1099) の動的ロード
-
-SAA1099 チップは名前衝突 (`BYTE` マクロ等) の問題により `FmEngineApi.dll` に静的リンクできないため、`SAASound.dll` を実行時に `LoadLibrary` でロードします。
-
-```
-SAASound.dll が見つかる場合  → SAA1099 チップが正常に動作
-SAASound.dll が見つからない → addExtChip(ChipTypeExt::SAA1099) で例外
-                              → FmEngine_AddExtChip が FM_ERR_EXCEPTION を返す
-```
-
-`SAASound.dll` は `FmEngineApi.dll` と同じディレクトリに配置してください。
+`write()` と `generate()` はロックフリーキューで完全に分離されており、レジスタ書き込みがオーディオスレッドをブロックすることはありません。`setGain()` は `std::atomic<float>` を使用しているため任意スレッドから安全に呼べます。`generate()` はオーディオコールバックスレッドなど、アプリケーションが波形を消費するスレッドから呼び出してください。
 
 ## ymfm チップのコンストラクタ特殊化
 
@@ -142,15 +88,13 @@ ymfm の全チップは `(ymfm_interface&, uint32_t clock)` を取らないた�
 
 ## 対応チップ一覧
 
-### ymfm チップ
-
 | 列挙値 (ChipType) | チップ | 標準クロック | 主な用途 |
 |---|---|---|---|
 | `ChipType::Y8950`  | Y8950   | 3.58 MHz  | MSX-Audio |
 | `ChipType::OPL`    | YM3526  | 3.58 MHz  | 初期 AdLib カード |
 | `ChipType::OPL2`   | YM3812  | 3.58 MHz  | AdLib, Sound Blaster |
-| `ChipType::OPL3`   | YMF262  | 14.3 MHz  | Sound Blaster 16 |
-| `ChipType::OPL4`   | YMF278B | 16.93 MHz | OPL4 (ROM/RAM PCM 付き) |
+| `ChipType::OPL3`   | YMF262  | 14.32 MHz | Sound Blaster 16 |
+| `ChipType::OPL4`   | YMF278B | 33.87 MHz | OPL4 (ROM/RAM PCM 付き) |
 | `ChipType::OPN`    | YM2203  | 3.99 MHz  | PC-8801, PC-9801 |
 | `ChipType::OPNA`   | YM2608  | 7.99 MHz  | PC-8801mkIISR, PC-9801 |
 | `ChipType::OPNB`   | YM2610  | 8.00 MHz  | NEO GEO |
@@ -169,21 +113,9 @@ ymfm の全チップは `(ymfm_interface&, uint32_t clock)` を取らないた�
 uint32_t id = engine.addChip(ChipType::OPN2, 7'600'489u); // PAL Mega Drive
 ```
 
-### 外部ライブラリチップ
-
-| 列挙値 (ChipTypeExt) | チップ | 標準クロック | ライブラリ |
-|---|---|---|---|
-| `ChipTypeExt::SSG`     | YM2149 (SSG) | 3.58 MHz | emu2149 (静的リンク) |
-| `ChipTypeExt::DCSG`    | SN76489      | 3.58 MHz | emu76489 (静的リンク) |
-| `ChipTypeExt::SCC`     | SCC/K051649  | 3.58 MHz | emu2212 (静的リンク) |
-| `ChipTypeExt::SAA`     | SAA1099      | 8.00 MHz | SAASound.dll (動的ロード) |
-
 ## ライセンス
 
 - **ymfm**: BSD 3-Clause (Aaron Giles)
-- **emu2149 / emu76489 / emu2212**: MIT (digital-sound-antiques)
-- **SAASound**: GPL-2.0 (stripwax) — 配布時はライセンス条件を確認してください
-- **nlohmann/json**: MIT (nlohmann)
 - **このエンジンコード**: MIT
 
 ## 外部メモリ (ADPCM/PCM ROM)
@@ -201,7 +133,7 @@ ADPCM・PCM を内蔵するチップは ymfm の `ymfm_external_read()` コー�
 ### C++ API
 
 ```cpp
-// ROM データを設定 (Wasapi 起動前に呼ぶこと)
+// ROM データを設定 (オーディオコールバック開始前に呼ぶこと)
 engine.setMemory(opnaId, ymfm::ACCESS_ADPCM_B, romData, romSize);
 
 // 設定済みサイズの確認
@@ -224,4 +156,4 @@ m_iface.allocMemory(ymfm::ACCESS_ADPCM_B, 512 * 1024);
 
 ### 注意事項
 
-`setMemory()` はスレッドセーフではありません。`WasapiOutput::start()` より前に設定してください。設定した `data` ポインタが指すバッファは再生終了まで解放しないでください。
+`setMemory()` はスレッドセーフではありません。オーディオコールバックの開始 (`generate()` の呼び出し開始) より前に設定してください。設定した `data` ポインタが指すバッファは再生終了まで解放しないでください。
