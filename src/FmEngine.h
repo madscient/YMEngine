@@ -192,18 +192,30 @@ public:
         //    ビルトインリズム音源のように1レジスタに複数の打楽器チャンネルが
         //    同居しているケースを含め) 多チャンネル同時変化でも不要な1サンプル
         //    生成を避けられる。
+        //
+        //    ただし、衝突検知時に「たった1サンプル」だけ確定させると、その
+        //    直後にすぐ次の (無関係チャンネル経由の) 衝突で再び切られてしまい、
+        //    アタックエンベロープが立ち上がる前に事実上無音のまま消えることが
+        //    ある (特に減衰の速い打楽器で顕著)。そのため衝突時は
+        //    minKeyOnTickSamples() 分 (既定 約2ms) はまとめて確定させ、最低限の
+        //    可聴時間を確保する。
         std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
 
+        const uint32_t minTick = minKeyOnTickSamples();
         uint32_t produced = 0;
         RegWriteCmd cmd;
         while (m_queue.pop(cmd)) {
             FmChip& chip = *m_chips[cmd.chip_id];
             const uint64_t mask = chip.keyOnTransitionMask(cmd.port, cmd.reg, cmd.value);
             if (mask != 0) {
-                if ((m_keyDirtyMask[cmd.chip_id] & mask) != 0 && produced + 1 < samples) {
-                    // 同じチャンネルへの変化が未観測のまま重なる → 先に確定させる
-                    mixSpan(out_l + produced, out_r + produced, 1);
-                    ++produced;
+                const bool conflict = (m_keyDirtyMask[cmd.chip_id] & mask) != 0;
+                if (conflict && produced < samples) {
+                    // 同じチャンネルへの変化が未観測のまま重なる → 先に確定させる。
+                    // 1サンプルだけだとアタックが立ち上がる前に次のティックで
+                    // 切られ得るため、minTick 分まとめて確定させる。
+                    const uint32_t tick = (samples - produced < minTick) ? (samples - produced) : minTick;
+                    mixSpan(out_l + produced, out_r + produced, tick);
+                    produced += tick;
                     std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
                 }
                 chip.write(cmd.port, cmd.reg, cmd.value);
@@ -244,6 +256,14 @@ private:
         if (x >  1.5f) return  1.0f;
         if (x < -1.5f) return -1.0f;
         return x * (1.0f - (x * x) / 9.0f);
+    }
+
+    // キーオン衝突時に最低限確保するサンプル数 (約2ms相当)。
+    // 1サンプルだけだとアタックエンベロープが立ち上がる前に次の衝突で
+    // 切られ、事実上無音のノートになり得るため、最低限の可聴時間を確保する。
+    uint32_t minKeyOnTickSamples() const {
+        const uint32_t rate = m_sample_rate ? m_sample_rate : 44100;
+        return (rate / 500 > 0) ? (rate / 500) : 1; // rate/500 ≈ 2ms分のサンプル数
     }
 
     // 区間 [out_l, out_l+count) に対して、全チップ生成→ゲイン付きミックスを
