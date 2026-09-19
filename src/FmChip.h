@@ -393,12 +393,15 @@ private:
         //                data[0]=FM, data[1]=SSG-A, data[2]=SSG-B, data[3]=SSG-C
         //                out_l = out_r = data[0]+data[1]+data[2]+data[3]
         //
-        //   MixMono    : OPL/OPL2/Y8950/OPLL/OPLLP/OPLLX/VRC7
+        //   MixMono    : OPLL/OPLLP/OPLLX/VRC7
         //                data[0]=melody, data[1]=rhythm
         //                out_l = out_r = data[0]+data[1]
         //
         //   Mono       : OUTPUTS=1
         //                out_l = out_r = data[0]
+        //                OPL/OPL2/Y8950 は ymfm では OUTPUTS=1 (リズムも data[0] に
+        //                入る) のため、isMixMono の条件に挙げてあっても kOutputs >= 2
+        //                で外れてここに来る。
         constexpr bool isTrueStereo =
             kOutputs >= 2 &&
             (TType == ChipType::OPM   ||
