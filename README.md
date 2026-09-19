@@ -94,10 +94,10 @@ cmake --build build
 | OPL4 | DO2 (FM ch0+1 と wave ch0+1 のミックス済み L) | DO2 R |
 | OPNA, OPNB, OPNBB | FM-L + SSG | FM-R + SSG |
 | OPN | FM + SSG (モノラル) | 同左 |
-| OPL/OPL2/Y8950/OPLL系 | melody + rhythm | 同左 |
+| OPLL系 | melody + rhythm | 同左 |
+| OPL/OPL2/Y8950 | FM (リズムを含む) + ADPCM (Y8950 のみ)。モノラル | 同左 |
 | その他 | data[0] | 同左 |
 
-OPL3 のリズムチャンネルは R チャンネルのみに出力されます (仕様)。  
 OPL4 (YMF278B) は FM/wave 合計6出力 (DO0/DO1/DO2) を持ちますが、本エンジンはメイン出力である DO2 (FM ch0+1 と wave ch0+1 のミックス済み L/R) のみを使用します。
 
 ## チップ固有のレジスタの扱い
