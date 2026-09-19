@@ -168,10 +168,9 @@ public:
     void generate(float* out_l, float* out_r, uint32_t samples) {
         // 1. キュー消化。
         //    キーオン/オフに関係するビットが実際に変化した書き込み
-        //    (FmChip::keyOnTransitionSlot() が非負を返す書き込み) のうち、
+        //    (FmChip::keyOnTransitionMask() が非0を返す書き込み) のうち、
         //    「同じチャンネルへの変化が直前に未観測のまま溜まっている」場合
-        //    にだけ、適用前に最低1サンプル生成してチップの内部クロックを
-        //    1tick進める。
+        //    にだけ、適用前に前の状態のまま minKeyOnTickSamples() 分を生成する。
         //
         //    ymfm の m_keyon_live (fm_operator::keyonoff) はレジスタ書き込み時に
         //    即座に更新されるが、実際にエンベロープジェネレータへ反映される
@@ -185,49 +184,61 @@ public:
         //    多数のチャンネルが同時にキーオンする場合、まとめて適用しても
         //    問題ない — むしろ本来同時に鳴るべき音なので、まとめて適用する方が
         //    正しい)。そのため keyOnTransitionMask() が返すチャンネルスロットの
-        //    ビットマスクごとに「直前のtick以降、未観測の変化があるか」を
-        //    m_keyDirtyMask (チップごとの64bitビットマスク) で追跡し、本当に
-        //    同じチャンネルが再度変化しようとしたときにだけティックを強制する。
-        //    これにより OPL/OPLL 系のビブラートだけでなく、和音や (OPL/OPLL の
-        //    ビルトインリズム音源のように1レジスタに複数の打楽器チャンネルが
-        //    同居しているケースを含め) 多チャンネル同時変化でも不要な1サンプル
-        //    生成を避けられる。
+        //    ビットマスクごとに「最後の生成以降、未観測の変化があるか」を
+        //    m_keyDirtyMask (チップごとの64bitビットマスク) で追跡し、同じ
+        //    チャンネルが再び変化しようとしたら、その書き込みを m_pending に
+        //    保留して前の状態のまま minKeyOnTickSamples() 分を生成してから
+        //    適用する。OPL/OPLL 系のビブラートや和音、(OPL/OPLL のビルトイン
+        //    リズム音源のように1レジスタに複数の打楽器チャンネルが同居している
+        //    ケースを含め) 多チャンネル同時変化では分割しない。
+        //    保留中は後続の書き込みも順序を保つため適用しない。
         //
-        //    ただし、衝突検知時に「たった1サンプル」だけ確定させると、その
-        //    直後にすぐ次の (無関係チャンネル経由の) 衝突で再び切られてしまい、
-        //    アタックエンベロープが立ち上がる前に事実上無音のまま消えることが
-        //    ある (特に減衰の速い打楽器で顕著)。そのため衝突時は
-        //    minKeyOnTickSamples() 分 (既定 約2ms) はまとめて確定させ、最低限の
-        //    可聴時間を確保する。
-        std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
-
+        //    保留の生成は呼び出しをまたいで数える。今回の samples に収まらない
+        //    分は次の呼び出しの頭で続きを生成してから適用する。そのため衝突が
+        //    多い、または呼び出しが細かいと、書き込みの適用が遅れて累積する
+        //    (衝突1回あたり最大 minKeyOnTickSamples())。未観測の状態を捨てずに
+        //    観測させることを、発音タイミングの正確さより優先している。
+        //    前の状態を1サンプルしか生成しないと、KEY OFF のリリースが聞こえる
+        //    前に KEY ON で戻り、アタックも立ち上がる前に次の状態に切り替わり
+        //    得るため、最低限の時間を確保する。
         const uint32_t minTick = minKeyOnTickSamples();
         uint32_t produced = 0;
-        RegWriteCmd cmd;
-        while (m_queue.pop(cmd)) {
-            FmChip& chip = *m_chips[cmd.chip_id];
-            const uint64_t mask = chip.keyOnTransitionMask(cmd.port, cmd.reg, cmd.value);
-            if (mask != 0) {
-                const bool conflict = (m_keyDirtyMask[cmd.chip_id] & mask) != 0;
-                if (conflict && produced < samples) {
-                    // 同じチャンネルへの変化が未観測のまま重なる → 先に確定させる。
-                    // 1サンプルだけだとアタックが立ち上がる前に次のティックで
-                    // 切られ得るため、minTick 分まとめて確定させる。
-                    const uint32_t tick = (samples - produced < minTick) ? (samples - produced) : minTick;
-                    mixSpan(out_l + produced, out_r + produced, tick);
-                    produced += tick;
-                    std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
+        for (;;) {
+            if (m_hasPending) {
+                if (m_pendingHold > 0) {
+                    const uint32_t room = samples - produced;
+                    const uint32_t n = (room < m_pendingHold) ? room : m_pendingHold;
+                    if (n == 0) break;
+                    renderSpan(out_l + produced, out_r + produced, n);
+                    produced += n;
+                    m_pendingHold -= n;
+                    if (m_pendingHold > 0) break;
                 }
-                chip.write(cmd.port, cmd.reg, cmd.value);
-                m_keyDirtyMask[cmd.chip_id] |= mask;
-            } else {
-                chip.write(cmd.port, cmd.reg, cmd.value);
+                m_chips[m_pending.chip_id]->write(m_pending.port, m_pending.reg, m_pending.value);
+                m_keyDirtyMask[m_pending.chip_id] |= m_pendingMask;
+                m_hasPending = false;
             }
+
+            RegWriteCmd cmd;
+            if (!m_queue.pop(cmd)) break;
+            FmChip& chip = *m_chips[cmd.chip_id];
+            // 直前値キャッシュを書き込み順に更新するため、保留する場合も
+            // ここで1回だけ呼ぶ。
+            const uint64_t mask = chip.keyOnTransitionMask(cmd.port, cmd.reg, cmd.value);
+            if ((m_keyDirtyMask[cmd.chip_id] & mask) != 0) {
+                m_pending     = cmd;
+                m_pendingMask = mask;
+                m_pendingHold = minTick;
+                m_hasPending  = true;
+                continue;
+            }
+            chip.write(cmd.port, cmd.reg, cmd.value);
+            m_keyDirtyMask[cmd.chip_id] |= mask;
         }
 
         // 2. 残りをまとめて生成
         if (produced < samples) {
-            mixSpan(out_l + produced, out_r + produced, samples - produced);
+            renderSpan(out_l + produced, out_r + produced, samples - produced);
         }
 
         // 3. ソフトクリップ (バッファ全体に対して1回)
@@ -266,6 +277,16 @@ private:
         return (rate / 500 > 0) ? (rate / 500) : 1; // rate/500 ≈ 2ms分のサンプル数
     }
 
+    // 1サンプルでも生成すれば、それまでに適用したキー状態は全チップで観測
+    // 済みになる。未観測の追跡は呼び出しの境目ではなくここで打ち切る
+    // (呼び出しの末尾で samples を使い切った後に適用した書き込みは、次の
+    // 呼び出しの頭でもまだ未観測のため)。
+    void renderSpan(float* out_l, float* out_r, uint32_t count) {
+        mixSpan(out_l, out_r, count);
+        if (count > 0)
+            std::fill(m_keyDirtyMask.begin(), m_keyDirtyMask.end(), uint64_t{0});
+    }
+
     // 区間 [out_l, out_l+count) に対して、全チップ生成→ゲイン付きミックスを
     // 行う (クリアも含む)。ソフトクリップは呼び出し元でまとめて行う。
     void mixSpan(float* out_l, float* out_r, uint32_t count) {
@@ -300,5 +321,10 @@ private:
     std::vector<std::unique_ptr<ChipGain>>   m_gains;   // unique_ptr: atomic は vector 再確保でムーブ不可
     std::vector<WorkBuf>                     m_work_bufs;
     SpscQueue<RegWriteCmd, 4096>             m_queue;
-    std::vector<uint64_t>                    m_keyDirtyMask; // generate() 内でのみ使用 (チップごとの未観測キーオン変化スロット)
+    // 以下は generate() (オーディオスレッド) からのみ触る
+    std::vector<uint64_t>                    m_keyDirtyMask; // チップごとの未観測キーオン変化スロット
+    RegWriteCmd                              m_pending{};
+    uint64_t                                 m_pendingMask = 0;
+    uint32_t                                 m_pendingHold = 0;
+    bool                                     m_hasPending  = false;
 };
