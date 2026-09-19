@@ -24,7 +24,7 @@ cl /std:c++20 /EHsc /O2 /utf-8 /I src /I extern\ymfm\src _test\keyoff_retrigger_
 keyoff_retrigger_test.exe
 ```
 
-Linux / macOS（**未検証**）：
+Linux / macOS（g++ 10.2 で確認。macOS は未検証）：
 ```bash
 g++ -std=c++20 -O2 -I src -I extern/ymfm/src _test/keyoff_retrigger_test.cpp extern/ymfm/src/ymfm_*.cpp -o keyoff_retrigger_test
 ./keyoff_retrigger_test
