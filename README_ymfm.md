@@ -40,6 +40,8 @@ uint32_t opl3Id = engine.addChip(ChipType::OPL3);
 // ③ ゲイン設定 (1.0 = 0 dB)
 engine.setGain(opnaId, 1.0f);
 engine.setGain(opl3Id, ChipGain::dBToLinear(-6.0f));
+// 部位ごとのゲイン。実際のゲインは setGain() との積。持たない部位なら false
+engine.setPartGain(opnaId, ChipPart::SSG, 0.5f, 0.5f);
 
 // ④ レジスタ書き込み (任意スレッドから安全)
 // write(chip_id, reg, value, port)
@@ -73,7 +75,7 @@ engine.write(chip_id, reg, value, port)
 [アプリのオーディオスレッド] engine.generate() ←  キュー消化 → リサンプル → ゲイン → ミックス
 ```
 
-`write()` と `generate()` はロックフリーキューで完全に分離されており、レジスタ書き込みがオーディオスレッドをブロックすることはありません。`setGain()` は `std::atomic<float>` を使用しているため任意スレッドから安全に呼べます。`generate()` はオーディオコールバックスレッドなど、アプリケーションが波形を消費するスレッドから呼び出してください。
+`write()` と `generate()` はロックフリーキューで完全に分離されており、レジスタ書き込みがオーディオスレッドをブロックすることはありません。`setGain()` と `setPartGain()` は `std::atomic<float>` を使用しているため任意スレッドから安全に呼べます。`generate()` はオーディオコールバックスレッドなど、アプリケーションが波形を消費するスレッドから呼び出してください。
 
 ### キーオン/オフの連続書き込み
 
@@ -81,13 +83,25 @@ engine.write(chip_id, reg, value, port)
 
 この遅れは `generate()` の呼び出しをまたいで持ち越され、後続の書き込みも順序を保って待ちます。衝突が N 回重なると、それ以降の書き込みは最大で N × 約2ms 遅れます。
 
+## OPN 系の FM と SSG
+
+OPN, OPNA, OPNB, OPNBB は、ymfm のチップクラスを継承した `detail::Ym2203Split` / `Ym2608Split` / `Ym2610Split<>` を使います。ymfm の `generate()` は FM と SSG を1本の列にまとめるため同じ値を繰り返して速い方のレートに揃えますが、これらのクラスは FM と SSG をそれぞれ本来のレートで1サンプルずつ取り出します。`FmChipImpl` は FM 用と SSG 用に `LinearResampler` を1本ずつ持ち、出力レートに変換してから部位ごとのゲインを掛けて足します。
+
+| チップ | FM のレート | SSG のレート |
+|---|---|---|
+| OPN  | clk / (prescale × 12) | clk / 16, 8, 4 (prescale 6, 3, 2) |
+| OPNA | clk / (prescale × 24) | clk / 32, 16, 8 (prescale 6, 3, 2) |
+| OPNB, OPNBB | clk / 144 | clk / 32 |
+
+prescale は `0x2D`〜`0x2F` への書き込みで切り替わり、そのたびに両方のリサンプラを設定し直します。`nativeRate()` は FM のレートを返します。
+
 ## ymfm チップのコンストラクタ特殊化
 
 ymfm の全チップは `(ymfm_interface&, uint32_t clock)` を取らないため、`FmChipImpl` の完全特殊化で吸収しています。
 
 | コンストラクタパターン | 対象チップ |
 |---|---|
-| `(interface&)` のみ | Y8950, OPL, OPL2, OPL3, OPL4, OPN, OPNA, OPNBB, OPN2, OPZ |
+| `(interface&)` のみ | Y8950, OPL, OPL2, OPL3, OPL4, OPN, OPNA, OPNBB, OPN2, OPZ (OPN 系は継承したクラス経由) |
 | `(interface&, const uint8_t*)` | OPLL, OPLLX, OPLLP, VRC7 |
 | `(interface&, opm_variant)` | OPM ※`protected` のため public コンストラクタを使用 |
 | `(interface&, uint8_t channel_mask)` | OPNB |

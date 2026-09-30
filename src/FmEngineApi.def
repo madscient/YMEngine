@@ -13,6 +13,8 @@ EXPORTS
     FmEngine_Write
     FmEngine_SetGain
     FmEngine_GetGain
+    FmEngine_SetPartGain
+    FmEngine_GetPartGain
     FmEngine_SetMemory
     FmEngine_GetMemorySize
     FmEngine_Generate

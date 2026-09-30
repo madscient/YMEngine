@@ -128,6 +128,27 @@ FmEngine_GetGain(FmEngineHandle h, uint32_t chip_id,
     return FM_OK;
 }
 
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_SetPartGain(FmEngineHandle h, uint32_t chip_id, FmPart part,
+                     float gain_l, float gain_r) {
+    REQUIRE_PTR(h);
+    if (static_cast<uint32_t>(part) >= kChipPartCount) return FM_ERR_INVALID_ARG;
+    const bool ok = static_cast<FmEngineOpaque*>(h)->engine.setPartGain(
+        chip_id, static_cast<ChipPart>(part), gain_l, gain_r);
+    return ok ? FM_OK : FM_ERR_INVALID_ARG;
+}
+
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_GetPartGain(FmEngineHandle h, uint32_t chip_id, FmPart part,
+                     float* out_gain_l, float* out_gain_r) {
+    REQUIRE_PTR(h);
+    if (!out_gain_l || !out_gain_r) return FM_ERR_INVALID_ARG;
+    if (static_cast<uint32_t>(part) >= kChipPartCount) return FM_ERR_INVALID_ARG;
+    const bool ok = static_cast<FmEngineOpaque*>(h)->engine.getPartGain(
+        chip_id, static_cast<ChipPart>(part), *out_gain_l, *out_gain_r);
+    return ok ? FM_OK : FM_ERR_INVALID_ARG;
+}
+
 // =========================================================
 //  外部メモリ
 // =========================================================

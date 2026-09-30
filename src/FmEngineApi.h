@@ -43,6 +43,12 @@ typedef enum FmMemoryType {
     FM_MEM_PCM     = 3,  // PCM ROM (OPL4)
 } FmMemoryType;
 
+// ---- 出力の部位 ---------------------------------------------------------
+typedef enum FmPart {
+    FM_PART_FM  = 0,  // FM 部 (ADPCM・リズムを含む)。SSG を持たないチップでは出力全体
+    FM_PART_SSG = 1,  // SSG 部 (OPN/OPNA/OPNB/OPNBB)
+} FmPart;
+
 // ---- 不透明ハンドル -----------------------------------------------------
 struct FmEngineOpaque;
 
@@ -82,6 +88,8 @@ FMENGINE_API FmResult FMENGINE_CALL FmEngine_AddChip(
 // =========================================================
 FMENGINE_API const char* FMENGINE_CALL FmEngine_GetChipName(
     FmEngineHandle engine, uint32_t chip_id);
+// FM 部のネイティブサンプルレート (Hz、端数切り捨て)。
+// OPN/OPNA では prescale レジスタ (0x2D-0x2F) の書き込みで変わる。
 FMENGINE_API uint32_t    FMENGINE_CALL FmEngine_GetNativeRate(
     FmEngineHandle engine, uint32_t chip_id);
 FMENGINE_API uint32_t    FMENGINE_CALL FmEngine_GetSampleRate(
@@ -103,6 +111,19 @@ FMENGINE_API FmResult FMENGINE_CALL FmEngine_SetGain(
     FmEngineHandle engine, uint32_t chip_id, float gain_l, float gain_r);
 FMENGINE_API FmResult FMENGINE_CALL FmEngine_GetGain(
     FmEngineHandle engine, uint32_t chip_id,
+    float* out_gain_l, float* out_gain_r);
+
+// =========================================================
+//  部位ごとのゲイン設定 (L/R 独立)
+//  実際に掛かるゲインは FmEngine_SetGain のゲイン × 部位のゲイン。既定値は 1.0。
+//  チップが持たない部位を指定すると FM_ERR_INVALID_ARG。
+//  オーディオコールバックスレッドと並行して呼び出し可能。
+// =========================================================
+FMENGINE_API FmResult FMENGINE_CALL FmEngine_SetPartGain(
+    FmEngineHandle engine, uint32_t chip_id, FmPart part,
+    float gain_l, float gain_r);
+FMENGINE_API FmResult FMENGINE_CALL FmEngine_GetPartGain(
+    FmEngineHandle engine, uint32_t chip_id, FmPart part,
     float* out_gain_l, float* out_gain_r);
 
 // =========================================================

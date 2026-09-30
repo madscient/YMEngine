@@ -129,6 +129,24 @@ public:
         out_r = m_gains[chip_id]->gain_r.load(std::memory_order_relaxed);
     }
 
+    // 部位ごとのゲイン (任意スレッドから呼べる)。実際に掛かるのは
+    // setGain() のゲイン × 部位のゲイン。チップが持たない部位なら false。
+    bool setPartGain(uint32_t chip_id, ChipPart part, float gain_l, float gain_r) {
+        if (chip_id >= m_chips.size() || !m_chips[chip_id]->hasPart(part)) return false;
+        ChipGain& g = (*m_part_gains[chip_id])[static_cast<size_t>(part)];
+        g.gain_l.store(gain_l, std::memory_order_relaxed);
+        g.gain_r.store(gain_r, std::memory_order_relaxed);
+        return true;
+    }
+
+    bool getPartGain(uint32_t chip_id, ChipPart part, float& out_l, float& out_r) const {
+        if (chip_id >= m_chips.size() || !m_chips[chip_id]->hasPart(part)) return false;
+        const ChipGain& g = (*m_part_gains[chip_id])[static_cast<size_t>(part)];
+        out_l = g.gain_l.load(std::memory_order_relaxed);
+        out_r = g.gain_r.load(std::memory_order_relaxed);
+        return true;
+    }
+
     uint32_t nativeRate(uint32_t chip_id) const {
         if (chip_id >= m_chips.size()) return 0;
         return m_chips[chip_id]->nativeRate();
@@ -258,6 +276,7 @@ private:
         const uint32_t id = static_cast<uint32_t>(m_chips.size());
         m_chips.push_back(std::move(chip));
         m_gains.push_back(std::make_unique<ChipGain>());
+        m_part_gains.push_back(std::make_unique<PartGainSet>());
         m_work_bufs.emplace_back();
         m_keyDirtyMask.push_back(0);
         return id;
@@ -300,13 +319,20 @@ private:
             wb.l.resize(count);
             wb.r.resize(count);
 
-            m_chips[i]->generate(wb.l.data(), wb.r.data(), count);
-
             const float gl = m_gains[i]->gain_l.load(std::memory_order_relaxed);
             const float gr = m_gains[i]->gain_r.load(std::memory_order_relaxed);
+            PartGains g;
+            for (uint32_t p = 0; p < kChipPartCount; ++p) {
+                const ChipGain& pg = (*m_part_gains[i])[p];
+                g.l[p] = gl * pg.gain_l.load(std::memory_order_relaxed);
+                g.r[p] = gr * pg.gain_r.load(std::memory_order_relaxed);
+            }
+
+            m_chips[i]->generate(wb.l.data(), wb.r.data(), count, g);
+
             for (uint32_t s = 0; s < count; ++s) {
-                out_l[s] += wb.l[s] * gl;
-                out_r[s] += wb.r[s] * gr;
+                out_l[s] += wb.l[s];
+                out_r[s] += wb.r[s];
             }
         }
     }
@@ -316,9 +342,12 @@ private:
         std::vector<float> r;
     };
 
+    using PartGainSet = std::array<ChipGain, kChipPartCount>;
+
     uint32_t                             m_sample_rate;
     std::vector<std::unique_ptr<FmChip>>     m_chips;
     std::vector<std::unique_ptr<ChipGain>>   m_gains;   // unique_ptr: atomic は vector 再確保でムーブ不可
+    std::vector<std::unique_ptr<PartGainSet>> m_part_gains;
     std::vector<WorkBuf>                     m_work_bufs;
     SpscQueue<RegWriteCmd, 4096>             m_queue;
     // 以下は generate() (オーディオスレッド) からのみ触る

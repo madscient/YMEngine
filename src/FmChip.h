@@ -2,11 +2,7 @@
 // FmChip.h
 // ymfm コアのラッパー。チップ種別ごとの抽象インターフェースと
 // ymfm_interface 実装を提供する。
-//
-// 変更履歴:
-// v2: クロック周波数をコンストラクタで指定可能に。
-//     チップのネイティブサンプルレートとエンジンレートが異なる場合、
-//     線形補間リサンプラー (LinearResampler) で吸収する。
+// チップのネイティブサンプルレートとエンジンレートの差は LinearResampler で吸収する。
 //
 // MSVC 対応:
 //   has_write_address_hi をクラスメンバーテンプレートとして定義すると
@@ -19,6 +15,7 @@
 #include "ymfm_opn.h"
 #include "ymfm_opm.h"
 #include "ymfm_opz.h"
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -92,69 +89,186 @@ namespace detail {
 } // namespace detail
 
 // =========================================================
-//  LinearResampler
+//  LinearResampler<Channels>
+//
+//  ソースレートは src_num / src_den Hz の分数で受け取る。OPN 系の FM は
+//  clock/144 のように整数にならないため。
+//
+//  チップは呼び出しをまたいで連続した1本の列を出すので、ソースは必要な分
+//  だけ生成し、まだ使い終わっていないサンプル (補間の左端と、アップサンプル
+//  時は右端も) を m_carry に持ち越す。生成したサンプルを捨てると、捨てた分
+//  だけチップの時間が先に進み、音程がずれて呼び出しの境目で波形が跳ぶ。
 // =========================================================
+template<size_t Channels>
 class LinearResampler {
 public:
-    void setup(uint32_t src_rate, uint32_t dst_rate) {
-        m_src_rate  = src_rate;
+    void setup(uint64_t src_num, uint32_t src_den, uint32_t dst_rate) {
+        m_src_num   = src_num;
+        m_src_den   = src_den;
         m_dst_rate  = dst_rate;
-        m_phase_inc = (static_cast<uint64_t>(src_rate) << 32) / dst_rate;
+        m_phase_inc = (src_num << 32) / (static_cast<uint64_t>(src_den) * dst_rate);
+        // m_carry は残す。実行中にレートが変わったとき (OPN 系の prescale) に
+        // 直前の値から続けるため。
         m_phase     = 0;
-        m_work_l.clear();
-        m_work_r.clear();
     }
 
-    bool isPassthrough() const { return m_src_rate == m_dst_rate; }
+    bool isPassthrough() const {
+        return m_src_num == static_cast<uint64_t>(m_src_den) * m_dst_rate;
+    }
 
+    // generate_fn(float* const* bufs, uint32_t n): bufs[c] に n サンプル書く
     template<typename GenFn>
-    void process(GenFn&& generate_fn, float* out_l, float* out_r, uint32_t dst_samples) {
+    void process(GenFn&& generate_fn, float* const* out, uint32_t dst_samples) {
+        if (dst_samples == 0) return;
         if (isPassthrough()) {
-            generate_fn(out_l, out_r, dst_samples);
+            generate_fn(out, dst_samples);
             return;
         }
 
-        // 前回コール末尾からの持ち越しフェーズ整数部 + 今回分 + 余裕 2
-        // consumed (= ループ後 m_phase>>32) <= src_needed を保証する
-        const uint32_t phase_offset = static_cast<uint32_t>(m_phase >> 32);
-        const uint32_t src_needed =
-            phase_offset +
-            static_cast<uint32_t>(
-                (static_cast<uint64_t>(dst_samples) * m_src_rate) / m_dst_rate) + 2;
+        // 位置 p (32.32 固定小数) は m_carry の先頭を 0 番とした添字。
+        // 補間には floor(p) と floor(p)+1 が要る。
+        const uint64_t last_pos = m_phase + static_cast<uint64_t>(dst_samples - 1) * m_phase_inc;
+        const uint64_t end_pos  = m_phase + static_cast<uint64_t>(dst_samples) * m_phase_inc;
+        // end_pos の整数部は次回の先頭になるので、補間に使わなくても生成する
+        const uint32_t last_idx = (std::max)(static_cast<uint32_t>(last_pos >> 32) + 1,
+                                             static_cast<uint32_t>(end_pos >> 32));
+        const uint32_t total    = last_idx + 1;
+        const uint32_t fresh    = (total > m_carry_n) ? total - m_carry_n : 0;
 
-        m_work_l.resize(src_needed);
-        m_work_r.resize(src_needed);
-        generate_fn(m_work_l.data(), m_work_r.data(), src_needed);
+        float* gen_bufs[Channels];
+        for (size_t c = 0; c < Channels; ++c) {
+            m_work[c].resize((std::max)(total, m_carry_n));
+            for (uint32_t j = 0; j < m_carry_n; ++j) m_work[c][j] = m_carry[c][j];
+            gen_bufs[c] = m_work[c].data() + m_carry_n;
+        }
+        if (fresh > 0) generate_fn(gen_bufs, fresh);
 
+        uint64_t p = m_phase;
         for (uint32_t di = 0; di < dst_samples; ++di) {
-            const uint32_t int_part = static_cast<uint32_t>(m_phase >> 32);
-            const float    frac     = static_cast<float>(m_phase & 0xFFFFFFFFull)
-                                      * (1.0f / 4294967296.0f);
-
-            // 範囲チェック付きでソースバッファを読む
-            const uint32_t i0 = (int_part     < src_needed) ? int_part     : src_needed - 1;
-            const uint32_t i1 = (int_part + 1 < src_needed) ? int_part + 1 : src_needed - 1;
-
-            out_l[di] = m_work_l[i0] + (m_work_l[i1] - m_work_l[i0]) * frac;
-            out_r[di] = m_work_r[i0] + (m_work_r[i1] - m_work_r[i0]) * frac;
-
-            m_phase += m_phase_inc;
+            const uint32_t i    = static_cast<uint32_t>(p >> 32);
+            const float    frac = static_cast<float>(p & 0xFFFFFFFFull) * (1.0f / 4294967296.0f);
+            for (size_t c = 0; c < Channels; ++c) {
+                const float* w = m_work[c].data();
+                out[c][di] = w[i] + (w[i + 1] - w[i]) * frac;
+            }
+            p += m_phase_inc;
         }
 
-        // 実際に消費したソースサンプル数だけフェーズ整数部を引く。
-        // src_needed ではなく consumed を使うこと。
-        // src_needed は +2 の余裕を含むため src_needed << 32 を引くと
-        // uint64_t アンダーフローが発生する。
-        const uint32_t consumed = static_cast<uint32_t>(m_phase >> 32);
-        m_phase -= static_cast<uint64_t>(consumed) << 32;
-        // 小数部のみ残り、次回の phase_offset は 0 になる
+        // [consumed, 手元の末尾] を持ち越す。last_idx <= consumed + 1 なので最大2個
+        const uint32_t consumed = static_cast<uint32_t>(end_pos >> 32);
+        const uint32_t have     = (std::max)(total, m_carry_n);
+        m_carry_n = have - consumed;
+        assert(m_carry_n >= 1 && m_carry_n <= 2);
+        for (size_t c = 0; c < Channels; ++c)
+            for (uint32_t j = 0; j < m_carry_n; ++j) m_carry[c][j] = m_work[c][consumed + j];
+        m_phase = end_pos - (static_cast<uint64_t>(consumed) << 32);
     }
 
 private:
-    uint32_t m_src_rate = 0, m_dst_rate = 0;
+    uint64_t m_src_num = 0;
+    uint32_t m_src_den = 1, m_dst_rate = 0;
     uint64_t m_phase_inc = 0, m_phase = 0;
-    std::vector<float> m_work_l, m_work_r;
+    // 初期状態はソースの -1 番目に 0 があるものとして始める
+    std::array<std::array<float, 2>, Channels> m_carry{};
+    uint32_t                                   m_carry_n = 1;
+    std::array<std::vector<float>, Channels>   m_work;
 };
+
+// =========================================================
+//  出力の部位
+//  実機では FM と SSG は別の端子から出て、ボード上の回路でミックスされる。
+//  部位ごとにゲインを掛けられるよう、FmChip::generate() にゲインを渡す。
+// =========================================================
+enum class ChipPart : uint32_t {
+    FM  = 0,   // SSG を持たないチップでは出力全体
+    SSG = 1,
+};
+constexpr uint32_t kChipPartCount = 2;
+
+struct PartGains {
+    float l[kChipPartCount];
+    float r[kChipPartCount];
+};
+
+// =========================================================
+//  OPN 系の FM と SSG を別々に clock する派生クラス
+//
+//  ymfm の generate() は FM と SSG を1本の列にまとめるため、同じ値を繰り返して
+//  速い方のレートに揃える (ymfm_opn.h の "A note about prescaling and sample
+//  rates")。ここでは上流の generate() を呼ばず、protected の clock 関数を直接
+//  呼んで、それぞれ本来のレートで1サンプルずつ取り出す。
+//
+//  clockFm(l, r)   : FM (+ADPCM/リズム) を1サンプル進める
+//  clockSsg()      : SSG を1サンプル進め、3チャンネルの和を返す
+//  fmDivider()     : FM のレート = 入力クロック / fmDivider()
+//  ssgDivider()    : SSG のレート = 入力クロック / ssgDivider()
+//
+//  SSG の和の係数は上流の ssg_resampler に合わせる (OPN はそのまま、
+//  OPNA/OPNB は 2/3)。上流の generate() と同じ値になることは
+//  _test/opn_split_test.cpp で確かめる。
+// =========================================================
+namespace detail {
+
+class Ym2203Split : public ymfm::ym2203 {
+public:
+    using ymfm::ym2203::ym2203;
+    void clockFm(int32_t& l, int32_t& r) {
+        clock_fm();
+        l = r = m_last_fm.data[0];
+    }
+    int32_t clockSsg() {
+        ymfm::ssg_engine::output_data o;
+        m_ssg.clock();
+        m_ssg.output(o);
+        return o.data[0] + o.data[1] + o.data[2];
+    }
+    // prescale 6/3/2 → FM /72,/36,/24。SSG は ssg_effective_clock() と同じく
+    // prescale*2/3 (整数除算で 4/2/1) を使い /16,/8,/4
+    uint32_t fmDivider()  const { return m_fm.clock_prescale() * 12; }
+    uint32_t ssgDivider() const { return (m_fm.clock_prescale() * 2 / 3) * 4; }
+};
+
+class Ym2608Split : public ymfm::ym2608 {
+public:
+    using ymfm::ym2608::ym2608;
+    void clockFm(int32_t& l, int32_t& r) {
+        clock_fm_and_adpcm();
+        l = m_last_fm.data[0];
+        r = m_last_fm.data[1];
+    }
+    int32_t clockSsg() {
+        ymfm::ssg_engine::output_data o;
+        m_ssg.clock();
+        m_ssg.output(o);
+        return (o.data[0] + o.data[1] + o.data[2]) * 2 / 3;
+    }
+    // prescale 6/3/2 → FM /144,/72,/48、SSG /32,/16,/8
+    uint32_t fmDivider()  const { return m_fm.clock_prescale() * 24; }
+    uint32_t ssgDivider() const { return (m_fm.clock_prescale() * 2 / 3) * 8; }
+};
+
+// ym2610b は ym2610 の派生なので、同じ実装を基底だけ変えて使う
+template<typename Base>
+class Ym2610Split : public Base {
+public:
+    using Base::Base;
+    void clockFm(int32_t& l, int32_t& r) {
+        this->clock_fm_and_adpcm();
+        l = this->m_last_fm.data[0];
+        r = this->m_last_fm.data[1];
+    }
+    int32_t clockSsg() {
+        ymfm::ssg_engine::output_data o;
+        this->m_ssg.clock();
+        this->m_ssg.output(o);
+        return (o.data[0] + o.data[1] + o.data[2]) * 2 / 3;
+    }
+    // YM2610 は prescale を持たない
+    uint32_t fmDivider()  const { return 144; }
+    uint32_t ssgDivider() const { return 32; }
+};
+
+} // namespace detail
 
 // =========================================================
 //  FmChip インターフェース
@@ -163,9 +277,14 @@ class FmChip {
 public:
     virtual ~FmChip() = default;
     virtual void        write(uint32_t port, uint8_t reg, uint8_t value) = 0;
-    virtual void        generate(float* out_l, float* out_r, uint32_t dst_samples) = 0;
+    // gains の部位ごとのゲインを掛けて足した結果を書く
+    virtual void        generate(float* out_l, float* out_r, uint32_t dst_samples,
+                                 const PartGains& gains) = 0;
     virtual void        setTargetRate(uint32_t target_rate) = 0;
+    // FM 部のネイティブレート (端数切り捨て)。OPN/OPNA は prescale の
+    // 書き込みで変わる
     virtual uint32_t    nativeRate() const = 0;
+    virtual bool        hasPart(ChipPart part) const { return part == ChipPart::FM; }
     virtual ChipType    type()  const = 0;
     virtual const char* name()  const = 0;
     virtual uint32_t    clock() const = 0;
@@ -302,6 +421,11 @@ public:
 // =========================================================
 template<typename ChipImpl, ChipType TType>
 class FmChipImpl final : public FmChip {
+    // SSG を持つ OPN 系は FM と SSG を別々のレートで生成する (detail::*Split)
+    static constexpr bool kSplit =
+        TType == ChipType::OPN  || TType == ChipType::OPNA ||
+        TType == ChipType::OPNB || TType == ChipType::OPNBB;
+
 public:
     // コンストラクタ本体は全チップ分を下部で完全特殊化して定義する。
     // 汎用版は定義しない (全チップが特殊化されるため instantiate されない)。
@@ -315,17 +439,51 @@ public:
         const uint32_t data_offset = addr_offset + 1;
         m_chip.write(addr_offset, reg);
         m_chip.write(data_offset, value);
+
+        // prescale (reg 0x2D-0x2F) はアドレスの書き込みだけで切り替わる
+        if constexpr (kSplit) {
+            if (m_chip.fmDivider() != m_fm_div || m_chip.ssgDivider() != m_ssg_div)
+                updateRates();
+        }
     }
 
-    void generate(float* out_l, float* out_r, uint32_t dst_samples) override {
-        m_resampler.process(
-            [this](float* l, float* r, uint32_t n){ generateNative(l, r, n); },
-            out_l, out_r, dst_samples);
+    void generate(float* out_l, float* out_r, uint32_t dst_samples,
+                  const PartGains& g) override {
+        constexpr size_t kFm  = static_cast<size_t>(ChipPart::FM);
+        if constexpr (kSplit) {
+            constexpr size_t kSsg = static_cast<size_t>(ChipPart::SSG);
+            float* fm_out[2] = { out_l, out_r };
+            m_resampler.process(
+                [this](float* const* b, uint32_t n){ generateFmNative(b[0], b[1], n); },
+                fm_out, dst_samples);
+            m_ssg_out.resize(dst_samples);
+            float* ssg_out[1] = { m_ssg_out.data() };
+            m_ssg_resampler.process(
+                [this](float* const* b, uint32_t n){ generateSsgNative(b[0], n); },
+                ssg_out, dst_samples);
+            for (uint32_t i = 0; i < dst_samples; ++i) {
+                out_l[i] = out_l[i] * g.l[kFm] + m_ssg_out[i] * g.l[kSsg];
+                out_r[i] = out_r[i] * g.r[kFm] + m_ssg_out[i] * g.r[kSsg];
+            }
+        } else {
+            float* out[2] = { out_l, out_r };
+            m_resampler.process(
+                [this](float* const* b, uint32_t n){ generateNative(b[0], b[1], n); },
+                out, dst_samples);
+            for (uint32_t i = 0; i < dst_samples; ++i) {
+                out_l[i] *= g.l[kFm];
+                out_r[i] *= g.r[kFm];
+            }
+        }
     }
 
     void setTargetRate(uint32_t target_rate) override {
         m_target_rate = target_rate;
-        m_resampler.setup(m_native_rate, target_rate);
+        setupResamplers();
+    }
+
+    bool hasPart(ChipPart part) const override {
+        return part == ChipPart::FM || (kSplit && part == ChipPart::SSG);
     }
 
     // 外部メモリ設定 (ROM/RAM ポインタを渡す場合)
@@ -363,12 +521,50 @@ public:
         return keyChannelSlotMask(port, reg, value, changedBits);
     }
 
-    uint32_t    nativeRate() const override { return m_native_rate; }
+    uint32_t    nativeRate() const override { return m_native_rate.load(std::memory_order_relaxed); }
     ChipType    type()       const override { return TType; }
     uint32_t    clock()      const override { return m_clock; }
     const char* name()       const override;
 
 private:
+    // コンストラクタの末尾と、OPN 系で prescale が変わったときに呼ぶ
+    void updateRates() {
+        if constexpr (kSplit) {
+            m_fm_div  = m_chip.fmDivider();
+            m_ssg_div = m_chip.ssgDivider();
+            m_native_rate.store(m_clock / m_fm_div, std::memory_order_relaxed);
+        } else {
+            m_native_rate.store(m_chip.sample_rate(m_clock), std::memory_order_relaxed);
+        }
+        setupResamplers();
+    }
+
+    void setupResamplers() {
+        if (m_target_rate == 0) return; // setTargetRate() 前
+        if constexpr (kSplit) {
+            m_resampler.setup(m_clock, m_fm_div, m_target_rate);
+            m_ssg_resampler.setup(m_clock, m_ssg_div, m_target_rate);
+        } else {
+            m_resampler.setup(m_native_rate.load(std::memory_order_relaxed), 1, m_target_rate);
+        }
+    }
+
+    void generateFmNative(float* out_l, float* out_r, uint32_t n) {
+        constexpr float kScale = 1.0f / 32768.0f;
+        for (uint32_t i = 0; i < n; ++i) {
+            int32_t l, r;
+            m_chip.clockFm(l, r);
+            out_l[i] = static_cast<float>(l) * kScale;
+            out_r[i] = static_cast<float>(r) * kScale;
+        }
+    }
+
+    void generateSsgNative(float* out, uint32_t n) {
+        constexpr float kScale = 1.0f / 32768.0f;
+        for (uint32_t i = 0; i < n; ++i)
+            out[i] = static_cast<float>(m_chip.clockSsg()) * kScale;
+    }
+
     void generateNative(float* out_l, float* out_r, uint32_t n) {
         typename ChipImpl::output_data out_data{};
         constexpr float kScale = 1.0f / 32768.0f;
@@ -385,15 +581,10 @@ private:
         //                data[4..5]=DO2(FM ch0+1 と wave ch0+1 のミックス済み L/R)
         //                DO2 がチップのメイン出力なので data[4]/data[5] を使う
         //
-        //   OpnaStereo : OPNA/OPNB/OPNBB
-        //                data[0]=FM-L, data[1]=FM-R, data[2]=SSG(mix)
-        //                out_l = data[0]+data[2], out_r = data[1]+data[2]
+        //   (OPN/OPNA/OPNB/OPNBB はここを通らない。generateFmNative /
+        //    generateSsgNative を参照)
         //
-        //   OpnMono    : OPN (IsOpnA=false)
-        //                data[0]=FM, data[1]=SSG-A, data[2]=SSG-B, data[3]=SSG-C
-        //                out_l = out_r = data[0]+data[1]+data[2]+data[3]
-        //
-        //   MixMono    : OPLL/OPLLP/OPLLX/VRC7
+        //   MixMono   : OPLL/OPLLP/OPLLX/VRC7
         //                data[0]=melody, data[1]=rhythm
         //                out_l = out_r = data[0]+data[1]
         //
@@ -410,12 +601,6 @@ private:
         constexpr bool isOpl4Stereo =
             kOutputs >= 6 &&
             TType == ChipType::OPL4;
-        constexpr bool isOpnaStereo =
-            TType == ChipType::OPNA  ||
-            TType == ChipType::OPNB  ||
-            TType == ChipType::OPNBB;
-        constexpr bool isOpnMono =
-            TType == ChipType::OPN;
         constexpr bool isMixMono =
             kOutputs >= 2 &&
             (TType == ChipType::OPL   ||
@@ -436,17 +621,6 @@ private:
                 // OPL4: DO2 (data[4]=L, data[5]=R) がミックス済みメイン出力
                 out_l[i] = static_cast<float>(out_data.data[4]) * kScale;
                 out_r[i] = static_cast<float>(out_data.data[5]) * kScale;
-            } else if constexpr (isOpnaStereo) {
-                // OPNA/OPNB/OPNBB: data[0]=FM-L, data[1]=FM-R, data[2]=SSG(mix)
-                out_l[i] = static_cast<float>(out_data.data[0] + out_data.data[2]) * kScale;
-                out_r[i] = static_cast<float>(out_data.data[1] + out_data.data[2]) * kScale;
-            } else if constexpr (isOpnMono) {
-                // OPN: data[0]=FM, data[1-3]=SSG(A,B,C) → 全合算
-                const int32_t mix = out_data.data[0]
-                    + (kOutputs > 1 ? out_data.data[1] : 0)
-                    + (kOutputs > 2 ? out_data.data[2] : 0)
-                    + (kOutputs > 3 ? out_data.data[3] : 0);
-                out_l[i] = out_r[i] = static_cast<float>(mix) * kScale;
             } else if constexpr (isMixMono) {
                 // OPL/OPLL 系: data[0]=melody, data[1]=rhythm → 合算
                 out_l[i] = out_r[i] = static_cast<float>(
@@ -577,9 +751,15 @@ private:
     MemoryYmfmInterface m_iface;  // 外部メモリアクセス対応インターフェース
     ChipImpl           m_chip;
     uint32_t           m_clock;
-    uint32_t           m_native_rate = 0;
+    // prescale の書き込み (オーディオスレッド) で変わり、nativeRate() は任意スレッドから読まれる
+    std::atomic<uint32_t> m_native_rate{0};
     uint32_t           m_target_rate = 0;
-    LinearResampler    m_resampler;
+    LinearResampler<2> m_resampler;       // OPN 系では FM 用
+    // 以下は OPN 系 (kSplit) だけが使う
+    LinearResampler<1> m_ssg_resampler;
+    std::vector<float> m_ssg_out;
+    uint32_t           m_fm_div  = 0;
+    uint32_t           m_ssg_div = 0;
     std::array<uint8_t, 4 * 256> m_lastKeyRegValue{}; // keyOnTransitionMask() 用の直前値キャッシュ
 };
 
@@ -592,10 +772,10 @@ template<> inline const char* FmChipImpl<ymfm::ym3526,  ChipType::OPL   >::name(
 template<> inline const char* FmChipImpl<ymfm::ym3812,  ChipType::OPL2  >::name() const { return "OPL2 (YM3812)";  }
 template<> inline const char* FmChipImpl<ymfm::ymf262,  ChipType::OPL3  >::name() const { return "OPL3 (YMF262)";  }
 template<> inline const char* FmChipImpl<ymfm::ymf278b, ChipType::OPL4  >::name() const { return "OPL4 (YMF278B)"; }
-template<> inline const char* FmChipImpl<ymfm::ym2203,  ChipType::OPN   >::name() const { return "OPN (YM2203)";   }
-template<> inline const char* FmChipImpl<ymfm::ym2608,  ChipType::OPNA  >::name() const { return "OPNA (YM2608)";  }
-template<> inline const char* FmChipImpl<ymfm::ym2610,  ChipType::OPNB  >::name() const { return "OPNB (YM2610)";  }
-template<> inline const char* FmChipImpl<ymfm::ym2610b, ChipType::OPNBB >::name() const { return "OPNBB (YM2610B)";}
+template<> inline const char* FmChipImpl<detail::Ym2203Split, ChipType::OPN >::name() const { return "OPN (YM2203)";   }
+template<> inline const char* FmChipImpl<detail::Ym2608Split, ChipType::OPNA>::name() const { return "OPNA (YM2608)";  }
+template<> inline const char* FmChipImpl<detail::Ym2610Split<ymfm::ym2610>,  ChipType::OPNB >::name() const { return "OPNB (YM2610)";  }
+template<> inline const char* FmChipImpl<detail::Ym2610Split<ymfm::ym2610b>, ChipType::OPNBB>::name() const { return "OPNBB (YM2610B)";}
 template<> inline const char* FmChipImpl<ymfm::ym2612,  ChipType::OPN2  >::name() const { return "OPN2 (YM2612)";  }
 template<> inline const char* FmChipImpl<ymfm::ym2151,  ChipType::OPM   >::name() const { return "OPM (YM2151)";   }
 template<> inline const char* FmChipImpl<ymfm::ym2413,  ChipType::OPLL  >::name() const { return "OPLL (YM2413)";  }
@@ -613,6 +793,7 @@ template<> inline const char* FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >::name(
 //  パターン A: (interface&) のみ
 //    y8950, ym3526, ym3812, ymf262, ymf278b,
 //    ym2203, ym2608, ym2610b, ym2612, ym2414
+//    (OPN 系は detail::*Split 経由。コンストラクタは基底のものを継承する)
 //
 //  パターン B: (interface&, const uint8_t* instrument_data = nullptr)
 //    ym2413, ym2423, ymf281, ds1001
@@ -625,34 +806,27 @@ template<> inline const char* FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >::name(
 // =========================================================
 
 // マクロで繰り返しを省略
-#define FMCHIP_SPEC_A(Cls, TType, Clk) \
-template<> inline FmChipImpl<ymfm::Cls, ChipType::TType>::FmChipImpl(uint32_t clock) \
-    : m_chip(m_iface), m_clock(clock ? clock : FmClock::Clk) \
-{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
+#define FMCHIP_SPEC_A(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface), m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); updateRates(); }
 
-#define FMCHIP_SPEC_B(Cls, TType, Clk) \
-template<> inline FmChipImpl<ymfm::Cls, ChipType::TType>::FmChipImpl(uint32_t clock) \
-    : m_chip(m_iface, static_cast<uint8_t const*>(nullptr)) \
-    , m_clock(clock ? clock : FmClock::Clk) \
-{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
+#define FMCHIP_SPEC_B(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface, static_cast<uint8_t const*>(nullptr))     , m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); updateRates(); }
 
 // パターン A
-FMCHIP_SPEC_A(y8950,   Y8950,  Y8950)
-FMCHIP_SPEC_A(ym3526,  OPL,    OPL)
-FMCHIP_SPEC_A(ym3812,  OPL2,   OPL2)
-FMCHIP_SPEC_A(ymf262,  OPL3,   OPL3)
-FMCHIP_SPEC_A(ymf278b, OPL4,   OPL4)
-FMCHIP_SPEC_A(ym2203,  OPN,    OPN)
-FMCHIP_SPEC_A(ym2608,  OPNA,   OPNA)
-FMCHIP_SPEC_A(ym2610b, OPNBB,  OPNBB)
-FMCHIP_SPEC_A(ym2612,  OPN2,   OPN2)
-FMCHIP_SPEC_A(ym2414,  OPZ,    OPZ)
+FMCHIP_SPEC_A(ymfm::y8950,   Y8950,  Y8950)
+FMCHIP_SPEC_A(ymfm::ym3526,  OPL,    OPL)
+FMCHIP_SPEC_A(ymfm::ym3812,  OPL2,   OPL2)
+FMCHIP_SPEC_A(ymfm::ymf262,  OPL3,   OPL3)
+FMCHIP_SPEC_A(ymfm::ymf278b, OPL4,   OPL4)
+FMCHIP_SPEC_A(detail::Ym2203Split, OPN,  OPN)
+FMCHIP_SPEC_A(detail::Ym2608Split, OPNA, OPNA)
+FMCHIP_SPEC_A(detail::Ym2610Split<ymfm::ym2610b>, OPNBB, OPNBB)
+FMCHIP_SPEC_A(ymfm::ym2612,  OPN2,   OPN2)
+FMCHIP_SPEC_A(ymfm::ym2414,  OPZ,    OPZ)
 
 // パターン B
-FMCHIP_SPEC_B(ym2413, OPLL,  OPLL)
-FMCHIP_SPEC_B(ym2423, OPLLX, OPLLX)
-FMCHIP_SPEC_B(ymf281, OPLLP, OPLLP)
-FMCHIP_SPEC_B(ds1001, VRC7,  VRC7)
+FMCHIP_SPEC_B(ymfm::ym2413, OPLL,  OPLL)
+FMCHIP_SPEC_B(ymfm::ym2423, OPLLX, OPLLX)
+FMCHIP_SPEC_B(ymfm::ymf281, OPLLP, OPLLP)
+FMCHIP_SPEC_B(ymfm::ds1001, VRC7,  VRC7)
 
 #undef FMCHIP_SPEC_A
 #undef FMCHIP_SPEC_B
@@ -663,15 +837,15 @@ template<>
 inline FmChipImpl<ymfm::ym2151, ChipType::OPM>::FmChipImpl(uint32_t clock)
     : m_chip(m_iface)
     , m_clock(clock ? clock : FmClock::OPM)
-{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
+{ m_chip.reset(); updateRates(); }
 
 // パターン D: ym2610 (interface&, uint8_t channel_mask = 0x36)
 // clock を channel_mask として渡さないようデフォルト値で構築
 template<>
-inline FmChipImpl<ymfm::ym2610, ChipType::OPNB>::FmChipImpl(uint32_t clock)
+inline FmChipImpl<detail::Ym2610Split<ymfm::ym2610>, ChipType::OPNB>::FmChipImpl(uint32_t clock)
     : m_chip(m_iface)
     , m_clock(clock ? clock : FmClock::OPNB)
-{ m_chip.reset(); m_native_rate = m_chip.sample_rate(m_clock); }
+{ m_chip.reset(); updateRates(); }
 
 // =========================================================
 //  ファクトリ関数 (ChipType 版)
@@ -684,10 +858,10 @@ inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock = 0) {
         case ChipType::OPL2:   return std::make_unique<FmChipImpl<ymfm::ym3812,  ChipType::OPL2  >>(resolve(clock, FmClock::OPL2));
         case ChipType::OPL3:   return std::make_unique<FmChipImpl<ymfm::ymf262,  ChipType::OPL3  >>(resolve(clock, FmClock::OPL3));
         case ChipType::OPL4:   return std::make_unique<FmChipImpl<ymfm::ymf278b, ChipType::OPL4  >>(resolve(clock, FmClock::OPL4));
-        case ChipType::OPN:    return std::make_unique<FmChipImpl<ymfm::ym2203,  ChipType::OPN   >>(resolve(clock, FmClock::OPN));
-        case ChipType::OPNA:   return std::make_unique<FmChipImpl<ymfm::ym2608,  ChipType::OPNA  >>(resolve(clock, FmClock::OPNA));
-        case ChipType::OPNB:   return std::make_unique<FmChipImpl<ymfm::ym2610,  ChipType::OPNB  >>(resolve(clock, FmClock::OPNB));
-        case ChipType::OPNBB:  return std::make_unique<FmChipImpl<ymfm::ym2610b, ChipType::OPNBB >>(resolve(clock, FmClock::OPNBB));
+        case ChipType::OPN:    return std::make_unique<FmChipImpl<detail::Ym2203Split, ChipType::OPN >>(resolve(clock, FmClock::OPN));
+        case ChipType::OPNA:   return std::make_unique<FmChipImpl<detail::Ym2608Split, ChipType::OPNA>>(resolve(clock, FmClock::OPNA));
+        case ChipType::OPNB:   return std::make_unique<FmChipImpl<detail::Ym2610Split<ymfm::ym2610>,  ChipType::OPNB >>(resolve(clock, FmClock::OPNB));
+        case ChipType::OPNBB:  return std::make_unique<FmChipImpl<detail::Ym2610Split<ymfm::ym2610b>, ChipType::OPNBB>>(resolve(clock, FmClock::OPNBB));
         case ChipType::OPN2:   return std::make_unique<FmChipImpl<ymfm::ym2612,  ChipType::OPN2  >>(resolve(clock, FmClock::OPN2));
         case ChipType::OPM:    return std::make_unique<FmChipImpl<ymfm::ym2151,  ChipType::OPM   >>(resolve(clock, FmClock::OPM));
         case ChipType::OPLL:   return std::make_unique<FmChipImpl<ymfm::ym2413,  ChipType::OPLL  >>(resolve(clock, FmClock::OPLL));

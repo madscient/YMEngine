@@ -100,6 +100,33 @@ cmake --build build
 
 OPL4 (YMF278B) は FM/wave 合計6出力 (DO0/DO1/DO2) を持ちますが、本エンジンはメイン出力である DO2 (FM ch0+1 と wave ch0+1 のミックス済み L/R) のみを使用します。
 
+OPN, OPNA, OPNB, OPNBB の FM と SSG は、それぞれ本来のサンプルレートで生成してから出力レートに変換し、足し合わせます。FM には ADPCM とリズムが含まれます。SSG は3チャンネルの和で、OPNA/OPNB/OPNBB では和に 2/3 を掛けます。
+
+## 部位ごとのゲイン
+
+実機の FM 出力と SSG 出力はボード上の回路でミックスされるため、音量バランスは機種によって異なります。`FmEngine_SetPartGain` で部位ごとにゲインを設定できます。
+
+```c
+FmEngine_SetPartGain(engine, opna_id, FM_PART_SSG, 0.5f, 0.5f);  // SSG を -6 dB
+```
+
+| 部位 | 内容 | 対象チップ |
+|---|---|---|
+| `FM_PART_FM`  | FM 部 (ADPCM・リズムを含む) | 全チップ。SSG を持たないチップでは出力全体 |
+| `FM_PART_SSG` | SSG 部 | OPN, OPNA, OPNB, OPNBB |
+
+実際に掛かるゲインは、`FmEngine_SetGain` で設定したチップ全体のゲインと部位のゲインの積です。部位のゲインの既定値は 1.0 です。チップが持たない部位を指定すると `FM_ERR_INVALID_ARG` を返します。
+
+## ネイティブサンプルレート
+
+`FmEngine_GetNativeRate` は FM 部のサンプルレート (Hz、端数切り捨て) を返します。OPN と OPNA では prescale レジスタ (`0x2D`〜`0x2F`) の書き込みで変わります。
+
+| チップ | prescale 6 (リセット時) | 3 | 2 |
+|---|---|---|---|
+| OPN  | clk / 72  | clk / 36 | clk / 24 |
+| OPNA | clk / 144 | clk / 72 | clk / 48 |
+| OPNB, OPNBB | clk / 144 (prescale なし) | | |
+
 ## チップ固有のレジスタの扱い
 
 - **OPL2**: 波形選択 (`0xE0`〜) は、`0x01` の bit5 (WSE) を立てたときだけ有効です。立てていなければ全オペレータが正弦波になります。OPL3/OPL4 では常に有効です。
