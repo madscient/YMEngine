@@ -16,7 +16,7 @@ CMake には組み込んでいない。ヘッダと ymfm のソースから直�
 |---|---|
 | `keyoff_retrigger_test.cpp` | 同じチャンネルへの KEY OFF → KEY ON が短い間隔で続いても、KEY OFF が観測されること（OPL3・OPNA・OPM・OPLL・OPL4 AWM。batch / crowd / tiny の3条件） |
 | `opn_split_test.cpp` | `LinearResampler` が呼び出しをまたいでソースを読み捨てないこと。OPN 系の `detail::*Split` の FM/SSG が上流 `generate()`（FIDELITY_MAX）と全サンプル一致すること（prescale 切り替えを含む。書き込みを抜いた対照で不一致が出ること）。`FmEngine` のネイティブレート・既定の SSG 音量・部位ゲイン |
-| `part_gain_test.cpp` | OPLL 系・OPL3・OPL4 の部位ゲインが ymfm のどの出力に掛かるか（ネイティブレートで上流と全サンプル比較。別の出力と比べた対照で不一致が出ること）。既定値で今までの出力（OPLL はメロディ+リズム、OPL3 は A/B、OPL4 は DO2）になること。部位を持たないチップにチップのゲインが掛かること。全チップ × 全部位の受け付けと既定値 |
+| `part_gain_test.cpp` | OPLL 系・OPL3・OPL4 の部位ゲインが ymfm のどの出力に掛かるか（ネイティブレートで上流と全サンプル比較。別の出力と比べた対照で不一致が出ること）。既定値で今までの出力（OPLL はメロディ+リズム、OPL3 は A/B、OPL4 は DO2）になること。部位を持たないチップにチップのゲインが掛かること。全チップ × 全部位の受け付けと既定値、`getPartMask()` |
 
 どれも全件通れば終了コード 0 を返す。
 

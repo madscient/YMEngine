@@ -44,6 +44,14 @@ OPN 系に部位ゲインを入れたあと、ほかに別々の出力を持つ�
   出力を変えないため。FM の出力先を A/B/C/D 全部にしたチャンネルは A/B と
   C/D に同じ音を出すので、C/D を混ぜると二重に足される
 - VRC7 は OPLL と同じ2部位を持つ（ymfm の動作に合わせる）
+- チップが持つ部位を問い合わせる `FmEngine_GetPartMask(engine, chip_id,
+  &mask)` を足す。bit n が `FmPart` の n 番に当たる。`AddChip` で得た
+  chip_id に問い合わせる形だけにした（利用者の要望は「インスタンスから知れれば
+  よい」）。戻り値と引数の形は `FmEngine_GetPartGain` に合わせ、未知の chip_id
+  と null は `FM_ERR_INVALID_ARG` を返す
+
+前提：部位が32個以下であること（マスクが `uint32_t`）。超えれば
+`FmEngine::getPartMask()` の `static_assert` でビルドが止まる。
 
 前提：ymfm の OPLL 系・ymf262・ymf278b の出力の数と並びが変わらないこと。
 数が変われば `FmChipImpl::generateNative()` の `static_assert` でビルドが
@@ -72,6 +80,11 @@ OPN 系に部位ゲインを入れたあと、ほかに別々の出力を持つ�
   物理的な端子（DO0/DO1/DO2）の単位にした
 - Y8950 を FM と ADPCM に分ける。理由：ymfm では和に DAC の丸めを掛けるので
   分けられない。実機で別の端子かも確かめられない
+- 部位の問い合わせに専用の関数を足さず、`FmEngine_GetPartGain` が
+  `FM_ERR_INVALID_ARG` を返すかで判定してもらう。理由：エラーで有無を判定する
+  形になり、部位の数も呼び出し側のヘッダに頼ることになる
+- チップ名から（`AddChip` の前に）部位を引く関数、部位の名前の文字列を返す
+  関数。理由：利用者がインスタンスから知れれば足りるとした
 
 ### 実装
 
@@ -106,7 +119,8 @@ OPN 系に部位ゲインを入れたあと、ほかに別々の出力を持つ�
   食い違う
 - 既定値：OPLL 系はメロディ+リズム、OPL3 は A/B、OPL4 は DO2 と完全一致
 - 部位を持たない OPM・OPL：部位のゲインを全部 0 にしてもチップのゲインで鳴る
-- 全16チップ × 9部位（と範囲外の番号）の受け付けと既定値
+- 全16チップ × 9部位（と範囲外の番号）の受け付けと既定値。`getPartMask()` が
+  チップごとの期待値（テスト側の表から作る）と一致し、未知の chip_id を拒否する
 - engine：C/D にだけ出した FM チャンネルと AWM チャンネルは、既定では無音で、
   `OPL4_DO0` / `OPL4_DO1` を上げると聞こえる。OPLL のメロディだけを鳴らすと
   リズム側は無音、リズムだけならメロディ側は無音
@@ -121,8 +135,15 @@ OPN 系に部位ゲインを入れたあと、ほかに別々の出力を持つ�
 `opn_split_test` を g++ で走らせたのはこれが初めて。
 
 DLL：`cl` で `FmEngineApi.cpp` と ymfm を直接ビルドし（警告なし）、
-`FmEngine_SetPartGain` / `FmEngine_GetPartGain` がエクスポートされることを
-dumpbin で確認した。CMake では今回ビルドしていない（**未検証**）。
+`FmEngine_SetPartGain` / `FmEngine_GetPartGain` / `FmEngine_GetPartMask` が
+エクスポートされることを dumpbin で確認した。CMake では今回ビルドしていない
+（**未検証**）。
+
+C API の `FmEngine_GetPartMask`：**確認済み**（MSVC。リポジトリに残さない
+確認用のプログラムを `FmEngineApi.cpp` と一緒にビルドして実行）。対応チップの
+一覧の全16チップをチップ名で追加し、手で書いた期待値の表と一致した。未知の
+chip_id、null の出力先、null のハンドルは `FM_ERR_INVALID_ARG` を返した。C API を
+通す試験はリポジトリには無い。
 
 気づいたが手を付けていないこと：ymfm の `ym2414`（OPZ）は2出力を作るが、
 YMEngine は `data[0]` だけを使っている（コードで確認）。意図したものかは**未確認**。

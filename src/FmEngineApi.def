@@ -15,6 +15,7 @@ EXPORTS
     FmEngine_GetGain
     FmEngine_SetPartGain
     FmEngine_GetPartGain
+    FmEngine_GetPartMask
     FmEngine_SetMemory
     FmEngine_GetMemorySize
     FmEngine_Generate

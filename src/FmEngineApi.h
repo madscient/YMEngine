@@ -135,6 +135,10 @@ FMENGINE_API FmResult FMENGINE_CALL FmEngine_SetPartGain(
 FMENGINE_API FmResult FMENGINE_CALL FmEngine_GetPartGain(
     FmEngineHandle engine, uint32_t chip_id, FmPart part,
     float* out_gain_l, float* out_gain_r);
+// チップが持つ部位をビットマスクで返す (bit n = FmPart の n 番)。
+// 部位を持たないチップは 0。未知の chip_id なら FM_ERR_INVALID_ARG。
+FMENGINE_API FmResult FMENGINE_CALL FmEngine_GetPartMask(
+    FmEngineHandle engine, uint32_t chip_id, uint32_t* out_mask);
 
 // =========================================================
 //  外部メモリ設定 (ADPCM/PCM ROM/RAM)

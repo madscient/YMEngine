@@ -148,6 +148,18 @@ public:
         return true;
     }
 
+    // チップが持つ部位のビットマスク (bit n = ChipPart の n 番)。部位を持たない
+    // チップは 0。未知の chip_id なら false。
+    bool getPartMask(uint32_t chip_id, uint32_t& out_mask) const {
+        static_assert(kChipPartCount <= 32, "part mask is uint32_t");
+        if (chip_id >= m_chips.size()) return false;
+        uint32_t mask = 0;
+        for (uint32_t p = 0; p < kChipPartCount; ++p)
+            if (m_chips[chip_id]->hasPart(static_cast<ChipPart>(p))) mask |= 1u << p;
+        out_mask = mask;
+        return true;
+    }
+
     uint32_t nativeRate(uint32_t chip_id) const {
         if (chip_id >= m_chips.size()) return 0;
         return m_chips[chip_id]->nativeRate();

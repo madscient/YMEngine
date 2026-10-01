@@ -163,6 +163,14 @@ FmEngine_GetPartGain(FmEngineHandle h, uint32_t chip_id, FmPart part,
     return ok ? FM_OK : FM_ERR_INVALID_ARG;
 }
 
+FMENGINE_API FmResult FMENGINE_CALL
+FmEngine_GetPartMask(FmEngineHandle h, uint32_t chip_id, uint32_t* out_mask) {
+    REQUIRE_PTR(h);
+    if (!out_mask) return FM_ERR_INVALID_ARG;
+    const bool ok = static_cast<FmEngineOpaque*>(h)->engine.getPartMask(chip_id, *out_mask);
+    return ok ? FM_OK : FM_ERR_INVALID_ARG;
+}
+
 // =========================================================
 //  外部メモリ
 // =========================================================

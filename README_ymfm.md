@@ -98,7 +98,7 @@ prescale は `0x2D`〜`0x2F` への書き込みで切り替わり、そのたび
 
 ## 出力の部位
 
-`ChipPart` はチップが別々の端子から出す出力で、番号はチップをまたいで重なりません。`FmChip::hasPart()` はそのチップの部位にだけ true を返し、出力が1本のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) はどの部位にも false を返します。部位ごとの意味と既定値は README.md の「部位ごとのゲイン」を参照してください。既定値は `defaultPartGain()` が返します。
+`ChipPart` はチップが別々の端子から出す出力で、番号はチップをまたいで重なりません。`FmChip::hasPart()` はそのチップの部位にだけ true を返し、出力が1本のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) はどの部位にも false を返します。`FmEngine::getPartMask()` は、チップが持つ部位をビットマスク (bit n = `ChipPart` の n 番) で返します。部位ごとの意味と既定値は README.md の「部位ごとのゲイン」を参照してください。既定値は `defaultPartGain()` が返します。
 
 OPN 系以外で部位を持つチップは、ymfm の出力を部位ごとに別々に出力レートへ変換し、ゲインを掛けてから L/R に混ぜます。リサンプラのチャンネル数は OPLL 系が2 (メロディ、リズム)、OPL3 が4 (A/B/C/D)、OPL4 が6 (DO2、DO0、DO1 の各 L/R) です。
 

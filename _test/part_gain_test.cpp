@@ -10,7 +10,8 @@
 //            だけが出ること
 //   chip   : 部位を持たないチップにチップのゲインが掛かり、部位のゲインは
 //            使われないこと
-//   accept : 全チップ × 全部位で、受け付ける組み合わせと既定値
+//   accept : 全チップ × 全部位で、受け付ける組み合わせと既定値。getPartMask() が
+//            受け付ける部位と一致すること
 //   engine : FmEngine 経由で、チップのゲインと部位のゲインが掛かること。
 //            各部位が実際にその端子の音を出すこと (C/D にだけ出したチャンネルが
 //            A/B 側から聞こえないこと、など)。route は ymfm の出力の並びを前提に
@@ -330,7 +331,19 @@ static void testAccept() {
         std::snprintf(msg, sizeof msg, "accept %s: %zu part(s), wrong at [%s ]",
             c.name, c.parts.size(), bad.c_str());
         check(bad.empty(), msg);
+
+        uint32_t want = 0;
+        for (ChipPart p : c.parts) want |= 1u << at(p);
+        uint32_t mask = 0xFFFFFFFFu;
+        const bool ok = eng.getPartMask(id, mask);
+        std::snprintf(msg, sizeof msg, "partMask %s: 0x%03X (expect 0x%03X)", c.name, mask, want);
+        check(ok && mask == want, msg);
     }
+
+    FmEngine eng(48000);
+    const uint32_t id = eng.addChip(ChipType::OPNA);
+    uint32_t mask = 0;
+    check(!eng.getPartMask(id + 1, mask), "partMask unknown chip_id rejected");
 }
 
 // =========================================================

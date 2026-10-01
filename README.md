@@ -136,6 +136,16 @@ FmEngine_SetPartGain(engine, opl3_id, FM_PART_OPL3_CD, 1.0f, 1.0f);  // C/D も�
 
 実際に掛かるゲインは、`FmEngine_SetGain` で設定したチップ全体のゲインと部位のゲインの積です。チップが持たない部位を指定すると `FM_ERR_INVALID_ARG` を返します。出力が1系統のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) は部位を持たないので、`FmEngine_SetGain` を使ってください。
 
+チップが持つ部位は `FmEngine_GetPartMask` で調べられます。bit n が `FmPart` の n 番に当たり、部位を持たないチップでは 0 です。
+
+```c
+uint32_t mask = 0;
+FmEngine_GetPartMask(engine, opna_id, &mask);
+if (mask & (1u << FM_PART_OPN_SSG)) {
+    // SSG のゲインを設定できる
+}
+```
+
 C/D 側 (`FM_PART_OPL3_CD`, `FM_PART_OPL4_DO0`, `FM_PART_OPL4_DO1`) の既定値が 0 なのは、FM の出力先を A/B/C/D 全部にしたチャンネルが A/B と C/D に同じ音を出し、混ぜると二重に足されるためです。
 
 ## ネイティブサンプルレート
