@@ -90,32 +90,53 @@ cmake --build build
 
 | チップ | L 出力 | R 出力 |
 |---|---|---|
-| OPM, OPN2, OPL3 | FM-L | FM-R |
-| OPL4 | DO2 (FM ch0+1 と wave ch0+1 のミックス済み L) | DO2 R |
+| OPM, OPN2 | FM-L | FM-R |
+| OPL3 | A + C | B + D |
+| OPL4 | DO2-L + DO0-L + DO1-L | DO2-R + DO0-R + DO1-R |
 | OPNA, OPNB, OPNBB | FM-L + SSG | FM-R + SSG |
 | OPN | FM + SSG (モノラル) | 同左 |
-| OPLL系 | melody + rhythm | 同左 |
+| OPLL系 (VRC7 を含む) | メロディ + リズム | 同左 |
 | OPL/OPL2/Y8950 | FM (リズムを含む) + ADPCM (Y8950 のみ)。モノラル | 同左 |
 | その他 | data[0] | 同左 |
 
-OPL4 (YMF278B) は FM/wave 合計6出力 (DO0/DO1/DO2) を持ちますが、本エンジンはメイン出力である DO2 (FM ch0+1 と wave ch0+1 のミックス済み L/R) のみを使用します。
+各出力には部位ごとのゲインが掛かります (「部位ごとのゲイン」を参照)。OPL3 の C/D と OPL4 の DO0/DO1 は、ゲインの既定値が 0 なので、既定では混ざりません。
+
+OPL3 (YMF262) の FM は、チャンネルごとに出力先 A/B/C/D をレジスタ `0xC0`〜 の bit4-7 で選びます (port1 の `0x05` の NEW を立てたとき)。
+
+OPL4 (YMF278B) は3系統のステレオ出力を持ちます。
+
+- DO0: FM の C/D
+- DO1: AWM の C/D
+- DO2: FM の A/B と AWM の A/B をチップ内でミックスしたもの。FM と AWM の比率はチップのレジスタ (port2 の `0xF8`/`0xF9`) で決まります
+
+AWM は、チャンネルごとにレジスタ `0x68`〜 (port2) の bit4 で A/B (0) と C/D (1) のどちらに出すかを選びます。
 
 OPN, OPNA, OPNB, OPNBB の FM と SSG は、それぞれ本来のサンプルレートで生成してから出力レートに変換し、足し合わせます。FM には ADPCM とリズムが含まれます。SSG は3チャンネルの和で、OPNA/OPNB/OPNBB では和に 2/3 を掛けます。
 
 ## 部位ごとのゲイン
 
-実機の FM 出力と SSG 出力はボード上の回路でミックスされるため、音量バランスは機種によって異なります。`FmEngine_SetPartGain` で部位ごとにゲインを設定できます。
+チップによっては、音を複数の端子から別々に出します。実機ではそれらをボード上の回路でミックスしたり、一部の端子だけを配線したりするため、音量バランスは機種によって異なります。`FmEngine_SetPartGain` で部位ごとにゲインを設定できます。
 
 ```c
-FmEngine_SetPartGain(engine, opna_id, FM_PART_SSG, 0.5f, 0.5f);  // SSG を -6 dB
+FmEngine_SetPartGain(engine, opna_id, FM_PART_OPN_SSG, 0.5f, 0.5f);  // SSG を -6 dB
+FmEngine_SetPartGain(engine, opl3_id, FM_PART_OPL3_CD, 1.0f, 1.0f);  // C/D も鳴らす
 ```
 
-| 部位 | 内容 | 対象チップ |
-|---|---|---|
-| `FM_PART_FM`  | FM 部 (ADPCM・リズムを含む) | 全チップ。SSG を持たないチップでは出力全体 |
-| `FM_PART_SSG` | SSG 部 | OPN, OPNA, OPNB, OPNBB |
+| 部位 | 対象チップ | 内容 | 既定値 |
+|---|---|---|---|
+| `FM_PART_OPN_FM`      | OPN, OPNA, OPNB, OPNBB | FM 部 (ADPCM・リズムを含む) | 1.0 |
+| `FM_PART_OPN_SSG`     | OPN, OPNA, OPNB, OPNBB | SSG 部 | 1.0 |
+| `FM_PART_OPLL_MELODY` | OPLL, OPLLP, OPLLX, VRC7 | メロディ | 1.0 |
+| `FM_PART_OPLL_RHYTHM` | OPLL, OPLLP, OPLLX, VRC7 | リズム | 1.0 |
+| `FM_PART_OPL3_AB`     | OPL3 | 出力 A (L) / B (R) | 1.0 |
+| `FM_PART_OPL3_CD`     | OPL3 | 出力 C (L) / D (R) | 0 |
+| `FM_PART_OPL4_DO0`    | OPL4 | DO0 (FM の C/D) | 0 |
+| `FM_PART_OPL4_DO1`    | OPL4 | DO1 (AWM の C/D) | 0 |
+| `FM_PART_OPL4_DO2`    | OPL4 | DO2 (FM の A/B と AWM の A/B のミックス) | 1.0 |
 
-実際に掛かるゲインは、`FmEngine_SetGain` で設定したチップ全体のゲインと部位のゲインの積です。部位のゲインの既定値は 1.0 です。チップが持たない部位を指定すると `FM_ERR_INVALID_ARG` を返します。
+実際に掛かるゲインは、`FmEngine_SetGain` で設定したチップ全体のゲインと部位のゲインの積です。チップが持たない部位を指定すると `FM_ERR_INVALID_ARG` を返します。出力が1系統のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) は部位を持たないので、`FmEngine_SetGain` を使ってください。
+
+C/D 側 (`FM_PART_OPL3_CD`, `FM_PART_OPL4_DO0`, `FM_PART_OPL4_DO1`) の既定値が 0 なのは、FM の出力先を A/B/C/D 全部にしたチャンネルが A/B と C/D に同じ音を出し、混ぜると二重に足されるためです。
 
 ## ネイティブサンプルレート
 

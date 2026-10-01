@@ -130,7 +130,8 @@ public:
     }
 
     // 部位ごとのゲイン (任意スレッドから呼べる)。実際に掛かるのは
-    // setGain() のゲイン × 部位のゲイン。チップが持たない部位なら false。
+    // setGain() のゲイン × 部位のゲイン。チップが持たない部位なら false
+    // (出力が1本のチップは部位を持たない)。既定値は defaultPartGain()。
     bool setPartGain(uint32_t chip_id, ChipPart part, float gain_l, float gain_r) {
         if (chip_id >= m_chips.size() || !m_chips[chip_id]->hasPart(part)) return false;
         ChipGain& g = (*m_part_gains[chip_id])[static_cast<size_t>(part)];
@@ -276,7 +277,13 @@ private:
         const uint32_t id = static_cast<uint32_t>(m_chips.size());
         m_chips.push_back(std::move(chip));
         m_gains.push_back(std::make_unique<ChipGain>());
-        m_part_gains.push_back(std::make_unique<PartGainSet>());
+        auto parts = std::make_unique<PartGainSet>();
+        for (uint32_t p = 0; p < kChipPartCount; ++p) {
+            const float d = defaultPartGain(static_cast<ChipPart>(p));
+            (*parts)[p].gain_l.store(d, std::memory_order_relaxed);
+            (*parts)[p].gain_r.store(d, std::memory_order_relaxed);
+        }
+        m_part_gains.push_back(std::move(parts));
         m_work_bufs.emplace_back();
         m_keyDirtyMask.push_back(0);
         return id;
@@ -322,6 +329,8 @@ private:
             const float gl = m_gains[i]->gain_l.load(std::memory_order_relaxed);
             const float gr = m_gains[i]->gain_r.load(std::memory_order_relaxed);
             PartGains g;
+            g.chip_l = gl;
+            g.chip_r = gr;
             for (uint32_t p = 0; p < kChipPartCount; ++p) {
                 const ChipGain& pg = (*m_part_gains[i])[p];
                 g.l[p] = gl * pg.gain_l.load(std::memory_order_relaxed);

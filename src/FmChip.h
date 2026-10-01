@@ -176,18 +176,43 @@ private:
 
 // =========================================================
 //  出力の部位
-//  実機では FM と SSG は別の端子から出て、ボード上の回路でミックスされる。
-//  部位ごとにゲインを掛けられるよう、FmChip::generate() にゲインを渡す。
+//  チップが別々の端子から出す出力。実機ではボード上の回路で混ぜたり、一部の
+//  端子だけを配線したりするので、部位ごとにゲインを掛けられるようにする。
+//  番号はチップをまたいで重ならない。別のチップの部位を渡されたときに、
+//  黙って別の出力を変えずに拒否できるようにするため。
+//  出力が1本のチップは部位を持たない。
 // =========================================================
 enum class ChipPart : uint32_t {
-    FM  = 0,   // SSG を持たないチップでは出力全体
-    SSG = 1,
+    OPN_FM      = 0,  // OPN/OPNA/OPNB/OPNBB: FM (ADPCM・リズムを含む)
+    OPN_SSG     = 1,  //                      SSG
+    OPLL_MELODY = 2,  // OPLL/OPLLP/OPLLX/VRC7: メロディ
+    OPLL_RHYTHM = 3,  //                       リズム
+    OPL3_AB     = 4,  // OPL3: 出力 A (L) / B (R)
+    OPL3_CD     = 5,  //       出力 C (L) / D (R)
+    OPL4_DO0    = 6,  // OPL4: DO0 (FM の C/D)
+    OPL4_DO1    = 7,  //       DO1 (AWM の C/D)
+    OPL4_DO2    = 8,  //       DO2 (FM の A/B と AWM の A/B をチップ内で混ぜたもの)
 };
-constexpr uint32_t kChipPartCount = 2;
+constexpr uint32_t kChipPartCount = 9;
 
+// C/D 側は既定で混ぜない。FM の出力先 (C0 の bit4-7) を全部立てたチャンネルは
+// A/B と C/D に同じ音を出すので、混ぜると二重に足される。AWM の DO1 もそろえる。
+inline float defaultPartGain(ChipPart part) {
+    switch (part) {
+        case ChipPart::OPL3_CD:
+        case ChipPart::OPL4_DO0:
+        case ChipPart::OPL4_DO1: return 0.0f;
+        default:                 return 1.0f;
+    }
+}
+
+// l/r は部位ごとのゲイン (チップのゲイン × 部位のゲイン)。
+// chip_l/chip_r はチップのゲインで、部位を持たないチップが使う。
 struct PartGains {
     float l[kChipPartCount];
     float r[kChipPartCount];
+    float chip_l;
+    float chip_r;
 };
 
 // =========================================================
@@ -284,7 +309,7 @@ public:
     // FM 部のネイティブレート (端数切り捨て)。OPN/OPNA は prescale の
     // 書き込みで変わる
     virtual uint32_t    nativeRate() const = 0;
-    virtual bool        hasPart(ChipPart part) const { return part == ChipPart::FM; }
+    virtual bool        hasPart(ChipPart part) const { return false; }
     virtual ChipType    type()  const = 0;
     virtual const char* name()  const = 0;
     virtual uint32_t    clock() const = 0;
@@ -425,6 +450,14 @@ class FmChipImpl final : public FmChip {
     static constexpr bool kSplit =
         TType == ChipType::OPN  || TType == ChipType::OPNA ||
         TType == ChipType::OPNB || TType == ChipType::OPNBB;
+    static constexpr bool kOpll =
+        TType == ChipType::OPLL  || TType == ChipType::OPLLP ||
+        TType == ChipType::OPLLX || TType == ChipType::VRC7;
+    static constexpr bool kOpl3 = TType == ChipType::OPL3;
+    static constexpr bool kOpl4 = TType == ChipType::OPL4;
+    // 部位を持つチップは、部位ごとの出力を別々に変換してから混ぜる。
+    // 0/1 番は呼び出し元の out_l/out_r を兼ね、2 番以降は m_extra_out に置く
+    static constexpr size_t kResampleChannels = kOpl4 ? 6 : (kOpl3 ? 4 : 2);
 
 public:
     // コンストラクタ本体は全チップ分を下部で完全特殊化して定義する。
@@ -449,9 +482,9 @@ public:
 
     void generate(float* out_l, float* out_r, uint32_t dst_samples,
                   const PartGains& g) override {
-        constexpr size_t kFm  = static_cast<size_t>(ChipPart::FM);
         if constexpr (kSplit) {
-            constexpr size_t kSsg = static_cast<size_t>(ChipPart::SSG);
+            constexpr size_t kFm  = static_cast<size_t>(ChipPart::OPN_FM);
+            constexpr size_t kSsg = static_cast<size_t>(ChipPart::OPN_SSG);
             float* fm_out[2] = { out_l, out_r };
             m_resampler.process(
                 [this](float* const* b, uint32_t n){ generateFmNative(b[0], b[1], n); },
@@ -466,14 +499,15 @@ public:
                 out_r[i] = out_r[i] * g.r[kFm] + m_ssg_out[i] * g.r[kSsg];
             }
         } else {
-            float* out[2] = { out_l, out_r };
-            m_resampler.process(
-                [this](float* const* b, uint32_t n){ generateNative(b[0], b[1], n); },
-                out, dst_samples);
-            for (uint32_t i = 0; i < dst_samples; ++i) {
-                out_l[i] *= g.l[kFm];
-                out_r[i] *= g.r[kFm];
+            float* out[kResampleChannels] = { out_l, out_r };
+            for (size_t c = 2; c < kResampleChannels; ++c) {
+                m_extra_out[c - 2].resize(dst_samples);
+                out[c] = m_extra_out[c - 2].data();
             }
+            m_resampler.process(
+                [this](float* const* b, uint32_t n){ generateNative(b, n); },
+                out, dst_samples);
+            mixParts(out, dst_samples, g);
         }
     }
 
@@ -483,7 +517,18 @@ public:
     }
 
     bool hasPart(ChipPart part) const override {
-        return part == ChipPart::FM || (kSplit && part == ChipPart::SSG);
+        switch (part) {
+            case ChipPart::OPN_FM:
+            case ChipPart::OPN_SSG:     return kSplit;
+            case ChipPart::OPLL_MELODY:
+            case ChipPart::OPLL_RHYTHM: return kOpll;
+            case ChipPart::OPL3_AB:
+            case ChipPart::OPL3_CD:     return kOpl3;
+            case ChipPart::OPL4_DO0:
+            case ChipPart::OPL4_DO1:
+            case ChipPart::OPL4_DO2:    return kOpl4;
+        }
+        return false;
     }
 
     // 外部メモリ設定 (ROM/RAM ポインタを渡す場合)
@@ -565,69 +610,80 @@ private:
             out[i] = static_cast<float>(m_chip.clockSsg()) * kScale;
     }
 
-    void generateNative(float* out_l, float* out_r, uint32_t n) {
+    // b[0..kResampleChannels) に ymfm の出力を並べ替えて書く:
+    //
+    //   OPL4     : b[0..1]=DO2, b[2..3]=DO0 (FM の C/D), b[4..5]=DO1 (AWM の C/D)
+    //              ymf278b::generate() は data[0..1]=DO0, [2..3]=DO1, [4..5]=DO2。
+    //              DO2 を 0/1 番に置き、out_l/out_r にそのまま混ぜられるようにする
+    //   OPL3     : b[0..3]=A/B/C/D
+    //   OPLL 系  : b[0]=メロディ, b[1]=リズム
+    //   OPM/OPN2 : b[0]=L, b[1]=R
+    //   その他   : b[0]=b[1]=data[0]。OPL/OPL2/Y8950 は OUTPUTS=1 (リズムと
+    //              ADPCM も data[0] に入る)。OPZ も data[0] だけを使う
+    //
+    //   (OPN/OPNA/OPNB/OPNBB はここを通らない。generateFmNative /
+    //    generateSsgNative を参照)
+    void generateNative(float* const* b, uint32_t n) {
         typename ChipImpl::output_data out_data{};
         constexpr float kScale = 1.0f / 32768.0f;
         constexpr uint32_t kOutputs =
             sizeof(out_data.data) / sizeof(out_data.data[0]);
+        constexpr bool kStereo = TType == ChipType::OPM || TType == ChipType::OPN2;
+        // 上流の出力の並びが変わったら、部位の割り当てを見直すまで通さない
+        static_assert(!kOpl4 || kOutputs == 6, "ymf278b output layout changed");
+        static_assert(!kOpl3 || kOutputs == 4, "ymf262 output layout changed");
+        static_assert(!kOpll || kOutputs == 2, "opll output layout changed");
+        static_assert(!kStereo || kOutputs == 2, "stereo output layout changed");
 
-        // 出力モードを TType で分類:
-        //
-        //   TrueStereo : OPM/OPN2/OPL3
-        //                data[0]=L, data[1]=R
-        //
-        //   Opl4Stereo : OPL4 (OUTPUTS=6, ymfm_opl.cpp ymf278b::generate 参照)
-        //                data[0..1]=DO0(FM ch2+3), data[2..3]=DO1(wave ch2+3),
-        //                data[4..5]=DO2(FM ch0+1 と wave ch0+1 のミックス済み L/R)
-        //                DO2 がチップのメイン出力なので data[4]/data[5] を使う
-        //
-        //   (OPN/OPNA/OPNB/OPNBB はここを通らない。generateFmNative /
-        //    generateSsgNative を参照)
-        //
-        //   MixMono   : OPLL/OPLLP/OPLLX/VRC7
-        //                data[0]=melody, data[1]=rhythm
-        //                out_l = out_r = data[0]+data[1]
-        //
-        //   Mono       : OUTPUTS=1
-        //                out_l = out_r = data[0]
-        //                OPL/OPL2/Y8950 は ymfm では OUTPUTS=1 (リズムも data[0] に
-        //                入る) のため、isMixMono の条件に挙げてあっても kOutputs >= 2
-        //                で外れてここに来る。
-        constexpr bool isTrueStereo =
-            kOutputs >= 2 &&
-            (TType == ChipType::OPM   ||
-             TType == ChipType::OPN2  ||
-             TType == ChipType::OPL3);
-        constexpr bool isOpl4Stereo =
-            kOutputs >= 6 &&
-            TType == ChipType::OPL4;
-        constexpr bool isMixMono =
-            kOutputs >= 2 &&
-            (TType == ChipType::OPL   ||
-             TType == ChipType::OPL2  ||
-             TType == ChipType::Y8950 ||
-             TType == ChipType::OPLL  ||
-             TType == ChipType::OPLLP ||
-             TType == ChipType::OPLLX ||
-             TType == ChipType::VRC7);
-
+        const auto& d = out_data.data;
         for (uint32_t i = 0; i < n; ++i) {
             m_chip.generate(&out_data);
-            if constexpr (isTrueStereo) {
-                // OPM/OPN2/OPL3: data[0]=L, data[1]=R
-                out_l[i] = static_cast<float>(out_data.data[0]) * kScale;
-                out_r[i] = static_cast<float>(out_data.data[1]) * kScale;
-            } else if constexpr (isOpl4Stereo) {
-                // OPL4: DO2 (data[4]=L, data[5]=R) がミックス済みメイン出力
-                out_l[i] = static_cast<float>(out_data.data[4]) * kScale;
-                out_r[i] = static_cast<float>(out_data.data[5]) * kScale;
-            } else if constexpr (isMixMono) {
-                // OPL/OPLL 系: data[0]=melody, data[1]=rhythm → 合算
-                out_l[i] = out_r[i] = static_cast<float>(
-                    out_data.data[0] + out_data.data[1]) * kScale;
+            if constexpr (kOpl4) {
+                b[0][i] = static_cast<float>(d[4]) * kScale;
+                b[1][i] = static_cast<float>(d[5]) * kScale;
+                b[2][i] = static_cast<float>(d[0]) * kScale;
+                b[3][i] = static_cast<float>(d[1]) * kScale;
+                b[4][i] = static_cast<float>(d[2]) * kScale;
+                b[5][i] = static_cast<float>(d[3]) * kScale;
+            } else if constexpr (kOpl3 || kOpll || kStereo) {
+                for (size_t c = 0; c < kResampleChannels; ++c)
+                    b[c][i] = static_cast<float>(d[c]) * kScale;
             } else {
-                out_l[i] = out_r[i] =
-                    static_cast<float>(out_data.data[0]) * kScale;
+                b[0][i] = b[1][i] = static_cast<float>(d[0]) * kScale;
+            }
+        }
+    }
+
+    // generateNative() の並びに部位ごとのゲインを掛け、b[0]/b[1] (= out_l/out_r) に混ぜる
+    void mixParts(float* const* b, uint32_t n, const PartGains& g) {
+        constexpr auto at = [](ChipPart p) { return static_cast<size_t>(p); };
+        if constexpr (kOpll) {
+            const float ml = g.l[at(ChipPart::OPLL_MELODY)], mr = g.r[at(ChipPart::OPLL_MELODY)];
+            const float rl = g.l[at(ChipPart::OPLL_RHYTHM)], rr = g.r[at(ChipPart::OPLL_RHYTHM)];
+            for (uint32_t i = 0; i < n; ++i) {
+                const float m = b[0][i], r = b[1][i];
+                b[0][i] = m * ml + r * rl;
+                b[1][i] = m * mr + r * rr;
+            }
+        } else if constexpr (kOpl3) {
+            const float abl = g.l[at(ChipPart::OPL3_AB)], abr = g.r[at(ChipPart::OPL3_AB)];
+            const float cdl = g.l[at(ChipPart::OPL3_CD)], cdr = g.r[at(ChipPart::OPL3_CD)];
+            for (uint32_t i = 0; i < n; ++i) {
+                b[0][i] = b[0][i] * abl + b[2][i] * cdl;
+                b[1][i] = b[1][i] * abr + b[3][i] * cdr;
+            }
+        } else if constexpr (kOpl4) {
+            const float d2l = g.l[at(ChipPart::OPL4_DO2)], d2r = g.r[at(ChipPart::OPL4_DO2)];
+            const float d0l = g.l[at(ChipPart::OPL4_DO0)], d0r = g.r[at(ChipPart::OPL4_DO0)];
+            const float d1l = g.l[at(ChipPart::OPL4_DO1)], d1r = g.r[at(ChipPart::OPL4_DO1)];
+            for (uint32_t i = 0; i < n; ++i) {
+                b[0][i] = b[0][i] * d2l + b[2][i] * d0l + b[4][i] * d1l;
+                b[1][i] = b[1][i] * d2r + b[3][i] * d0r + b[5][i] * d1r;
+            }
+        } else {
+            for (uint32_t i = 0; i < n; ++i) {
+                b[0][i] *= g.chip_l;
+                b[1][i] *= g.chip_r;
             }
         }
     }
@@ -754,7 +810,8 @@ private:
     // prescale の書き込み (オーディオスレッド) で変わり、nativeRate() は任意スレッドから読まれる
     std::atomic<uint32_t> m_native_rate{0};
     uint32_t           m_target_rate = 0;
-    LinearResampler<2> m_resampler;       // OPN 系では FM 用
+    LinearResampler<kResampleChannels> m_resampler;  // OPN 系では FM 用
+    std::array<std::vector<float>, kResampleChannels - 2> m_extra_out;
     // 以下は OPN 系 (kSplit) だけが使う
     LinearResampler<1> m_ssg_resampler;
     std::vector<float> m_ssg_out;

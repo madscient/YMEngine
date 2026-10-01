@@ -252,21 +252,21 @@ static void testEngine() {
         std::snprintf(msg, sizeof msg, "OPNA SSG default level peak=%.5f (expect %.5f)", pk, expect);
         check(std::fabs(pk - expect) < 1e-3f, msg);
 
-        eng.setPartGain(id, ChipPart::FM, 0.0f, 0.0f);
+        eng.setPartGain(id, ChipPart::OPN_FM, 0.0f, 0.0f);
         const float pkFm0 = peakAfter(eng, 480, 9600);
         std::snprintf(msg, sizeof msg, "OPNA SSG only, FM gain 0: peak=%.5f (expect %.5f)", pkFm0, expect);
         check(std::fabs(pkFm0 - expect) < 1e-3f, msg);
 
-        eng.setPartGain(id, ChipPart::FM, 1.0f, 1.0f);
+        eng.setPartGain(id, ChipPart::OPN_FM, 1.0f, 1.0f);
         eng.setGain(id, 0.5f);
-        eng.setPartGain(id, ChipPart::SSG, 0.5f, 0.5f);
+        eng.setPartGain(id, ChipPart::OPN_SSG, 0.5f, 0.5f);
         const float pkHalf = peakAfter(eng, 480, 9600);
         const float expectHalf = softClip((16382 * 2 / 3) / 32768.0f * 0.25f);
         std::snprintf(msg, sizeof msg, "OPNA SSG chip gain 0.5 x part gain 0.5: peak=%.5f (expect %.5f)",
             pkHalf, expectHalf);
         check(std::fabs(pkHalf - expectHalf) < 1e-3f, msg);
 
-        eng.setPartGain(id, ChipPart::SSG, 0.0f, 0.0f);
+        eng.setPartGain(id, ChipPart::OPN_SSG, 0.0f, 0.0f);
         const float pkSsg0 = peakAfter(eng, 480, 9600);
         std::snprintf(msg, sizeof msg, "OPNA SSG only, SSG gain 0: peak=%.7f", pkSsg0);
         check(pkSsg0 == 0.0f, msg);
@@ -286,27 +286,25 @@ static void testEngine() {
         FmEngine eng(kRate);
         const uint32_t id = eng.addChip(ChipType::OPNA);
         fmToneCh1(eng, id);
-        eng.setPartGain(id, ChipPart::SSG, 0.0f, 0.0f);
+        eng.setPartGain(id, ChipPart::OPN_SSG, 0.0f, 0.0f);
         const float pk = peakAfter(eng, 4800, 9600);
         std::snprintf(msg, sizeof msg, "OPNA FM only, SSG gain 0: peak=%.5f (> 0.01)", pk);
         check(pk > 0.01f, msg);
-        eng.setPartGain(id, ChipPart::FM, 0.0f, 0.0f);
+        eng.setPartGain(id, ChipPart::OPN_FM, 0.0f, 0.0f);
         const float pk0 = peakAfter(eng, 480, 9600);
         std::snprintf(msg, sizeof msg, "OPNA FM only, FM gain 0: peak=%.7f", pk0);
         check(pk0 == 0.0f, msg);
     }
 
-    // SSG を持たないチップ
+    // どのチップがどの部位を受け付けるかは part_gain_test で見る
     {
         FmEngine eng(kRate);
-        const uint32_t id = eng.addChip(ChipType::OPL3);
+        const uint32_t id = eng.addChip(ChipType::OPNA);
         float l = -1.0f, r = -1.0f;
-        check(!eng.setPartGain(id, ChipPart::SSG, 0.5f, 0.5f), "OPL3 setPartGain(SSG) rejected");
-        check(!eng.getPartGain(id, ChipPart::SSG, l, r),       "OPL3 getPartGain(SSG) rejected");
-        const bool set = eng.setPartGain(id, ChipPart::FM, 0.25f, 0.75f);
-        const bool got = eng.getPartGain(id, ChipPart::FM, l, r);
-        check(set && got && l == 0.25f && r == 0.75f, "OPL3 FM part gain round-trips");
-        check(!eng.setPartGain(id + 1, ChipPart::FM, 1.0f, 1.0f), "unknown chip_id rejected");
+        const bool set = eng.setPartGain(id, ChipPart::OPN_SSG, 0.25f, 0.75f);
+        const bool got = eng.getPartGain(id, ChipPart::OPN_SSG, l, r);
+        check(set && got && l == 0.25f && r == 0.75f, "OPNA SSG part gain round-trips");
+        check(!eng.setPartGain(id + 1, ChipPart::OPN_FM, 1.0f, 1.0f), "unknown chip_id rejected");
     }
 }
 

@@ -44,9 +44,18 @@ typedef enum FmMemoryType {
 } FmMemoryType;
 
 // ---- 出力の部位 ---------------------------------------------------------
+// チップが別々の端子から出す出力。番号はチップをまたいで重ならない。
+// 出力が1本のチップ (OPL/OPL2/Y8950/OPN2/OPM/OPZ) は部位を持たない。
 typedef enum FmPart {
-    FM_PART_FM  = 0,  // FM 部 (ADPCM・リズムを含む)。SSG を持たないチップでは出力全体
-    FM_PART_SSG = 1,  // SSG 部 (OPN/OPNA/OPNB/OPNBB)
+    FM_PART_OPN_FM      = 0,  // OPN/OPNA/OPNB/OPNBB: FM 部 (ADPCM・リズムを含む)
+    FM_PART_OPN_SSG     = 1,  //   SSG 部
+    FM_PART_OPLL_MELODY = 2,  // OPLL/OPLLP/OPLLX/VRC7: メロディ
+    FM_PART_OPLL_RHYTHM = 3,  //   リズム
+    FM_PART_OPL3_AB     = 4,  // OPL3: 出力 A (L) / B (R)
+    FM_PART_OPL3_CD     = 5,  //   出力 C (L) / D (R)。既定のゲインは 0
+    FM_PART_OPL4_DO0    = 6,  // OPL4: DO0 (FM の C/D)。既定のゲインは 0
+    FM_PART_OPL4_DO1    = 7,  //   DO1 (AWM の C/D)。既定のゲインは 0
+    FM_PART_OPL4_DO2    = 8,  //   DO2 (FM の A/B と AWM の A/B のミックス)
 } FmPart;
 
 // ---- 不透明ハンドル -----------------------------------------------------
@@ -115,7 +124,8 @@ FMENGINE_API FmResult FMENGINE_CALL FmEngine_GetGain(
 
 // =========================================================
 //  部位ごとのゲイン設定 (L/R 独立)
-//  実際に掛かるゲインは FmEngine_SetGain のゲイン × 部位のゲイン。既定値は 1.0。
+//  実際に掛かるゲインは FmEngine_SetGain のゲイン × 部位のゲイン。
+//  既定値は 1.0 (FM_PART_OPL3_CD / FM_PART_OPL4_DO0 / FM_PART_OPL4_DO1 は 0)。
 //  チップが持たない部位を指定すると FM_ERR_INVALID_ARG。
 //  オーディオコールバックスレッドと並行して呼び出し可能。
 // =========================================================

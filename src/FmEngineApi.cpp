@@ -10,6 +10,20 @@
 #include <new>
 #include <stdexcept>
 
+// FmPart は ChipPart にそのままキャストして渡すので、番号を揃えておく
+#define FM_PART_MATCHES(c, cpp) static_assert(c == static_cast<int>(ChipPart::cpp), #c)
+FM_PART_MATCHES(FM_PART_OPN_FM,      OPN_FM);
+FM_PART_MATCHES(FM_PART_OPN_SSG,     OPN_SSG);
+FM_PART_MATCHES(FM_PART_OPLL_MELODY, OPLL_MELODY);
+FM_PART_MATCHES(FM_PART_OPLL_RHYTHM, OPLL_RHYTHM);
+FM_PART_MATCHES(FM_PART_OPL3_AB,     OPL3_AB);
+FM_PART_MATCHES(FM_PART_OPL3_CD,     OPL3_CD);
+FM_PART_MATCHES(FM_PART_OPL4_DO0,    OPL4_DO0);
+FM_PART_MATCHES(FM_PART_OPL4_DO1,    OPL4_DO1);
+FM_PART_MATCHES(FM_PART_OPL4_DO2,    OPL4_DO2);
+#undef FM_PART_MATCHES
+static_assert(FM_PART_OPL4_DO2 + 1 == kChipPartCount, "FmPart and ChipPart differ in count");
+
 // =========================================================
 //  内部構造体 (ハンドルの実体)
 // =========================================================

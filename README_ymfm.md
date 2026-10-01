@@ -41,7 +41,8 @@ uint32_t opl3Id = engine.addChip(ChipType::OPL3);
 engine.setGain(opnaId, 1.0f);
 engine.setGain(opl3Id, ChipGain::dBToLinear(-6.0f));
 // 部位ごとのゲイン。実際のゲインは setGain() との積。持たない部位なら false
-engine.setPartGain(opnaId, ChipPart::SSG, 0.5f, 0.5f);
+engine.setPartGain(opnaId, ChipPart::OPN_SSG, 0.5f, 0.5f);
+engine.setPartGain(opl3Id, ChipPart::OPL3_CD, 1.0f, 1.0f);  // C/D は既定で 0
 
 // ④ レジスタ書き込み (任意スレッドから安全)
 // write(chip_id, reg, value, port)
@@ -94,6 +95,16 @@ OPN, OPNA, OPNB, OPNBB は、ymfm のチップクラスを継承した `detail::
 | OPNB, OPNBB | clk / 144 | clk / 32 |
 
 prescale は `0x2D`〜`0x2F` への書き込みで切り替わり、そのたびに両方のリサンプラを設定し直します。`nativeRate()` は FM のレートを返します。
+
+## 出力の部位
+
+`ChipPart` はチップが別々の端子から出す出力で、番号はチップをまたいで重なりません。`FmChip::hasPart()` はそのチップの部位にだけ true を返し、出力が1本のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) はどの部位にも false を返します。部位ごとの意味と既定値は README.md の「部位ごとのゲイン」を参照してください。既定値は `defaultPartGain()` が返します。
+
+OPN 系以外で部位を持つチップは、ymfm の出力を部位ごとに別々に出力レートへ変換し、ゲインを掛けてから L/R に混ぜます。リサンプラのチャンネル数は OPLL 系が2 (メロディ、リズム)、OPL3 が4 (A/B/C/D)、OPL4 が6 (DO2、DO0、DO1 の各 L/R) です。
+
+`FmEngine` は `FmChip::generate()` に `PartGains` を渡します。`l[]`/`r[]` はチップのゲインと部位のゲインの積、`chip_l`/`chip_r` はチップのゲインだけで、部位を持たないチップが使います。
+
+C API の `FmPart` は `ChipPart` にキャストして渡すので、番号を揃えてあります。`FmEngineApi.cpp` の `static_assert` で照合しています。
 
 ## ymfm チップのコンストラクタ特殊化
 
