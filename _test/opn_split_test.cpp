@@ -13,6 +13,7 @@
 // 全件通れば終了コード 0。
 
 #include "FmEngine.h"
+#include "test_clocks.h"
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -228,9 +229,9 @@ static void testEngine() {
 
     {
         FmEngine eng(kRate);
-        const uint32_t opn  = eng.addChip(ChipType::OPN);
-        const uint32_t opna = eng.addChip(ChipType::OPNA);
-        const uint32_t opnb = eng.addChip(ChipType::OPNB);
+        const uint32_t opn  = eng.addChip(ChipType::OPN, testClock(ChipType::OPN));
+        const uint32_t opna = eng.addChip(ChipType::OPNA, testClock(ChipType::OPNA));
+        const uint32_t opnb = eng.addChip(ChipType::OPNB, testClock(ChipType::OPNB));
         std::snprintf(msg, sizeof msg, "nativeRate OPN=%u OPNA=%u OPNB=%u (expect 55466/55466/55555)",
             eng.nativeRate(opn), eng.nativeRate(opna), eng.nativeRate(opnb));
         check(eng.nativeRate(opn) == 55466 && eng.nativeRate(opna) == 55466 &&
@@ -245,7 +246,7 @@ static void testEngine() {
     // 既定の SSG 音量: OPNA は3チャンネル和 × 2/3、OPN はそのまま (上流の generate() と同じ)
     {
         FmEngine eng(kRate);
-        const uint32_t id = eng.addChip(ChipType::OPNA);
+        const uint32_t id = eng.addChip(ChipType::OPNA, testClock(ChipType::OPNA));
         ssgToneA(eng, id);
         const float pk = peakAfter(eng, 4800, 9600);
         const float expect = softClip((16382 * 2 / 3) / 32768.0f);
@@ -273,7 +274,7 @@ static void testEngine() {
     }
     {
         FmEngine eng(kRate);
-        const uint32_t id = eng.addChip(ChipType::OPN);
+        const uint32_t id = eng.addChip(ChipType::OPN, testClock(ChipType::OPN));
         ssgToneA(eng, id);
         const float pk = peakAfter(eng, 4800, 9600);
         const float expect = softClip(16382 / 32768.0f);
@@ -284,7 +285,7 @@ static void testEngine() {
     // FM だけ鳴らす
     {
         FmEngine eng(kRate);
-        const uint32_t id = eng.addChip(ChipType::OPNA);
+        const uint32_t id = eng.addChip(ChipType::OPNA, testClock(ChipType::OPNA));
         fmToneCh1(eng, id);
         eng.setPartGain(id, ChipPart::OPN_SSG, 0.0f, 0.0f);
         const float pk = peakAfter(eng, 4800, 9600);
@@ -299,7 +300,7 @@ static void testEngine() {
     // どのチップがどの部位を受け付けるかは part_gain_test で見る
     {
         FmEngine eng(kRate);
-        const uint32_t id = eng.addChip(ChipType::OPNA);
+        const uint32_t id = eng.addChip(ChipType::OPNA, testClock(ChipType::OPNA));
         float l = -1.0f, r = -1.0f;
         const bool set = eng.setPartGain(id, ChipPart::OPN_SSG, 0.25f, 0.75f);
         const bool got = eng.getPartGain(id, ChipPart::OPN_SSG, l, r);

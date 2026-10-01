@@ -96,7 +96,9 @@ FMENGINE_API const char* FMENGINE_CALL FmEngine_GetSupportedChip(
 // =========================================================
 //  チップ追加
 //  name  : チップ名文字列 ("OPNA", "OPL2" 等、大文字小文字を区別する)
-//  clock : マスタークロック Hz。0 で各チップの標準クロックを使用。
+//  clock : マスタークロック Hz。0 なら FM_ERR_INVALID_ARG。
+//          エンジンは既定のクロックを持たない。同じチップでも機種によって
+//          クロックが違い、F-Number などのレジスタ値はクロックを前提に計算するため。
 //  未知の名前なら FM_ERR_UNKNOWN_CHIP を返す。
 // =========================================================
 FMENGINE_API FmResult FMENGINE_CALL FmEngine_AddChip(

@@ -33,9 +33,9 @@ cmake --build build --config Release
 // ① エンジンを 48000 Hz で作成
 FmEngine engine(48000);
 
-// ② チップ追加 (clock=0 で標準クロック自動選択)
-uint32_t opnaId = engine.addChip(ChipType::OPNA);
-uint32_t opl3Id = engine.addChip(ChipType::OPL3);
+// ② チップ追加。クロック (Hz) は必ず指定する。0 なら UINT32_MAX が返る
+uint32_t opnaId = engine.addChip(ChipType::OPNA, 7'987'200);
+uint32_t opl3Id = engine.addChip(ChipType::OPL3, 14'318'180);
 
 // ③ ゲイン設定 (1.0 = 0 dB)
 engine.setGain(opnaId, 1.0f);
@@ -119,7 +119,7 @@ ymfm の全チップは `(ymfm_interface&, uint32_t clock)` を取らないた�
 
 ## 対応チップ一覧
 
-| 列挙値 (ChipType) | チップ | 標準クロック | 主な用途 |
+| 列挙値 (ChipType) | チップ | クロックの例 | 主な用途 |
 |---|---|---|---|
 | `ChipType::Y8950`  | Y8950   | 3.58 MHz  | MSX-Audio |
 | `ChipType::OPL`    | YM3526  | 3.58 MHz  | 初期 AdLib カード |
@@ -138,7 +138,7 @@ ymfm の全チップは `(ymfm_interface&, uint32_t clock)` を取らないた�
 | `ChipType::OPZ`    | YM2414  | 3.58 MHz  | TX81Z |
 | `ChipType::VRC7`   | DS1001  | 3.58 MHz  | Lagrange Point (FC) |
 
-クロックは第2引数で上書き可能 (0 で標準値):
+クロックは第2引数で必ず指定します。エンジンは既定のクロックを持ちません。`addChip()` / `addChipByName()` は clock が 0 なら `UINT32_MAX` を、`createChip()` / `createChipByName()` は `nullptr` を返します。表のクロックは例です。
 
 ```cpp
 uint32_t id = engine.addChip(ChipType::OPN2, 7'600'489u); // PAL Mega Drive

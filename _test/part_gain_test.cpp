@@ -20,6 +20,7 @@
 // 全件通れば終了コード 0。
 
 #include "FmEngine.h"
+#include "test_clocks.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -90,7 +91,7 @@ static RunResult run(ChipType type, const std::vector<W>& prog, const PartGains&
     Ref ref(iface);
     ref.reset();
 
-    auto chip = createChip(type);
+    auto chip = createChip(type, testClock(type));
     if (pcm) chip->setMemory(ChipMemoryType::PCM, pcm->data(), static_cast<uint32_t>(pcm->size()));
     chip->setTargetRate(chip->nativeRate());
 
@@ -311,7 +312,7 @@ static void testAccept() {
     };
     for (const AcceptCase& c : cases) {
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(c.type);
+        const uint32_t id = eng.addChip(c.type, testClock(c.type));
         std::string bad;
         // kChipPartCount 番 (範囲外) も拒否されること
         for (uint32_t p = 0; p <= kChipPartCount; ++p) {
@@ -341,7 +342,7 @@ static void testAccept() {
     }
 
     FmEngine eng(48000);
-    const uint32_t id = eng.addChip(ChipType::OPNA);
+    const uint32_t id = eng.addChip(ChipType::OPNA, testClock(ChipType::OPNA));
     uint32_t mask = 0;
     check(!eng.getPartMask(id + 1, mask), "partMask unknown chip_id rejected");
 }
@@ -368,7 +369,7 @@ static void testEngine() {
     // OPLL: チップのゲインは部位のゲインに掛かる
     {
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPLL);
+        const uint32_t id = eng.addChip(ChipType::OPLL, testClock(ChipType::OPLL));
         writeAll(eng, id, opllProgram());
         const float pk = peakAfter(eng, 4800, 4800);
         eng.setGain(id, 0.0f);
@@ -385,7 +386,7 @@ static void testEngine() {
     // OPM: 部位を持たないチップにもチップのゲインが掛かる
     {
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPM);
+        const uint32_t id = eng.addChip(ChipType::OPM, testClock(ChipType::OPM));
         const std::vector<W> opm = {
             {0, 0x20, 0xC7}, {0, 0x28, 0x4A},
             {0, 0x40, 0x07}, {0, 0x60, 0x00}, {0, 0x80, 0x1F},
@@ -404,7 +405,7 @@ static void testEngine() {
     // OPL3: C/D だけに出したチャンネルは、既定では聞こえず、OPL3_CD を上げると聞こえる
     {
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPL3);
+        const uint32_t id = eng.addChip(ChipType::OPL3, testClock(ChipType::OPL3));
         auto prog = opl3FmProgram(0x01);
         prog.push_back({0, 0xB0, 0x1E});   // ch0 (A/B) を KEY OFF
         writeAll(eng, id, prog);
@@ -421,7 +422,7 @@ static void testEngine() {
     {
         const auto mem = makeAwmMemory();
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPL4);
+        const uint32_t id = eng.addChip(ChipType::OPL4, testClock(ChipType::OPL4));
         eng.setMemory(id, ChipMemoryType::PCM, mem.data(), static_cast<uint32_t>(mem.size()));
         auto prog = opl4Program();
         prog.push_back({0, 0xB0, 0x1E});   // FM ch0 (A/B → DO2) を KEY OFF
@@ -447,7 +448,7 @@ static void testEngine() {
 
         auto peakWith = [](const std::vector<W>& prog, float gMelody, float gRhythm) {
             FmEngine eng(48000);
-            const uint32_t id = eng.addChip(ChipType::OPLL);
+            const uint32_t id = eng.addChip(ChipType::OPLL, testClock(ChipType::OPLL));
             eng.setPartGain(id, ChipPart::OPLL_MELODY, gMelody, gMelody);
             eng.setPartGain(id, ChipPart::OPLL_RHYTHM, gRhythm, gRhythm);
             writeAll(eng, id, prog);

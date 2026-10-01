@@ -2,6 +2,70 @@
 
 開発経緯の記録。現在の仕様は `README.md` と `README_ymfm.md` を参照。
 
+## FmEngine_AddChip の clock=0（既定のクロック）をやめる
+
+FmEngineApi の仕様の改訂（FMEngineTest `866f4a3`）に追従した。`FmEngine_AddChip`
+は clock=0 に `FM_ERR_INVALID_ARG` を返し、エンジンは既定のクロックを持たない。
+仕様側の理由：既定のクロックは典型的な値にすぎず、エンジンによって食い違って
+いた。同じチップでも機種によってクロックが違い、レジスタ値はクロックを前提に
+計算する。
+
+前提：レジスタ値を書く呼び出し側が、そのクロックを知っていること（仕様と同じ）。
+
+### 変更
+
+- `FmClock` の定数と `ChipEntry::defaultClock` を消した。`createChip()` /
+  `createChipByName()` は clock が 0 なら nullptr、`FmEngine::addChip()` /
+  `addChipByName()` は `UINT32_MAX` を返す。clock の既定引数も消したので、clock を
+  渡していない C++ の呼び出しはコンパイルが通らなくなる
+- README の「標準クロック」の列を「クロックの例」にし、エンジンの既定値ではない
+  ことを書いた
+- テストは `_test/test_clocks.h` の `testClock()` でクロックを渡す。値は消した
+  既定値と同じなので、テストの期待値（OPNA のネイティブレート 55,466Hz など）は
+  変わらない
+
+### 仕様に書かれておらず、こちらで決めたこと
+
+どれも変えるときは数行で済む。
+
+- 名前が未知で clock も 0 なら `FM_ERR_INVALID_ARG`。引数の検査を名前の照合より
+  先にする（null の name と同じ扱い）
+- `FmEngine_AddChip` の中で確保に失敗したら `FM_ERR_ALLOC` を返す。今までは
+  例外が DLL の外に出ていた。仕様の戻り値には前から `FM_ERR_ALLOC` がある
+- C++ の API でも clock=0 を拒否する
+
+### 外部メモリの文言の明確化（FMEngineTest `c0589c1`）
+
+仕様に「エンジンは `FmEngine_SetMemory` の `data` に書き込まない」が入った。
+YMEngine の `setMemory()` は、書き込み先を持たないブロックとして割り当てるので、
+コードの変更は要らなかった。`memory_map_test` に、レジスタ経由の転送が
+`setMemory()` のデータに入らないことを足した。
+
+### 確認
+
+`_test/chip_clock_test.cpp` を追加した。**確認済み**（MSVC 19.51 と g++ 11.3
+でビルドして実行、全件通過）：
+
+- 全16チップで、`addChip()` / `addChipByName()` / `createChip()` /
+  `createChipByName()` が clock=0 を拒否し、チップが増えない。未知の名前も拒否する
+- `testClock()` の値とその2倍で、`FmChip::clock()` が渡した値になり、ネイティブ
+  レートが2倍になる（例：OPL2 は 49,715 → 99,431）
+
+試験が効いていることの確認（**確認済み**）：`FmChip.h` の写しで、clock=0 を
+3,579,545 に置き換える版では reject が16件、パターン A のコンストラクタで clock を
+無視する版では pass がパターン A の10チップぶん落ちた。`setMemory()` のデータを
+書き込み可能にする版では、`memory_map_test` の追加した1件だけが落ちた。
+
+`memory_map_test` / `keyoff_retrigger_test` / `opn_split_test` /
+`part_gain_test` も、MSVC と g++ 11.3 で全件通った。
+
+DLL：CMake（NMake Makefiles、MSVC 19.51、Release）でビルドが通った。C API は、
+リポジトリに残さない確認用のプログラムで DLL を `LoadLibrary` して確かめた
+（**確認済み**）：clock=0 は `FM_ERR_INVALID_ARG` で `out_id` を書き換えない。
+未知の名前と clock=0 の組も `FM_ERR_INVALID_ARG`。未知の名前は
+`FM_ERR_UNKNOWN_CHIP`。OPL2 を 3,579,545 / 7,159,090 で足すとネイティブレートが
+49,715 / 99,431 になる。`FM_ERR_ALLOC` を返す経路は走らせていない（**未検証**）。
+
 ## 外部メモリの ROM/RAM を区別する（FmEngine_SetMemoryEx）
 
 FmEngineApi の仕様の改訂（FMEngineTest `e002890` の `docs/FmEngineApi.md`

@@ -92,9 +92,12 @@ FMENGINE_API FmResult FMENGINE_CALL
 FmEngine_AddChip(FmEngineHandle h, const char* name,
                  uint32_t clock, uint32_t* out_id) {
     REQUIRE_PTR(h);
-    if (!name || !out_id) return FM_ERR_INVALID_ARG;
-    auto& eng = static_cast<FmEngineOpaque*>(h)->engine;
-    const uint32_t id = eng.addChipByName(name, clock);
+    if (!name || !out_id || clock == 0) return FM_ERR_INVALID_ARG;
+    uint32_t id = UINT32_MAX;
+    const FmResult r = safeCall([&] {
+        id = static_cast<FmEngineOpaque*>(h)->engine.addChipByName(name, clock);
+    });
+    if (r != FM_OK) return r;
     if (id == UINT32_MAX) return FM_ERR_UNKNOWN_CHIP;
     *out_id = id;
     return FM_OK;

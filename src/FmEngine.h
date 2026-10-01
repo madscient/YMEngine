@@ -78,15 +78,16 @@ public:
     explicit FmEngine(uint32_t sample_rate = 44100)
         : m_sample_rate(sample_rate) {}
 
-    // チップ追加 (ChipType 版)。clock=0 で標準クロックを使用。
-    uint32_t addChip(ChipType type, uint32_t clock = 0) {
+    // チップ追加 (ChipType 版)。clock はマスタークロック (Hz)。0 なら UINT32_MAX を返す。
+    uint32_t addChip(ChipType type, uint32_t clock) {
         auto chip = createChip(type, clock);
+        if (!chip) return UINT32_MAX;
         chip->setTargetRate(m_sample_rate);
         return registerChip(std::move(chip));
     }
 
-    // チップ追加 (文字列版)。未知の名前なら UINT32_MAX を返す。
-    uint32_t addChipByName(const char* name, uint32_t clock = 0) {
+    // チップ追加 (文字列版)。未知の名前か clock が 0 なら UINT32_MAX を返す。
+    uint32_t addChipByName(const char* name, uint32_t clock) {
         auto chip = createChipByName(name, clock);
         if (!chip) return UINT32_MAX;
         chip->setTargetRate(m_sample_rate);

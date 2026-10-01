@@ -49,28 +49,6 @@ enum class ChipType {
 };
 
 // =========================================================
-//  標準クロック定数
-// =========================================================
-namespace FmClock {
-    constexpr uint32_t Y8950  = 3'579'545;
-    constexpr uint32_t OPL    = 3'579'545;
-    constexpr uint32_t OPLL   = 3'579'545;
-    constexpr uint32_t OPLLP  = 3'579'545;
-    constexpr uint32_t OPLLX  = 3'579'545;
-    constexpr uint32_t VRC7   = 3'579'545;
-    constexpr uint32_t OPL2   = 3'579'545;
-    constexpr uint32_t OPL3   = 14'318'180;
-    constexpr uint32_t OPL4   = 33'868'800;  // YMF278B 標準クロック (FM sr ≈ 49516 Hz)
-    constexpr uint32_t OPN    = 3'993'600;
-    constexpr uint32_t OPNA   = 7'987'200;
-    constexpr uint32_t OPNB   = 8'000'000;
-    constexpr uint32_t OPNBB  = 8'000'000;
-    constexpr uint32_t OPN2   = 7'670'453;
-    constexpr uint32_t OPM    = 3'579'545;
-    constexpr uint32_t OPZ    = 3'579'545;
-}
-
-// =========================================================
 //  has_write_address_hi 型トレイト
 //
 //  MSVC C3856/C3858 回避:
@@ -963,27 +941,27 @@ template<> inline const char* FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >::name(
 // =========================================================
 
 // マクロで繰り返しを省略
-#define FMCHIP_SPEC_A(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface), m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); bindMemory(); updateRates(); }
+#define FMCHIP_SPEC_A(Cls, TType) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface), m_clock(clock) { m_chip.reset(); bindMemory(); updateRates(); }
 
-#define FMCHIP_SPEC_B(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface, static_cast<uint8_t const*>(nullptr))     , m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); bindMemory(); updateRates(); }
+#define FMCHIP_SPEC_B(Cls, TType) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface, static_cast<uint8_t const*>(nullptr))     , m_clock(clock) { m_chip.reset(); bindMemory(); updateRates(); }
 
 // パターン A
-FMCHIP_SPEC_A(detail::Y8950Mem, Y8950, Y8950)
-FMCHIP_SPEC_A(ymfm::ym3526,  OPL,    OPL)
-FMCHIP_SPEC_A(ymfm::ym3812,  OPL2,   OPL2)
-FMCHIP_SPEC_A(ymfm::ymf262,  OPL3,   OPL3)
-FMCHIP_SPEC_A(ymfm::ymf278b, OPL4,   OPL4)
-FMCHIP_SPEC_A(detail::Ym2203Split, OPN,  OPN)
-FMCHIP_SPEC_A(detail::Ym2608Split, OPNA, OPNA)
-FMCHIP_SPEC_A(detail::Ym2610Split<ymfm::ym2610b>, OPNBB, OPNBB)
-FMCHIP_SPEC_A(ymfm::ym2612,  OPN2,   OPN2)
-FMCHIP_SPEC_A(ymfm::ym2414,  OPZ,    OPZ)
+FMCHIP_SPEC_A(detail::Y8950Mem, Y8950)
+FMCHIP_SPEC_A(ymfm::ym3526,  OPL)
+FMCHIP_SPEC_A(ymfm::ym3812,  OPL2)
+FMCHIP_SPEC_A(ymfm::ymf262,  OPL3)
+FMCHIP_SPEC_A(ymfm::ymf278b, OPL4)
+FMCHIP_SPEC_A(detail::Ym2203Split, OPN)
+FMCHIP_SPEC_A(detail::Ym2608Split, OPNA)
+FMCHIP_SPEC_A(detail::Ym2610Split<ymfm::ym2610b>, OPNBB)
+FMCHIP_SPEC_A(ymfm::ym2612,  OPN2)
+FMCHIP_SPEC_A(ymfm::ym2414,  OPZ)
 
 // パターン B
-FMCHIP_SPEC_B(ymfm::ym2413, OPLL,  OPLL)
-FMCHIP_SPEC_B(ymfm::ym2423, OPLLX, OPLLX)
-FMCHIP_SPEC_B(ymfm::ymf281, OPLLP, OPLLP)
-FMCHIP_SPEC_B(ymfm::ds1001, VRC7,  VRC7)
+FMCHIP_SPEC_B(ymfm::ym2413, OPLL)
+FMCHIP_SPEC_B(ymfm::ym2423, OPLLX)
+FMCHIP_SPEC_B(ymfm::ymf281, OPLLP)
+FMCHIP_SPEC_B(ymfm::ds1001, VRC7)
 
 #undef FMCHIP_SPEC_A
 #undef FMCHIP_SPEC_B
@@ -993,7 +971,7 @@ FMCHIP_SPEC_B(ymfm::ds1001, VRC7,  VRC7)
 template<>
 inline FmChipImpl<ymfm::ym2151, ChipType::OPM>::FmChipImpl(uint32_t clock)
     : m_chip(m_iface)
-    , m_clock(clock ? clock : FmClock::OPM)
+    , m_clock(clock)
 { m_chip.reset(); bindMemory(); updateRates(); }
 
 // パターン D: ym2610 (interface&, uint8_t channel_mask = 0x36)
@@ -1001,31 +979,34 @@ inline FmChipImpl<ymfm::ym2151, ChipType::OPM>::FmChipImpl(uint32_t clock)
 template<>
 inline FmChipImpl<detail::Ym2610Split<ymfm::ym2610>, ChipType::OPNB>::FmChipImpl(uint32_t clock)
     : m_chip(m_iface)
-    , m_clock(clock ? clock : FmClock::OPNB)
+    , m_clock(clock)
 { m_chip.reset(); bindMemory(); updateRates(); }
 
 // =========================================================
 //  ファクトリ関数 (ChipType 版)
+//  clock (Hz) が 0 なら nullptr。既定のクロックは持たない。同じチップでも
+//  機種によってクロックが違い、F-Number などのレジスタ値は呼び出し側が
+//  そのクロックを前提に計算するため。
 // =========================================================
-inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock = 0) {
-    auto resolve = [](uint32_t c, uint32_t def) { return c ? c : def; };
+inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock) {
+    if (clock == 0) return nullptr;
     switch (type) {
-        case ChipType::Y8950:  return std::make_unique<FmChipImpl<detail::Y8950Mem, ChipType::Y8950>>(resolve(clock, FmClock::Y8950));
-        case ChipType::OPL:    return std::make_unique<FmChipImpl<ymfm::ym3526,  ChipType::OPL   >>(resolve(clock, FmClock::OPL));
-        case ChipType::OPL2:   return std::make_unique<FmChipImpl<ymfm::ym3812,  ChipType::OPL2  >>(resolve(clock, FmClock::OPL2));
-        case ChipType::OPL3:   return std::make_unique<FmChipImpl<ymfm::ymf262,  ChipType::OPL3  >>(resolve(clock, FmClock::OPL3));
-        case ChipType::OPL4:   return std::make_unique<FmChipImpl<ymfm::ymf278b, ChipType::OPL4  >>(resolve(clock, FmClock::OPL4));
-        case ChipType::OPN:    return std::make_unique<FmChipImpl<detail::Ym2203Split, ChipType::OPN >>(resolve(clock, FmClock::OPN));
-        case ChipType::OPNA:   return std::make_unique<FmChipImpl<detail::Ym2608Split, ChipType::OPNA>>(resolve(clock, FmClock::OPNA));
-        case ChipType::OPNB:   return std::make_unique<FmChipImpl<detail::Ym2610Split<ymfm::ym2610>,  ChipType::OPNB >>(resolve(clock, FmClock::OPNB));
-        case ChipType::OPNBB:  return std::make_unique<FmChipImpl<detail::Ym2610Split<ymfm::ym2610b>, ChipType::OPNBB>>(resolve(clock, FmClock::OPNBB));
-        case ChipType::OPN2:   return std::make_unique<FmChipImpl<ymfm::ym2612,  ChipType::OPN2  >>(resolve(clock, FmClock::OPN2));
-        case ChipType::OPM:    return std::make_unique<FmChipImpl<ymfm::ym2151,  ChipType::OPM   >>(resolve(clock, FmClock::OPM));
-        case ChipType::OPLL:   return std::make_unique<FmChipImpl<ymfm::ym2413,  ChipType::OPLL  >>(resolve(clock, FmClock::OPLL));
-        case ChipType::OPLLP:  return std::make_unique<FmChipImpl<ymfm::ymf281,  ChipType::OPLLP >>(resolve(clock, FmClock::OPLLP));
-        case ChipType::OPLLX:  return std::make_unique<FmChipImpl<ymfm::ym2423,  ChipType::OPLLX >>(resolve(clock, FmClock::OPLLX));
-        case ChipType::OPZ:    return std::make_unique<FmChipImpl<ymfm::ym2414,  ChipType::OPZ   >>(resolve(clock, FmClock::OPZ));
-        case ChipType::VRC7:   return std::make_unique<FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >>(resolve(clock, FmClock::VRC7));
+        case ChipType::Y8950:  return std::make_unique<FmChipImpl<detail::Y8950Mem, ChipType::Y8950>>(clock);
+        case ChipType::OPL:    return std::make_unique<FmChipImpl<ymfm::ym3526,  ChipType::OPL   >>(clock);
+        case ChipType::OPL2:   return std::make_unique<FmChipImpl<ymfm::ym3812,  ChipType::OPL2  >>(clock);
+        case ChipType::OPL3:   return std::make_unique<FmChipImpl<ymfm::ymf262,  ChipType::OPL3  >>(clock);
+        case ChipType::OPL4:   return std::make_unique<FmChipImpl<ymfm::ymf278b, ChipType::OPL4  >>(clock);
+        case ChipType::OPN:    return std::make_unique<FmChipImpl<detail::Ym2203Split, ChipType::OPN >>(clock);
+        case ChipType::OPNA:   return std::make_unique<FmChipImpl<detail::Ym2608Split, ChipType::OPNA>>(clock);
+        case ChipType::OPNB:   return std::make_unique<FmChipImpl<detail::Ym2610Split<ymfm::ym2610>,  ChipType::OPNB >>(clock);
+        case ChipType::OPNBB:  return std::make_unique<FmChipImpl<detail::Ym2610Split<ymfm::ym2610b>, ChipType::OPNBB>>(clock);
+        case ChipType::OPN2:   return std::make_unique<FmChipImpl<ymfm::ym2612,  ChipType::OPN2  >>(clock);
+        case ChipType::OPM:    return std::make_unique<FmChipImpl<ymfm::ym2151,  ChipType::OPM   >>(clock);
+        case ChipType::OPLL:   return std::make_unique<FmChipImpl<ymfm::ym2413,  ChipType::OPLL  >>(clock);
+        case ChipType::OPLLP:  return std::make_unique<FmChipImpl<ymfm::ymf281,  ChipType::OPLLP >>(clock);
+        case ChipType::OPLLX:  return std::make_unique<FmChipImpl<ymfm::ym2423,  ChipType::OPLLX >>(clock);
+        case ChipType::OPZ:    return std::make_unique<FmChipImpl<ymfm::ym2414,  ChipType::OPZ   >>(clock);
+        case ChipType::VRC7:   return std::make_unique<FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >>(clock);
     }
     return nullptr;
 }
@@ -1038,28 +1019,27 @@ inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock = 0) {
 struct ChipEntry {
     const char* name;
     ChipType    type;
-    uint32_t    defaultClock;
 };
 
 inline const ChipEntry* chipTable() {
     static const ChipEntry kTable[] = {
-        { "Y8950",  ChipType::Y8950,  FmClock::Y8950  },
-        { "OPL",    ChipType::OPL,    FmClock::OPL    },
-        { "OPL2",   ChipType::OPL2,   FmClock::OPL2   },
-        { "OPL3",   ChipType::OPL3,   FmClock::OPL3   },
-        { "OPL4",   ChipType::OPL4,   FmClock::OPL4   },
-        { "OPN",    ChipType::OPN,    FmClock::OPN    },
-        { "OPNA",   ChipType::OPNA,   FmClock::OPNA   },
-        { "OPNB",   ChipType::OPNB,   FmClock::OPNB   },
-        { "OPNBB",  ChipType::OPNBB,  FmClock::OPNBB  },
-        { "OPN2",   ChipType::OPN2,   FmClock::OPN2   },
-        { "OPM",    ChipType::OPM,    FmClock::OPM    },
-        { "OPLL",   ChipType::OPLL,   FmClock::OPLL   },
-        { "OPLLP",  ChipType::OPLLP,  FmClock::OPLLP  },
-        { "OPLLX",  ChipType::OPLLX,  FmClock::OPLLX  },
-        { "OPZ",    ChipType::OPZ,    FmClock::OPZ    },
-        { "VRC7",   ChipType::VRC7,   FmClock::VRC7   },
-        { nullptr,  ChipType::Y8950,  0               },  // sentinel
+        { "Y8950",  ChipType::Y8950 },
+        { "OPL",    ChipType::OPL },
+        { "OPL2",   ChipType::OPL2 },
+        { "OPL3",   ChipType::OPL3 },
+        { "OPL4",   ChipType::OPL4 },
+        { "OPN",    ChipType::OPN },
+        { "OPNA",   ChipType::OPNA },
+        { "OPNB",   ChipType::OPNB },
+        { "OPNBB",  ChipType::OPNBB },
+        { "OPN2",   ChipType::OPN2 },
+        { "OPM",    ChipType::OPM },
+        { "OPLL",   ChipType::OPLL },
+        { "OPLLP",  ChipType::OPLLP },
+        { "OPLLX",  ChipType::OPLLX },
+        { "OPZ",    ChipType::OPZ },
+        { "VRC7",   ChipType::VRC7 },
+        { nullptr,  ChipType::Y8950 },  // sentinel
     };
     return kTable;
 }
@@ -1070,12 +1050,12 @@ inline uint32_t chipTableSize() {
     return n;
 }
 
-// 名前からチップを作成。未知の名前なら nullptr
-inline std::unique_ptr<FmChip> createChipByName(const char* name, uint32_t clock = 0) {
+// 名前からチップを作成。未知の名前か clock が 0 なら nullptr
+inline std::unique_ptr<FmChip> createChipByName(const char* name, uint32_t clock) {
     if (!name) return nullptr;
     for (const ChipEntry* e = chipTable(); e->name; ++e) {
         if (std::strcmp(e->name, name) == 0)
-            return createChip(e->type, clock ? clock : e->defaultClock);
+            return createChip(e->type, clock);
     }
     return nullptr;
 }

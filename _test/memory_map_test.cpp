@@ -17,13 +17,15 @@
 //            ブロックは複製されず、生成の合間に書き換えると出力が変わること
 //   store  : レジスタ経由の転送 (ADPCM-B の録音モード、OPL4 のメモリアクセス
 //            モード) で、チップの書き込みが RAM のブロックにその場で入り、ROM の
-//            ブロックには入らないこと。write() の直後には入っておらず、その後の
-//            generate() が戻った時点で入っていること。KEY ON/OFF の衝突で書き込みを
-//            保留している間は、後続の転送も持ち越されること
+//            ブロックと setMemory() のデータには入らないこと。write() の直後には
+//            入っておらず、その後の generate() が戻った時点で入っていること。
+//            KEY ON/OFF の衝突で書き込みを保留している間は、後続の転送も
+//            持ち越されること
 //
 // 全件通れば終了コード 0。
 
 #include "FmEngine.h"
+#include "test_clocks.h"
 #include <algorithm>
 #include <cstdio>
 #include <vector>
@@ -63,7 +65,7 @@ static void testAccept() {
     std::vector<uint8_t> buf(16);
     for (const Row& row : rows) {
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(row.type);
+        const uint32_t id = eng.addChip(row.type, testClock(row.type));
         uint32_t mapped = 0, unmapped = 0;
         // 0 と kChipMemoryTypeEnd は範囲外の番号
         for (uint32_t t = 0; t <= kChipMemoryTypeEnd; ++t) {
@@ -78,7 +80,7 @@ static void testAccept() {
 
     {
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPL4);
+        const uint32_t id = eng.addChip(ChipType::OPL4, testClock(ChipType::OPL4));
         const auto PCM = ChipMemoryType::PCM;
         std::vector<uint8_t> a(0x200), b(0x100), c(0x10);
         check(!eng.mapMemory(id + 1, PCM, 0, a.data(), 1, ROM), "unknown chip_id rejected");
@@ -118,7 +120,7 @@ static void testAccept() {
 
     {
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPN2);
+        const uint32_t id = eng.addChip(ChipType::OPN2, testClock(ChipType::OPN2));
         std::vector<uint8_t> a(16);
         check(eng.setMemory(id, ChipMemoryType::ADPCM_B, a.data(), 16) &&
               eng.getMemorySize(id, ChipMemoryType::ADPCM_B) == 16,
@@ -227,7 +229,7 @@ struct Mapping { ChipMemoryType type; bool legacy; };
 static std::vector<float> play(ChipType chip, const std::vector<W>& prog, const Mapping* map,
                                std::vector<uint8_t>& mem) {
     FmEngine eng(48000);
-    const uint32_t id = eng.addChip(chip);
+    const uint32_t id = eng.addChip(chip, testClock(chip));
     if (map) {
         const uint32_t size = static_cast<uint32_t>(mem.size());
         const bool ok = map->legacy ? eng.setMemory(id, map->type, mem.data(), size)
@@ -280,7 +282,8 @@ static void testPlay() {
     {
         std::vector<uint8_t> mem(0x2000, 0x00);
         FmEngine a(48000), b(48000);
-        const uint32_t ia = a.addChip(ChipType::Y8950), ib = b.addChip(ChipType::Y8950);
+        const uint32_t clk = testClock(ChipType::Y8950);
+        const uint32_t ia = a.addChip(ChipType::Y8950, clk), ib = b.addChip(ChipType::Y8950, clk);
         a.mapMemory(ia, ChipMemoryType::ADPCM_B, 0, mem.data(), static_cast<uint32_t>(mem.size()), RAM);
         writeAll(a, ia, y8950Play(false));
         writeAll(b, ib, y8950Play(false));
@@ -351,7 +354,7 @@ static void checkStore(const char* name, ChipType chip, const std::vector<W>& pr
     const auto bytes = payload();
     std::vector<uint8_t> ramSide(kBlock, kSentinel), romSide(kBlock, kSentinel);
     FmEngine eng(48000);
-    const uint32_t id = eng.addChip(chip);
+    const uint32_t id = eng.addChip(chip, testClock(chip));
     eng.mapMemory(id, ChipMemoryType::ADPCM_B, 0, ramSide.data(), kBlock, ramSideAccess);
     eng.mapMemory(id, ChipMemoryType::ADPCM_B_ROMMODE, 0, romSide.data(), kBlock, RAM);
     writeAll(eng, id, prog);
@@ -382,11 +385,23 @@ static void testStore() {
     checkStore("OPNA  ROM-mode transfer lands in the ADPCM_B_ROMMODE RAM block", ChipType::OPNA,
                opnaStore(true, bytes), RAM, false, true);
 
+    // setMemory のデータには書かない (呼び出し側は読み取り専用のメモリを渡しうる)
+    {
+        std::vector<uint8_t> blk(kBlock, kSentinel);
+        FmEngine eng(48000);
+        const uint32_t id = eng.addChip(ChipType::Y8950, testClock(ChipType::Y8950));
+        eng.setMemory(id, ChipMemoryType::ADPCM_B, blk.data(), kBlock);
+        writeAll(eng, id, y8950Store(false, bytes));
+        float l, r;
+        eng.generate(&l, &r, 1);
+        check(untouched(blk), "Y8950 RAM-mode transfer does not write setMemory data");
+    }
+
     // OPL4: ROM [0, 0x40) と RAM [0x200000, 0x200040) を1つの空間に並べる
     {
         std::vector<uint8_t> romBlk(kBlock, kSentinel), ramBlk(kBlock, kSentinel);
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPL4);
+        const uint32_t id = eng.addChip(ChipType::OPL4, testClock(ChipType::OPL4));
         eng.mapMemory(id, ChipMemoryType::PCM, 0, romBlk.data(), kBlock, ROM);
         eng.mapMemory(id, ChipMemoryType::PCM, 0x200000, ramBlk.data(), kBlock, RAM);
         std::vector<W> p = {
@@ -409,7 +424,7 @@ static void testStore() {
     {
         std::vector<uint8_t> blk(kBlock, kSentinel);
         FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::Y8950);
+        const uint32_t id = eng.addChip(ChipType::Y8950, testClock(ChipType::Y8950));
         eng.mapMemory(id, ChipMemoryType::ADPCM_B, 0, blk.data(), kBlock, RAM);
         eng.write(id, 0xB0, 0x20);
         eng.write(id, 0xB0, 0x00);
