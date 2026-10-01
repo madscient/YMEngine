@@ -2,6 +2,155 @@
 
 開発経緯の記録。現在の仕様は `README.md` と `README_ymfm.md` を参照。
 
+## 外部メモリの ROM/RAM を区別する（FmEngine_SetMemoryEx）
+
+FmEngineApi の仕様の改訂（FMEngineTest `e002890` の `docs/FmEngineApi.md`
+「外部メモリの割り当て (任意)」）に追従した。仕様が参照実装より先に書かれたので、
+YMEngine がこの改訂の最初の実装になる。
+
+### 変更前の YMEngine（コードで確認）
+
+- ymfm は ADPCM-B を1つの空間（`ACCESS_ADPCM_B`）で読み書きする。ROM/RAM
+  選択ビット（`rom_ram()`）が変えるのは `address_shift()` のアドレスの刻みだけ
+  （ROM と x8 は 32 バイト、x1 は 4 バイト）。YMEngine もこの空間に `SetMemory`
+  のデータを1つ置いていたので、OPNA/Y8950 の ROM モードと RAM モードは同じ
+  メモリを読んでいた。実機では物理的に別のメモリ（利用者から）
+- チップからの書き込みは常に捨てていた（`writeable=false`）。内部 RAM を確保する
+  `MemoryYmfmInterface::allocMemory()` は、どこからも呼ばれていなかった
+- `ACCESS_IO`（SSG の I/O ポート、OPM の CT など）が ADPCM-B の領域に落ちていた。
+  読み出しは YMEngine の API から呼ばれず、書き込みは上のとおり捨てるので、
+  出力には影響していなかった
+- `SetMemory` に未知の chip_id を渡すと、assert だけで、Release では範囲外の
+  要素に触っていた。種別に 0 や 4 以上を渡すと ADPCM-B に割り当てていた
+
+### 決めたこと（利用者と決めた）
+
+- `FmEngine_GetMemorySize` は、割り当てたブロックの大きさの合計を返す。
+  `SetMemory` だけを使う呼び出し側では今までと同じ値になる
+- OPNA/Y8950 で ROM/RAM 選択ビットが ROM の間も、レジスタ経由の転送は ymfm の
+  とおりメモリに書く（`ADPCM_B_ROMMODE` 側へ）。仕様側の前提では、実機は ROM
+  モードでレジスタ経由の書き込みができない。ymfm の動作を変えない方を選んだ
+
+### 仕様に書かれていないこと（こちらの案を利用者が了承した）
+
+どれも変えるときは、関数の条件1か所と `memory_map_test` の該当行、README の
+該当行で済む（C++ の名前だけは、ヘッダと既存のテスト3本と README_ymfm に及ぶ）。
+
+- `base + size` が 2^32 を越えたら `FM_ERR_INVALID_ARG`。ちょうど 2^32 で
+  終わる範囲は受け付ける
+- チップのアドレスの幅を越える範囲も受け付ける（チップはそこを読まない）
+- `FmEngine_SetMemoryEx` は ROM のブロックも複製しない。`FM_ERR_UNAVAILABLE`
+  は返さない
+- `FmEngine_SetMemory` は、その種別のブロックをすべて外してから `[0, size)` を
+  割り当てる（今までの「置き換え」と同じ）。`FM_MEM_ADPCM_B_ROMMODE` と、範囲外の
+  番号と、未知の chip_id は `FM_ERR_INVALID_ARG`。チップが持たない種別は、
+  今までどおり受け付ける（チップは読まない）
+- C++ 側に `ChipMemoryType` / `ChipMemoryAccess` を置き、`ChipPart` と同じく
+  C API と番号を揃えた。`FmEngine::setMemory()` / `getMemorySize()` の引数は
+  `ymfm::access_class` から `ChipMemoryType` に変わる（`ymfm::access_class` では
+  ROM モードのメモリを表せないため）。`FmEngine::mapMemory()` は C API と同じく
+  nullptr で外す
+- `allocMemory()` は消した
+
+前提：ymfm の ADPCM-B が選択ビットを `adpcm_b_registers::rom_ram()` に持ち、
+`ym2608` / `y8950` の `m_adpcm_b` が protected であること。名前が変われば
+`detail::Ym2608Split` / `detail::Y8950Mem` のコンパイルが通らなくなる。
+
+前提：RAM の割り当てはストリーム開始前に決まる（仕様と同じ）。割り当ての変更は
+スレッドセーフではない。
+
+### 仕様と食い違うところ
+
+仕様は `FM_ACCESS_RAM` について「`FmEngine_Write` によってチップがメモリに書いた
+値は、その `FmEngine_Write` が戻った後に始まった `FmEngine_Generate` が戻った
+時点でブロックに入っている」とする。YMEngine は KEY ON/OFF の衝突で書き込みを
+保留し、保留を呼び出しをまたいで持ち越す（「キー衝突時の先行生成を呼び出しを
+またいで保留する」の節）。保留の後ろに並んだ転送は、その間の `FmEngine_Generate`
+では反映されない。**確認済み**（`memory_map_test` の store：Y8950 で KEY ON → OFF
+の後に転送を並べ、1 サンプルと 94 サンプルの呼び出しの後にはブロックに入って
+おらず、さらに 1 サンプルで入った）。
+
+ヘッダと README には「書き込みを反映した `FmEngine_Generate` が戻った時点で
+入っている」と、YMEngine の実際の動作を書いた。利用者の判断で、保留の設計は
+変えず、この動作のままとする。FMEngineTest の仕様書には手を入れていない。
+
+前提：KEY OFF/ON の状態を最低約2ms 観測させることを、書き込みの反映の早さより
+優先する（「キー衝突時の先行生成を呼び出しをまたいで保留する」の節と同じ）。
+この前提が変われば、保留の持ち越しと一緒にこの食い違いも見直す。
+
+### 実装
+
+- `MemoryYmfmInterface` は種別ごとにブロックの一覧（番地、大きさ、読み出し元、
+  RAM なら書き込み先）を持ち、アクセスのたびに番地を含むブロックを探す
+- OPNA と Y8950 は、構築時に ADPCM-B のレジスタをインターフェースに結び付け、
+  `ACCESS_ADPCM_B` のたびに `rom_ram()` で `ADPCM_B_ROMMODE` / `ADPCM_B` を選ぶ。
+  Y8950 は上流の `m_adpcm_b` が protected なので、`detail::Y8950Mem` を挟んだ。
+  OPNB/OPNBB は刻みが固定で、選択ビットを見ない
+- `FmChip::hasMemory()` でチップごとの種別を判定する
+
+挙動の変化：
+
+- OPNA/Y8950 で `SetMemory(FM_MEM_ADPCM_B)` に渡したデータは、RAM モードでだけ
+  読まれる。ROM モードで鳴らしていた呼び出し側は無音になる（仕様側で受け入れ
+  済み）。**確認済み**（`memory_map_test` の play：OPNA の ROM モードで、
+  `setMemory(ADPCM_B)` の出力は何も割り当てない場合と一致した）
+- `SetMemory` の未知の chip_id と、種別の 0・4・5 以上が `FM_ERR_INVALID_ARG` に
+  なる
+
+再生中にモードを切り替えた場合：ymfm はスタート番地を再生開始時の刻みで計算する
+（`load_start()`）。読むメモリはアクセスの時点のビットで切り替わるが、刻みは
+古いままになる（ymfm のコードで確認。走らせてはいない）。
+
+### 確認
+
+`_test/memory_map_test.cpp` を追加した。**確認済み**（MSVC 19.51 と g++ 11.3
+でビルドして実行、全件通過）：
+
+- accept：全16チップ × 種別 0〜5 の受け付けが表と一致（割り当てと取り外しの
+  両方）。範囲の検査、取り外し、`getMemorySize()` の合計、`setMemory()` の置き換え
+- route：`MemoryYmfmInterface` 単体で、RAM（x1/x8）モードは `ADPCM_B`、ROM
+  モードは `ADPCM_B_ROMMODE` を読む。ブロックの前後の番地は 0。ROM のブロック
+  への書き込みは捨て、RAM のブロックにはその場で入る。`ACCESS_IO` はどの
+  ブロックにも触らない
+- play：OPNA・Y8950 の各モードで、読まれるべき側に割り当てると、何も割り当てない
+  場合と 1,891〜4,799 サンプル（4,800 中）食い違う。反対側に割り当てても 0。
+  OPNB は選択ビットを立てても `ADPCM_B` を読む。RAM のブロックを生成の合間に
+  書き換えると、次の生成から出力が変わる
+- store：レジスタ経由の転送（Y8950・OPNA の録音モード、OPL4 のメモリアクセス
+  モード）が、`write()` の直後にはブロックに入っておらず、`generate()` の後に
+  RAM のブロックに入る。ROM のブロックには入らない。OPL4 で ROM と RAM を1つの
+  空間に並べ、RAM 側の番地への転送だけが入る
+
+試験が効いていることの確認（**確認済み**）：`FmChip.h` の写しで、選択ビットを
+結び付けない、ビットの判定を反転する、RAM を ROM として扱う、の3通りを作り、
+それぞれ 5 件、18 件、8 件落ちることを見た。
+
+既存の `keyoff_retrigger_test` / `opn_split_test` / `part_gain_test` も、MSVC と
+g++ 11.3 で全件通った（テストの `ymfm::ACCESS_PCM` を `ChipMemoryType::PCM` に
+書き換えた）。
+
+DLL：CMake（NMake Makefiles、MSVC 19.51、Release）でビルドが通り、
+`FmEngine_SetMemoryEx` がエクスポートされることを dumpbin で確認した。警告
+C4005（`FMENGINE_EXPORTS` の再定義）と C4324（`SpscQueue` のパディング）は、
+今回変えていない行から出ている（変更前のビルドとは比べていない）。
+
+C API：**確認済み**（リポジトリに残さない確認用のプログラムで、ビルドした DLL を
+`LoadLibrary` / `GetProcAddress` で呼んだ）。null のハンドル、未知の chip_id、
+チップが持たない種別、未知の access、size 0、重なりは `FM_ERR_INVALID_ARG`。
+NULL での取り外し、`GetMemorySize` の合計、`SetMemory` の拒否と互換の受け付け、
+Y8950 のレジスタ経由の転送が `FmEngine_Generate` の後に呼び出し元のブロックに
+入ることを見た。C API を通す試験はリポジトリには無い。
+
+### 気づいたが手を付けていないこと
+
+利用者の判断で、どちらも今は直さない。
+
+- `FmEngine_Write` のキュー（`SpscQueue<RegWriteCmd, 4096>`）が一杯になると、
+  書き込みは捨てられ、`FM_OK` が返る（コードで確認）。レジスタ経由で大きな
+  データを転送するときは、間に `FmEngine_Generate` を挟まないと取りこぼす
+- `FmEngine_Write` / `SetGain` / `GetGain` の未知の chip_id は assert だけで、
+  Release では範囲外の要素に触る（コードで確認）
+
 ## 部位をチップの出力端子ごとに分ける
 
 OPN 系に部位ゲインを入れたあと、ほかに別々の出力を持つチップを調べた。

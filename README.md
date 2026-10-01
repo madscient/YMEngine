@@ -158,6 +158,51 @@ C/D 側 (`FM_PART_OPL3_CD`, `FM_PART_OPL4_DO0`, `FM_PART_OPL4_DO1`) の既定値
 | OPNA | clk / 144 | clk / 72 | clk / 48 |
 | OPNB, OPNBB | clk / 144 (prescale なし) | | |
 
+## 外部メモリ
+
+ADPCM と PCM を持つチップは、アプリケーションが用意したメモリのブロックを読み書きします。ブロックは複製せずに参照するので、割り当てを外すか `FmEngine_Destroy` が戻るまで解放しないでください。割り当てはオーディオストリームを始める前に行ってください (スレッドセーフではありません)。
+
+| `FmMemoryType` | チップ | 内容 |
+|---|---|---|
+| `FM_MEM_ADPCM_A`         | OPNA | リズム音の内蔵 ROM の内容 |
+| `FM_MEM_ADPCM_A`         | OPNB, OPNBB | ADPCM-A のメモリ |
+| `FM_MEM_ADPCM_B`         | OPNA, Y8950 | ADPCM-B の ROM/RAM 選択ビットが RAM のときにアクセスするメモリ |
+| `FM_MEM_ADPCM_B`         | OPNB, OPNBB | ADPCM-B のメモリ |
+| `FM_MEM_ADPCM_B_ROMMODE` | OPNA, Y8950 | ADPCM-B の ROM/RAM 選択ビットが ROM のときにアクセスするメモリ |
+| `FM_MEM_PCM`             | OPL4 | PCM のメモリ |
+
+OPNA と Y8950 は、ROM/RAM 選択ビット (OPNA は port1 の `0x01` の bit0、Y8950 は `0x08` の bit0) で、ROM モードと RAM モードの別々のメモリにアクセスします。ROM モードで鳴らすデータは `FM_MEM_ADPCM_B_ROMMODE` に割り当ててください。`FM_MEM_ADPCM_B` に割り当てたデータは RAM モードでだけ読まれます。
+
+### FmEngine_SetMemoryEx
+
+```c
+// Y8950: RAM モードのメモリに 32KB の RAM、ROM モードのメモリに ROM イメージ
+FmEngine_SetMemoryEx(engine, y8950_id, FM_MEM_ADPCM_B, 0, ram, 32768, FM_ACCESS_RAM);
+FmEngine_SetMemoryEx(engine, y8950_id, FM_MEM_ADPCM_B_ROMMODE, 0, rom, rom_size, FM_ACCESS_ROM);
+```
+
+- `[base, base + size)` に `data` を割り当てます。番地 `base + i` のバイトが `data[i]` です。範囲が重ならなければ、1つのメモリに複数のブロックを並べられます (OPL4 の ROM と SRAM など)。
+- 割り当ての無い番地を読むと 0 で、書き込みは捨てます。
+- `data` に `NULL` を渡すと、`[base, base + size)` と重なるブロックをすべて外します。
+- `FM_ACCESS_RAM` のブロックには、チップの書き込み (レジスタ経由の転送) をその場で書きます。`FM_ACCESS_ROM` のブロックへの書き込みは捨てます。
+- ROM/RAM 選択ビットが ROM の間にレジスタ経由で転送したデータは、`FM_MEM_ADPCM_B_ROMMODE` に書き込みます。そこに割り当てたブロックが `FM_ACCESS_RAM` なら、ブロックに入ります。
+- 番地はチップが出すアドレスで、1番地が1バイトです。Y8950 の RAM のビット単位の並び (8個の D-RAM への振り分け) は再現せず、チップが読み書きするバイトを番地の順に並べます。
+- 未知の chip_id、チップが持たない `mem_type`、`size` が 0、`base + size` が 2^32 を越える、既存のブロックと範囲が重なる、未知の `access` のときは `FM_ERR_INVALID_ARG` を返します。
+
+### FmEngine_SetMemory / FmEngine_GetMemorySize
+
+`FmEngine_SetMemory` は、`mem_type` のメモリを `[0, size)` の `data` だけにします (それまでのブロックは外れます)。チップからの書き込みは捨てます。`FM_MEM_ADPCM_B_ROMMODE` は受け付けません。
+
+`FmEngine_GetMemorySize` は、割り当てたブロックの大きさの合計を返します。
+
+### 書き込みが反映される時点
+
+`FmEngine_Write` の書き込みは、次の `FmEngine_Generate` の中でチップに反映します。チップがレジスタ経由の転送でメモリに書いた値は、その書き込みを反映した `FmEngine_Generate` が戻った時点で、`FM_ACCESS_RAM` のブロックに入っています。
+
+同じチャンネルのキー状態を、間に `FmEngine_Generate` を挟まずに2回以上変えると、2回目以降の書き込みは前の状態を約2ms 生成してから反映します。その間は後ろに並んだ書き込みも待つので、転送の反映が次以降の `FmEngine_Generate` に持ち越されることがあります。
+
+エンジンがブロックを読み書きするのは `FmEngine_Generate` の実行中だけです。ブロックを別のデバイスと共有する場合は、`FmEngine_Generate` の実行中に別のスレッドからブロックに触らないようにしてください。
+
 ## チップ固有のレジスタの扱い
 
 - **OPL2**: 波形選択 (`0xE0`〜) は、`0x01` の bit5 (WSE) を立てたときだけ有効です。立てていなければ全オペレータが正弦波になります。OPL3/OPL4 では常に有効です。

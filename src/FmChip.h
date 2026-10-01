@@ -206,6 +206,28 @@ inline float defaultPartGain(ChipPart part) {
     }
 }
 
+// =========================================================
+//  チップから見えるメモリと、そこにつないだデバイスの種類
+//  番号は C API の FmMemoryType / FmMemoryAccess と揃える。
+//
+//  OPNA と Y8950 の ADPCM-B は、ROM/RAM 選択ビットで別のメモリにアクセスする
+//  (実機では物理的に別のメモリ)。ymfm は1つの空間 (ACCESS_ADPCM_B) で扱い、
+//  ビットはアドレスの刻みを変えるだけなので、MemoryYmfmInterface がアクセスの
+//  たびにビットを見て ADPCM_B と ADPCM_B_ROMMODE に振り分ける。
+// =========================================================
+enum class ChipMemoryType : uint32_t {
+    ADPCM_A         = 1,  // OPNA: リズムの内蔵 ROM の内容 / OPNB/OPNBB: ADPCM-A
+    ADPCM_B         = 2,  // OPNB/OPNBB: ADPCM-B / OPNA/Y8950: RAM モードのメモリ
+    PCM             = 3,  // OPL4
+    ADPCM_B_ROMMODE = 4,  // OPNA/Y8950: ROM モードのメモリ
+};
+constexpr uint32_t kChipMemoryTypeEnd = 5;  // 0 は欠番
+
+enum class ChipMemoryAccess : uint32_t {
+    ROM = 0,  // チップからの書き込みは捨てる
+    RAM = 1,  // ブロックをその場で読み書きする
+};
+
 // l/r は部位ごとのゲイン (チップのゲイン × 部位のゲイン)。
 // chip_l/chip_r はチップのゲインで、部位を持たないチップが使う。
 struct PartGains {
@@ -270,6 +292,8 @@ public:
     // prescale 6/3/2 → FM /144,/72,/48、SSG /32,/16,/8
     uint32_t fmDivider()  const { return m_fm.clock_prescale() * 24; }
     uint32_t ssgDivider() const { return (m_fm.clock_prescale() * 2 / 3) * 8; }
+    // Y8950Mem と同じく、ROM/RAM 選択ビットを MemoryYmfmInterface に見せる
+    ymfm::adpcm_b_registers& adpcmBRegs() { return m_adpcm_b.regs(); }
 };
 
 // ym2610b は ym2610 の派生なので、同じ実装を基底だけ変えて使う
@@ -293,6 +317,14 @@ public:
     uint32_t ssgDivider() const { return 32; }
 };
 
+// ADPCM-B の ROM/RAM 選択ビットを MemoryYmfmInterface に見せるためだけの派生。
+// 上流の m_adpcm_b は protected
+class Y8950Mem : public ymfm::y8950 {
+public:
+    using ymfm::y8950::y8950;
+    ymfm::adpcm_b_registers& adpcmBRegs() { return m_adpcm_b.regs(); }
+};
+
 } // namespace detail
 
 // =========================================================
@@ -314,13 +346,14 @@ public:
     virtual const char* name()  const = 0;
     virtual uint32_t    clock() const = 0;
 
-    // 外部メモリの設定
-    // access_type: ymfm::ACCESS_ADPCM_A / ACCESS_ADPCM_B / ACCESS_PCM
-    // data: メモリデータへのポインタ (呼び出し元が寿命を管理すること)
-    // size: データサイズ (バイト)
-    virtual void        setMemory(ymfm::access_class access_type,
-                                  const uint8_t* data, uint32_t size) {}
-    virtual uint32_t    memorySize(ymfm::access_class access_type) const { return 0; }
+    // 外部メモリ。挙動は MemoryYmfmInterface の map / unmap / setMemory /
+    // memorySize を参照
+    virtual bool        hasMemory(ChipMemoryType type) const { return false; }
+    virtual bool        mapMemory(ChipMemoryType type, uint32_t base, uint8_t* data,
+                                  uint32_t size, ChipMemoryAccess access) { return false; }
+    virtual bool        unmapMemory(ChipMemoryType type, uint32_t base, uint32_t size) { return false; }
+    virtual void        setMemory(ChipMemoryType type, const uint8_t* data, uint32_t size) {}
+    virtual uint32_t    memorySize(ChipMemoryType type) const { return 0; }
 
     // このレジスタ書き込みで「キーオン/オフ状態が実際に変化した」チャンネルの
     // 集合を、チャンネルスロットのビットマスク (各ビットが1チャンネルに対応)
@@ -357,7 +390,9 @@ public:
 // =========================================================
 //  MemoryYmfmInterface
 //  外部メモリアクセスを実装した ymfm_interface。
-//  ADPCM_A / ADPCM_B / PCM の 3種のメモリ領域を保持する。
+//  ChipMemoryType ごとに、呼び出し元が持つブロックを番地の範囲に割り当てる。
+//  割り当ての無い番地を読むと 0、書き込みは捨てる。ブロックは複製しない。
+//  割り当ての変更はスレッドセーフではない (生成を始める前に済ませること)。
 // =========================================================
 class MemoryYmfmInterface : public ymfm::ymfm_interface {
 public:
@@ -367,67 +402,104 @@ public:
     void    ymfm_update_irq(bool)             override {}
 
     uint8_t ymfm_external_read(ymfm::access_class type, uint32_t address) override {
-        const auto& mem = getRegion(type);
-        if (mem.data && address < mem.size)
-            return mem.data[address];
+        if (const Block* b = find(type, address))
+            return b->read[address - b->base];
         return 0;
     }
 
     void ymfm_external_write(ymfm::access_class type,
                              uint32_t address, uint8_t data) override {
-        auto& mem = getRegion(type);
-        if (mem.writeable && mem.owned && address < mem.size)
-            const_cast<uint8_t*>(mem.data)[address] = data;
+        if (const Block* b = find(type, address))
+            if (b->write) b->write[address - b->base] = data;
     }
 
-    // 外部 ROM/RAM をポインタで設定 (寿命は呼び出し元管理)
-    void setMemory(ymfm::access_class type,
-                   const uint8_t* data, uint32_t size) {
-        auto& mem = getRegion(type);
-        mem.data     = data;
-        mem.size     = size;
-        mem.owned    = false;
-        mem.writeable = false;
+    // ACCESS_ADPCM_B をチップの ROM/RAM 選択ビットで振り分ける (OPNA と Y8950)。
+    // 結び付けなければ、すべて ADPCM_B に行く
+    void bindAdpcmBRegs(ymfm::adpcm_b_registers* regs) { m_adpcm_b_regs = regs; }
+
+    // [base, base + size) に data を割り当てる。RAM なら data にチップの書き込みを
+    // 入れる。size が 0、範囲が 2^32 を越える、既存の割り当てと重なるなら false
+    bool map(ChipMemoryType type, uint32_t base, uint8_t* data, uint32_t size,
+             ChipMemoryAccess access) {
+        auto* s = space(type);
+        if (!s || !data || !validRange(base, size)) return false;
+        for (const Block& b : *s)
+            if (overlaps(b, base, size)) return false;
+        s->push_back({ base, size, data, access == ChipMemoryAccess::RAM ? data : nullptr });
+        return true;
     }
 
-    // 書き込み可能 RAM を内部確保
-    void allocMemory(ymfm::access_class type, uint32_t size) {
-        auto& mem = getRegion(type);
-        mem.buf.assign(size, 0);
-        mem.data      = mem.buf.data();
-        mem.size      = size;
-        mem.owned     = true;
-        mem.writeable = true;
+    // [base, base + size) と重なる割り当てをすべて外す。size が 0、範囲が
+    // 2^32 を越えるなら false
+    bool unmap(ChipMemoryType type, uint32_t base, uint32_t size) {
+        auto* s = space(type);
+        if (!s || !validRange(base, size)) return false;
+        s->erase(std::remove_if(s->begin(), s->end(),
+                                [&](const Block& b) { return overlaps(b, base, size); }),
+                 s->end());
+        return true;
     }
 
-    uint32_t memorySize(ymfm::access_class type) const {
-        return getRegion(type).size;
+    // type の割り当てを [0, size) の data だけにする。チップの書き込みは捨てる
+    void setMemory(ChipMemoryType type, const uint8_t* data, uint32_t size) {
+        auto* s = space(type);
+        if (!s) return;
+        s->clear();
+        if (data && size > 0) s->push_back({ 0, size, data, nullptr });
+    }
+
+    // 割り当てたブロックの大きさの合計
+    uint32_t memorySize(ChipMemoryType type) const {
+        const auto* s = space(type);
+        if (!s) return 0;
+        uint64_t total = 0;
+        for (const Block& b : *s) total += b.size;
+        return static_cast<uint32_t>((std::min)(total, uint64_t{UINT32_MAX}));
     }
 
 private:
-    struct MemRegion {
-        const uint8_t*      data      = nullptr;
-        uint32_t            size      = 0;
-        bool                owned     = false;
-        bool                writeable = false;
-        std::vector<uint8_t> buf;
+    struct Block {
+        uint32_t       base;
+        uint32_t       size;
+        const uint8_t* read;
+        uint8_t*       write;  // ROM なら nullptr
     };
 
-    MemRegion m_adpcm_a;
-    MemRegion m_adpcm_b;
-    MemRegion m_pcm;
+    static bool validRange(uint32_t base, uint32_t size) {
+        return size > 0 && uint64_t{base} + size <= (uint64_t{1} << 32);
+    }
+    static bool overlaps(const Block& b, uint32_t base, uint32_t size) {
+        return uint64_t{base} < uint64_t{b.base} + b.size &&
+               uint64_t{b.base} < uint64_t{base} + size;
+    }
 
-    MemRegion& getRegion(ymfm::access_class type) {
+    std::vector<Block>* space(ChipMemoryType type) {
+        const auto i = static_cast<uint32_t>(type);
+        return (i >= 1 && i < kChipMemoryTypeEnd) ? &m_spaces[i - 1] : nullptr;
+    }
+    const std::vector<Block>* space(ChipMemoryType type) const {
+        const auto i = static_cast<uint32_t>(type);
+        return (i >= 1 && i < kChipMemoryTypeEnd) ? &m_spaces[i - 1] : nullptr;
+    }
+
+    const Block* find(ymfm::access_class type, uint32_t address) {
+        ChipMemoryType t;
         switch (type) {
-            case ymfm::ACCESS_ADPCM_A: return m_adpcm_a;
-            case ymfm::ACCESS_ADPCM_B: return m_adpcm_b;
-            case ymfm::ACCESS_PCM:     return m_pcm;
-            default:                   return m_adpcm_b; // fallback
+            case ymfm::ACCESS_ADPCM_A: t = ChipMemoryType::ADPCM_A; break;
+            case ymfm::ACCESS_ADPCM_B:
+                t = (m_adpcm_b_regs && m_adpcm_b_regs->rom_ram())
+                        ? ChipMemoryType::ADPCM_B_ROMMODE : ChipMemoryType::ADPCM_B;
+                break;
+            case ymfm::ACCESS_PCM:     t = ChipMemoryType::PCM; break;
+            default:                   return nullptr;  // ACCESS_IO などはメモリではない
         }
+        for (const Block& b : m_spaces[static_cast<uint32_t>(t) - 1])
+            if (address >= b.base && address - b.base < b.size) return &b;
+        return nullptr;
     }
-    const MemRegion& getRegion(ymfm::access_class type) const {
-        return const_cast<MemoryYmfmInterface*>(this)->getRegion(type);
-    }
+
+    std::array<std::vector<Block>, kChipMemoryTypeEnd - 1> m_spaces;
+    ymfm::adpcm_b_registers* m_adpcm_b_regs = nullptr;
 };
 
 // BasicYmfmInterface: メモリアクセス不要なチップ用の軽量版 (従来通り)
@@ -455,6 +527,12 @@ class FmChipImpl final : public FmChip {
         TType == ChipType::OPLLX || TType == ChipType::VRC7;
     static constexpr bool kOpl3 = TType == ChipType::OPL3;
     static constexpr bool kOpl4 = TType == ChipType::OPL4;
+    static constexpr bool kAdpcmA =
+        TType == ChipType::OPNA || TType == ChipType::OPNB || TType == ChipType::OPNBB;
+    // ROM/RAM 選択ビットを持つのは OPNA と Y8950。OPNB/OPNBB の ADPCM-B は刻みが固定
+    static constexpr bool kAdpcmBRomMode = TType == ChipType::OPNA || TType == ChipType::Y8950;
+    static constexpr bool kAdpcmB = kAdpcmBRomMode ||
+        TType == ChipType::OPNB || TType == ChipType::OPNBB;
     // 部位を持つチップは、部位ごとの出力を別々に変換してから混ぜる。
     // 0/1 番は呼び出し元の out_l/out_r を兼ね、2 番以降は m_extra_out に置く
     static constexpr size_t kResampleChannels = kOpl4 ? 6 : (kOpl3 ? 4 : 2);
@@ -531,14 +609,31 @@ public:
         return false;
     }
 
-    // 外部メモリ設定 (ROM/RAM ポインタを渡す場合)
-    void setMemory(ymfm::access_class access_type,
-                   const uint8_t* data, uint32_t size) override {
-        m_iface.setMemory(access_type, data, size);
+    bool hasMemory(ChipMemoryType type) const override {
+        switch (type) {
+            case ChipMemoryType::ADPCM_A:         return kAdpcmA;
+            case ChipMemoryType::ADPCM_B:         return kAdpcmB;
+            case ChipMemoryType::PCM:             return kOpl4;
+            case ChipMemoryType::ADPCM_B_ROMMODE: return kAdpcmBRomMode;
+        }
+        return false;
     }
 
-    uint32_t memorySize(ymfm::access_class access_type) const override {
-        return m_iface.memorySize(access_type);
+    bool mapMemory(ChipMemoryType type, uint32_t base, uint8_t* data,
+                   uint32_t size, ChipMemoryAccess access) override {
+        return m_iface.map(type, base, data, size, access);
+    }
+
+    bool unmapMemory(ChipMemoryType type, uint32_t base, uint32_t size) override {
+        return m_iface.unmap(type, base, size);
+    }
+
+    void setMemory(ChipMemoryType type, const uint8_t* data, uint32_t size) override {
+        m_iface.setMemory(type, data, size);
+    }
+
+    uint32_t memorySize(ChipMemoryType type) const override {
+        return m_iface.memorySize(type);
     }
 
     // 直前にこのレジスタへ書き込まれた値と比較し、「キーオン/オフに関係する
@@ -572,6 +667,10 @@ public:
     const char* name()       const override;
 
 private:
+    void bindMemory() {
+        if constexpr (kAdpcmBRomMode) m_iface.bindAdpcmBRegs(&m_chip.adpcmBRegs());
+    }
+
     // コンストラクタの末尾と、OPN 系で prescale が変わったときに呼ぶ
     void updateRates() {
         if constexpr (kSplit) {
@@ -824,7 +923,7 @@ private:
 //  name() 特殊化
 //  各チップに対応する正しい ymfm 型を使うこと
 // =========================================================
-template<> inline const char* FmChipImpl<ymfm::y8950,   ChipType::Y8950 >::name() const { return "Y8950";          }
+template<> inline const char* FmChipImpl<detail::Y8950Mem, ChipType::Y8950>::name() const { return "Y8950";          }
 template<> inline const char* FmChipImpl<ymfm::ym3526,  ChipType::OPL   >::name() const { return "OPL (YM3526)";   }
 template<> inline const char* FmChipImpl<ymfm::ym3812,  ChipType::OPL2  >::name() const { return "OPL2 (YM3812)";  }
 template<> inline const char* FmChipImpl<ymfm::ymf262,  ChipType::OPL3  >::name() const { return "OPL3 (YMF262)";  }
@@ -850,7 +949,8 @@ template<> inline const char* FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >::name(
 //  パターン A: (interface&) のみ
 //    y8950, ym3526, ym3812, ymf262, ymf278b,
 //    ym2203, ym2608, ym2610b, ym2612, ym2414
-//    (OPN 系は detail::*Split 経由。コンストラクタは基底のものを継承する)
+//    (OPN 系は detail::*Split、y8950 は detail::Y8950Mem 経由。
+//     コンストラクタは基底のものを継承する)
 //
 //  パターン B: (interface&, const uint8_t* instrument_data = nullptr)
 //    ym2413, ym2423, ymf281, ds1001
@@ -863,12 +963,12 @@ template<> inline const char* FmChipImpl<ymfm::ds1001,  ChipType::VRC7  >::name(
 // =========================================================
 
 // マクロで繰り返しを省略
-#define FMCHIP_SPEC_A(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface), m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); updateRates(); }
+#define FMCHIP_SPEC_A(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface), m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); bindMemory(); updateRates(); }
 
-#define FMCHIP_SPEC_B(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface, static_cast<uint8_t const*>(nullptr))     , m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); updateRates(); }
+#define FMCHIP_SPEC_B(Cls, TType, Clk) template<> inline FmChipImpl<Cls, ChipType::TType>::FmChipImpl(uint32_t clock)     : m_chip(m_iface, static_cast<uint8_t const*>(nullptr))     , m_clock(clock ? clock : FmClock::Clk) { m_chip.reset(); bindMemory(); updateRates(); }
 
 // パターン A
-FMCHIP_SPEC_A(ymfm::y8950,   Y8950,  Y8950)
+FMCHIP_SPEC_A(detail::Y8950Mem, Y8950, Y8950)
 FMCHIP_SPEC_A(ymfm::ym3526,  OPL,    OPL)
 FMCHIP_SPEC_A(ymfm::ym3812,  OPL2,   OPL2)
 FMCHIP_SPEC_A(ymfm::ymf262,  OPL3,   OPL3)
@@ -894,7 +994,7 @@ template<>
 inline FmChipImpl<ymfm::ym2151, ChipType::OPM>::FmChipImpl(uint32_t clock)
     : m_chip(m_iface)
     , m_clock(clock ? clock : FmClock::OPM)
-{ m_chip.reset(); updateRates(); }
+{ m_chip.reset(); bindMemory(); updateRates(); }
 
 // パターン D: ym2610 (interface&, uint8_t channel_mask = 0x36)
 // clock を channel_mask として渡さないようデフォルト値で構築
@@ -902,7 +1002,7 @@ template<>
 inline FmChipImpl<detail::Ym2610Split<ymfm::ym2610>, ChipType::OPNB>::FmChipImpl(uint32_t clock)
     : m_chip(m_iface)
     , m_clock(clock ? clock : FmClock::OPNB)
-{ m_chip.reset(); updateRates(); }
+{ m_chip.reset(); bindMemory(); updateRates(); }
 
 // =========================================================
 //  ファクトリ関数 (ChipType 版)
@@ -910,7 +1010,7 @@ inline FmChipImpl<detail::Ym2610Split<ymfm::ym2610>, ChipType::OPNB>::FmChipImpl
 inline std::unique_ptr<FmChip> createChip(ChipType type, uint32_t clock = 0) {
     auto resolve = [](uint32_t c, uint32_t def) { return c ? c : def; };
     switch (type) {
-        case ChipType::Y8950:  return std::make_unique<FmChipImpl<ymfm::y8950,   ChipType::Y8950 >>(resolve(clock, FmClock::Y8950));
+        case ChipType::Y8950:  return std::make_unique<FmChipImpl<detail::Y8950Mem, ChipType::Y8950>>(resolve(clock, FmClock::Y8950));
         case ChipType::OPL:    return std::make_unique<FmChipImpl<ymfm::ym3526,  ChipType::OPL   >>(resolve(clock, FmClock::OPL));
         case ChipType::OPL2:   return std::make_unique<FmChipImpl<ymfm::ym3812,  ChipType::OPL2  >>(resolve(clock, FmClock::OPL2));
         case ChipType::OPL3:   return std::make_unique<FmChipImpl<ymfm::ymf262,  ChipType::OPL3  >>(resolve(clock, FmClock::OPL3));

@@ -86,12 +86,12 @@ template<typename Ref>
 static RunResult run(ChipType type, const std::vector<W>& prog, const PartGains& g,
                      const Expect& expect, const std::vector<uint8_t>* pcm) {
     MemoryYmfmInterface iface;
-    if (pcm) iface.setMemory(ymfm::ACCESS_PCM, pcm->data(), static_cast<uint32_t>(pcm->size()));
+    if (pcm) iface.setMemory(ChipMemoryType::PCM, pcm->data(), static_cast<uint32_t>(pcm->size()));
     Ref ref(iface);
     ref.reset();
 
     auto chip = createChip(type);
-    if (pcm) chip->setMemory(ymfm::ACCESS_PCM, pcm->data(), static_cast<uint32_t>(pcm->size()));
+    if (pcm) chip->setMemory(ChipMemoryType::PCM, pcm->data(), static_cast<uint32_t>(pcm->size()));
     chip->setTargetRate(chip->nativeRate());
 
     for (const W& w : prog) {
@@ -422,7 +422,7 @@ static void testEngine() {
         const auto mem = makeAwmMemory();
         FmEngine eng(48000);
         const uint32_t id = eng.addChip(ChipType::OPL4);
-        eng.setMemory(id, ymfm::ACCESS_PCM, mem.data(), static_cast<uint32_t>(mem.size()));
+        eng.setMemory(id, ChipMemoryType::PCM, mem.data(), static_cast<uint32_t>(mem.size()));
         auto prog = opl4Program();
         prog.push_back({0, 0xB0, 0x1E});   // FM ch0 (A/B → DO2) を KEY OFF
         writeAll(eng, id, prog);

@@ -144,7 +144,7 @@ static const std::vector<uint8_t> kAwmMemory = makeAwmMemory();
 
 // NEW2=1 にしないと port2 への書き込みが無視される。オクターブ 1, F-Number 0。
 static void setupOpl4Awm(FmEngine& eng, uint32_t id) {
-    eng.setMemory(id, ymfm::ACCESS_PCM, kAwmMemory.data(), static_cast<uint32_t>(kAwmMemory.size()));
+    eng.setMemory(id, ChipMemoryType::PCM, kAwmMemory.data(), static_cast<uint32_t>(kAwmMemory.size()));
     eng.write(id, 0x05, 0x03, 1);
     eng.write(id, 0x20, 0x00, 2); eng.write(id, 0x38, 0x10, 2);
     eng.write(id, 0x08, 0x00, 2); eng.write(id, 0x50, 0x01, 2);

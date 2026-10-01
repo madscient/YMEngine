@@ -112,7 +112,7 @@ ymfm の全チップは `(ymfm_interface&, uint32_t clock)` を取らないた�
 
 | コンストラクタパターン | 対象チップ |
 |---|---|
-| `(interface&)` のみ | Y8950, OPL, OPL2, OPL3, OPL4, OPN, OPNA, OPNBB, OPN2, OPZ (OPN 系は継承したクラス経由) |
+| `(interface&)` のみ | Y8950, OPL, OPL2, OPL3, OPL4, OPN, OPNA, OPNBB, OPN2, OPZ (OPN 系と Y8950 は継承したクラス経由) |
 | `(interface&, const uint8_t*)` | OPLL, OPLLX, OPLLP, VRC7 |
 | `(interface&, opm_variant)` | OPM ※`protected` のため public コンストラクタを使用 |
 | `(interface&, uint8_t channel_mask)` | OPNB |
@@ -144,47 +144,46 @@ ymfm の全チップは `(ymfm_interface&, uint32_t clock)` を取らないた�
 uint32_t id = engine.addChip(ChipType::OPN2, 7'600'489u); // PAL Mega Drive
 ```
 
-## ライセンス
+## 外部メモリ
 
-- **ymfm**: BSD 3-Clause (Aaron Giles)
-- **このエンジンコード**: MIT
-
-## 外部メモリ (ADPCM/PCM ROM)
-
-ADPCM・PCM を内蔵するチップは ymfm の `ymfm_external_read()` コールバック経由で外部メモリを参照します。`FmChipImpl` の `m_iface` は `MemoryYmfmInterface` として実装されており、3 種のメモリ領域を保持します。
+ADPCM・PCM を持つチップは、ymfm の `ymfm_external_read()` / `ymfm_external_write()` で外部メモリを読み書きします。`FmChipImpl` の `m_iface` (`MemoryYmfmInterface`) が、呼び出し元のブロックを番地の範囲に割り当ててこれに応えます。チップごとのメモリの意味と挙動は README.md の「外部メモリ」と同じです。
 
 ### メモリ種別
 
-| `ymfm::access_class` | `FmMemoryType` (C API) | 対象チップ |
-|---|---|---|
-| `ACCESS_ADPCM_A` | `FM_MEM_ADPCM_A` | OPNB (YM2610), OPNBB (YM2610B) |
-| `ACCESS_ADPCM_B` | `FM_MEM_ADPCM_B` | OPNA (YM2608), OPNB, OPNBB, Y8950 |
-| `ACCESS_PCM`     | `FM_MEM_PCM`     | OPL4 (YMF278B) |
+`ChipMemoryType` / `ChipMemoryAccess` は C API の `FmMemoryType` / `FmMemoryAccess` と番号を揃えてあり、`FmEngineApi.cpp` の `static_assert` で照合しています。
+
+| `ChipMemoryType` | `FmMemoryType` | ymfm のアクセス | 対象チップ |
+|---|---|---|---|
+| `ADPCM_A`         | `FM_MEM_ADPCM_A`         | `ACCESS_ADPCM_A` | OPNA, OPNB, OPNBB |
+| `ADPCM_B`         | `FM_MEM_ADPCM_B`         | `ACCESS_ADPCM_B` (OPNA/Y8950 は RAM モードのとき) | OPNA, OPNB, OPNBB, Y8950 |
+| `PCM`             | `FM_MEM_PCM`             | `ACCESS_PCM` | OPL4 |
+| `ADPCM_B_ROMMODE` | `FM_MEM_ADPCM_B_ROMMODE` | `ACCESS_ADPCM_B` (OPNA/Y8950 が ROM モードのとき) | OPNA, Y8950 |
+
+`FmChip::hasMemory()` は、そのチップが持つ種別にだけ true を返します。
 
 ### C++ API
 
 ```cpp
-// ROM データを設定 (オーディオコールバック開始前に呼ぶこと)
-engine.setMemory(opnaId, ymfm::ACCESS_ADPCM_B, romData, romSize);
+// C API の FmEngine_SetMemoryEx と同じ。data が nullptr なら範囲と重なるブロックを外す
+engine.mapMemory(y8950Id, ChipMemoryType::ADPCM_B, 0, ram, 32768, ChipMemoryAccess::RAM);
+engine.mapMemory(y8950Id, ChipMemoryType::ADPCM_B_ROMMODE, 0, rom, romSize, ChipMemoryAccess::ROM);
 
-// 設定済みサイズの確認
-uint32_t sz = engine.memorySize(opnaId, ymfm::ACCESS_ADPCM_B);
+// C API の FmEngine_SetMemory と同じ。type のメモリを [0, size) の data だけにする
+engine.setMemory(opnbId, ChipMemoryType::ADPCM_A, romA, romASize);
+
+// 割り当てたブロックの大きさの合計
+uint32_t sz = engine.getMemorySize(opnbId, ChipMemoryType::ADPCM_A);
 ```
+
+`mapMemory()` と `setMemory()` は、引数が誤っていれば false を返します (C API の `FM_ERR_INVALID_ARG`)。どちらもスレッドセーフではないので、オーディオスレッドで `generate()` を始める前に呼んでください。
 
 ### 内部実装 (`MemoryYmfmInterface`)
 
-`MemoryYmfmInterface` は `BasicYmfmInterface` の代わりに `FmChipImpl::m_iface` として使われます。
+- 種別ごとにブロックの一覧を持ち、ymfm のアクセスのたびに番地を含むブロックを探します。割り当ての無い番地は 0 を読み、書き込みは捨てます。`ACCESS_IO` (SSG の I/O ポートなど) はどのメモリにも当てません
+- ROM のブロックは書き込み先を持たないので、チップの書き込みは捨てます
+- OPNA と Y8950 は、構築時に `bindAdpcmBRegs()` で ADPCM-B のレジスタを結び付けます。`ACCESS_ADPCM_B` のたびに ROM/RAM 選択ビット (`rom_ram()`) を見て、`ADPCM_B_ROMMODE` と `ADPCM_B` のどちらかを選びます。ymfm はこのビットでアドレスの刻みを変えるだけで、メモリは1つの空間として扱うためです。上流の `m_adpcm_b` は protected なので、`detail::Ym2608Split` と `detail::Y8950Mem` が `adpcmBRegs()` で見せています
 
-```cpp
-// 外部 ROM ポインタを渡す (寿命は呼び出し元管理)
-m_iface.setMemory(ymfm::ACCESS_ADPCM_B, romPtr, romSize);
+## ライセンス
 
-// 書き込み可能 RAM を内部確保 (ADPCM-B の RAM 録音用)
-m_iface.allocMemory(ymfm::ACCESS_ADPCM_B, 512 * 1024);
-```
-
-`setMemory()` は読み取り専用 ROM を想定しています。書き込み可能 RAM が必要な場合 (ADPCM-B の RAM モード等) は `allocMemory()` を使って内部バッファを確保してください。
-
-### 注意事項
-
-`setMemory()` はスレッドセーフではありません。オーディオコールバックの開始 (`generate()` の呼び出し開始) より前に設定してください。設定した `data` ポインタが指すバッファは再生終了まで解放しないでください。
+- **ymfm**: BSD 3-Clause (Aaron Giles)
+- **このエンジンコード**: MIT
