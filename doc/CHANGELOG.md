@@ -103,7 +103,7 @@ ROM を渡さない使い方では、出力は変わらない（下の確認）�
 
 FMEngineTest `20c4923` の `docs/CHANGELOG.md` は、変更前の状態として「チップが
 そのメモリを持たないときの `FmEngine_SetMemory` の戻り値は、YMEngine と
-FMgenEngine が `FM_ERR_INVALID_ARG`」とする。YMEngine `7d8ed2d` の
+FMgenEngine が `FM_ERR_INVALID_ARG`」とする。YMEngine `f44ff0f` の
 `FmEngine_SetMemory` は、この場合に `FM_OK` を返していた（コードで確認：
 `FmEngine::setMemory()` はチップが持つかを見ず、`memory_map_test` に
 「setMemory accepts a type the chip does not have」の行があった。
@@ -704,7 +704,7 @@ dumpbin で確認した。g++ ではビルドしていない（**未検証**）�
 
 ## ymfm を 17decfa から 81aec25 に更新
 
-一度 `261d905` で 81aec25 に上げたが、`1b0072e` で 17decfa に戻っていた。
+一度 `0191939` で 81aec25 に上げたが、`1756a34` で 17decfa に戻っていた。
 戻したのは別マシンのリポジトリと状態を合わせるためで、内容に問題があった
 わけではない（利用者の記憶による）。差分を読み直して取り込んだ。
 
