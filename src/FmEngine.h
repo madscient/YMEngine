@@ -149,16 +149,19 @@ public:
         return true;
     }
 
-    // チップが持つ部位のビットマスク (bit n = ChipPart の n 番)。部位を持たない
-    // チップは 0。未知の chip_id なら false。
-    bool getPartMask(uint32_t chip_id, uint32_t& out_mask) const {
-        static_assert(kChipPartCount <= 32, "part mask is uint32_t");
+    // チップが持つ部位の列挙と、名前からの検索 (C API は部位を名前で受け取る)。
+    // 部位を持たないチップと未知の chip_id は、数が 0、名前が nullptr、検索が false。
+    uint32_t partCount(uint32_t chip_id) const {
+        if (chip_id >= m_chips.size()) return 0;
+        return m_chips[chip_id]->partCount();
+    }
+    const char* partName(uint32_t chip_id, uint32_t index) const {
+        if (chip_id >= m_chips.size()) return nullptr;
+        return m_chips[chip_id]->partName(index);
+    }
+    bool findPart(uint32_t chip_id, const char* name, ChipPart& out) const {
         if (chip_id >= m_chips.size()) return false;
-        uint32_t mask = 0;
-        for (uint32_t p = 0; p < kChipPartCount; ++p)
-            if (m_chips[chip_id]->hasPart(static_cast<ChipPart>(p))) mask |= 1u << p;
-        out_mask = mask;
-        return true;
+        return m_chips[chip_id]->findPart(name, out);
     }
 
     uint32_t nativeRate(uint32_t chip_id) const {
@@ -169,6 +172,20 @@ public:
     const char* getChipName(uint32_t chip_id) const {
         if (chip_id >= m_chips.size()) return nullptr;
         return m_chips[chip_id]->name();
+    }
+
+    // チップが持つ外部メモリの列挙と、名前からの検索。部位と同じ形
+    uint32_t memoryCount(uint32_t chip_id) const {
+        if (chip_id >= m_chips.size()) return 0;
+        return m_chips[chip_id]->memoryCount();
+    }
+    const char* memoryName(uint32_t chip_id, uint32_t index) const {
+        if (chip_id >= m_chips.size()) return nullptr;
+        return m_chips[chip_id]->memoryName(index);
+    }
+    bool findMemory(uint32_t chip_id, const char* name, ChipMemoryType& out) const {
+        if (chip_id >= m_chips.size()) return false;
+        return m_chips[chip_id]->findMemory(name, out);
     }
 
     // 外部メモリ。どれもオーディオスレッド起動前に呼ぶこと (スレッドセーフではない)。
@@ -187,14 +204,13 @@ public:
         return m_chips[chip_id]->mapMemory(type, base, data, size, access);
     }
 
-    // C API の FmEngine_SetMemory。type の割り当てを [0, size) の data だけに
-    // する。チップの書き込みは捨てる。チップが持たない type も受け付ける
-    // (受け付けるだけで、チップは読まない)。ADPCM_B_ROMMODE は扱わない。
+    // C API の FmEngine_SetMemory と同じ。type の割り当てを [0, size) の data
+    // だけにする。チップの書き込みは捨てる。未知の chip_id、チップが持たない
+    // type、data が nullptr、size が 0 なら false。
     bool setMemory(uint32_t chip_id, ChipMemoryType type,
                    const uint8_t* data, uint32_t size) {
-        if (chip_id >= m_chips.size() || !data || size == 0) return false;
-        if (type != ChipMemoryType::ADPCM_A && type != ChipMemoryType::ADPCM_B &&
-            type != ChipMemoryType::PCM) return false;
+        if (chip_id >= m_chips.size() || !m_chips[chip_id]->hasMemory(type)) return false;
+        if (!data || size == 0) return false;
         m_chips[chip_id]->setMemory(type, data, size);
         return true;
     }

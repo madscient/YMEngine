@@ -184,22 +184,56 @@ inline float defaultPartGain(ChipPart part) {
     }
 }
 
+// C API で部位を指定する名前。チップを指定した上で渡すので、チップの中でだけ
+// 一意であればよい (別のチップの部位が同じ名前を持ってよい)。
+inline const char* chipPartName(ChipPart part) {
+    switch (part) {
+        case ChipPart::OPN_FM:      return "FM";
+        case ChipPart::OPN_SSG:     return "SSG";
+        case ChipPart::OPLL_MELODY: return "MELODY";
+        case ChipPart::OPLL_RHYTHM: return "RHYTHM";
+        case ChipPart::OPL3_AB:     return "AB";
+        case ChipPart::OPL3_CD:     return "CD";
+        case ChipPart::OPL4_DO0:    return "DO0";
+        case ChipPart::OPL4_DO1:    return "DO1";
+        case ChipPart::OPL4_DO2:    return "DO2";
+    }
+    return nullptr;
+}
+
 // =========================================================
 //  チップから見えるメモリと、そこにつないだデバイスの種類
-//  番号は C API の FmMemoryType / FmMemoryAccess と揃える。
+//  ChipMemoryAccess の番号は C API の FmMemoryAccess と揃える。
 //
 //  OPNA と Y8950 の ADPCM-B は、ROM/RAM 選択ビットで別のメモリにアクセスする
 //  (実機では物理的に別のメモリ)。ymfm は1つの空間 (ACCESS_ADPCM_B) で扱い、
 //  ビットはアドレスの刻みを変えるだけなので、MemoryYmfmInterface がアクセスの
 //  たびにビットを見て ADPCM_B と ADPCM_B_ROMMODE に振り分ける。
+//
+//  OPNA のリズムは、ymfm では OPNB の ADPCM-A と同じ ACCESS_ADPCM_A で読む。
+//  OPNA には ADPCM-A のメモリが無いので、別のメモリ (RHYTHM) として扱う。
 // =========================================================
 enum class ChipMemoryType : uint32_t {
-    ADPCM_A         = 1,  // OPNA: リズムの内蔵 ROM の内容 / OPNB/OPNBB: ADPCM-A
+    RHYTHM          = 0,  // OPNA: リズムの内蔵 ROM の内容
+    ADPCM_A         = 1,  // OPNB/OPNBB: ADPCM-A
     ADPCM_B         = 2,  // OPNB/OPNBB: ADPCM-B / OPNA/Y8950: RAM モードのメモリ
-    PCM             = 3,  // OPL4
-    ADPCM_B_ROMMODE = 4,  // OPNA/Y8950: ROM モードのメモリ
+    ADPCM_B_ROMMODE = 3,  // OPNA/Y8950: ROM モードのメモリ
+    PCM             = 4,  // OPL4
 };
-constexpr uint32_t kChipMemoryTypeEnd = 5;  // 0 は欠番
+constexpr uint32_t kChipMemoryTypeCount = 5;
+
+// C API で外部メモリを指定する名前。chipPartName() と同じく、チップの中でだけ
+// 一意であればよい。
+inline const char* chipMemoryName(ChipMemoryType type) {
+    switch (type) {
+        case ChipMemoryType::RHYTHM:          return "RHYTHM";
+        case ChipMemoryType::ADPCM_A:         return "ADPCM_A";
+        case ChipMemoryType::ADPCM_B:         return "ADPCM_B";
+        case ChipMemoryType::ADPCM_B_ROMMODE: return "ADPCM_B_ROMMODE";
+        case ChipMemoryType::PCM:             return "PCM";
+    }
+    return nullptr;
+}
 
 enum class ChipMemoryAccess : uint32_t {
     ROM = 0,  // チップからの書き込みは捨てる
@@ -324,6 +358,60 @@ public:
     virtual const char* name()  const = 0;
     virtual uint32_t    clock() const = 0;
 
+    // チップが持つ部位を ChipPart の番号順に並べた列挙と、名前からの検索。
+    // partName() は範囲外なら nullptr、findPart() はチップが持たない名前と
+    // nullptr なら false
+    uint32_t partCount() const {
+        uint32_t n = 0;
+        for (uint32_t p = 0; p < kChipPartCount; ++p)
+            if (hasPart(static_cast<ChipPart>(p))) ++n;
+        return n;
+    }
+    const char* partName(uint32_t index) const {
+        for (uint32_t p = 0; p < kChipPartCount; ++p) {
+            const ChipPart part = static_cast<ChipPart>(p);
+            if (hasPart(part) && index-- == 0) return chipPartName(part);
+        }
+        return nullptr;
+    }
+    bool findPart(const char* name, ChipPart& out) const {
+        if (!name) return false;
+        for (uint32_t p = 0; p < kChipPartCount; ++p) {
+            const ChipPart part = static_cast<ChipPart>(p);
+            if (hasPart(part) && std::strcmp(chipPartName(part), name) == 0) {
+                out = part;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 外部メモリの列挙と検索。部位と同じ形
+    uint32_t memoryCount() const {
+        uint32_t n = 0;
+        for (uint32_t t = 0; t < kChipMemoryTypeCount; ++t)
+            if (hasMemory(static_cast<ChipMemoryType>(t))) ++n;
+        return n;
+    }
+    const char* memoryName(uint32_t index) const {
+        for (uint32_t t = 0; t < kChipMemoryTypeCount; ++t) {
+            const ChipMemoryType type = static_cast<ChipMemoryType>(t);
+            if (hasMemory(type) && index-- == 0) return chipMemoryName(type);
+        }
+        return nullptr;
+    }
+    bool findMemory(const char* name, ChipMemoryType& out) const {
+        if (!name) return false;
+        for (uint32_t t = 0; t < kChipMemoryTypeCount; ++t) {
+            const ChipMemoryType type = static_cast<ChipMemoryType>(t);
+            if (hasMemory(type) && std::strcmp(chipMemoryName(type), name) == 0) {
+                out = type;
+                return true;
+            }
+        }
+        return false;
+    }
+
     // 外部メモリ。挙動は MemoryYmfmInterface の map / unmap / setMemory /
     // memorySize を参照
     virtual bool        hasMemory(ChipMemoryType type) const { return false; }
@@ -395,6 +483,9 @@ public:
     // 結び付けなければ、すべて ADPCM_B に行く
     void bindAdpcmBRegs(ymfm::adpcm_b_registers* regs) { m_adpcm_b_regs = regs; }
 
+    // ACCESS_ADPCM_A を振り向けるメモリ (OPNA は RHYTHM)。指定しなければ ADPCM_A に行く
+    void setAdpcmAMemory(ChipMemoryType type) { m_adpcm_a_type = type; }
+
     // [base, base + size) に data を割り当てる。RAM なら data にチップの書き込みを
     // 入れる。size が 0、範囲が 2^32 を越える、既存の割り当てと重なるなら false
     bool map(ChipMemoryType type, uint32_t base, uint8_t* data, uint32_t size,
@@ -453,17 +544,17 @@ private:
 
     std::vector<Block>* space(ChipMemoryType type) {
         const auto i = static_cast<uint32_t>(type);
-        return (i >= 1 && i < kChipMemoryTypeEnd) ? &m_spaces[i - 1] : nullptr;
+        return (i < kChipMemoryTypeCount) ? &m_spaces[i] : nullptr;
     }
     const std::vector<Block>* space(ChipMemoryType type) const {
         const auto i = static_cast<uint32_t>(type);
-        return (i >= 1 && i < kChipMemoryTypeEnd) ? &m_spaces[i - 1] : nullptr;
+        return (i < kChipMemoryTypeCount) ? &m_spaces[i] : nullptr;
     }
 
     const Block* find(ymfm::access_class type, uint32_t address) {
         ChipMemoryType t;
         switch (type) {
-            case ymfm::ACCESS_ADPCM_A: t = ChipMemoryType::ADPCM_A; break;
+            case ymfm::ACCESS_ADPCM_A: t = m_adpcm_a_type; break;
             case ymfm::ACCESS_ADPCM_B:
                 t = (m_adpcm_b_regs && m_adpcm_b_regs->rom_ram())
                         ? ChipMemoryType::ADPCM_B_ROMMODE : ChipMemoryType::ADPCM_B;
@@ -471,13 +562,14 @@ private:
             case ymfm::ACCESS_PCM:     t = ChipMemoryType::PCM; break;
             default:                   return nullptr;  // ACCESS_IO などはメモリではない
         }
-        for (const Block& b : m_spaces[static_cast<uint32_t>(t) - 1])
+        for (const Block& b : m_spaces[static_cast<uint32_t>(t)])
             if (address >= b.base && address - b.base < b.size) return &b;
         return nullptr;
     }
 
-    std::array<std::vector<Block>, kChipMemoryTypeEnd - 1> m_spaces;
+    std::array<std::vector<Block>, kChipMemoryTypeCount> m_spaces;
     ymfm::adpcm_b_registers* m_adpcm_b_regs = nullptr;
+    ChipMemoryType           m_adpcm_a_type = ChipMemoryType::ADPCM_A;
 };
 
 // BasicYmfmInterface: メモリアクセス不要なチップ用の軽量版 (従来通り)
@@ -505,8 +597,8 @@ class FmChipImpl final : public FmChip {
         TType == ChipType::OPLLX || TType == ChipType::VRC7;
     static constexpr bool kOpl3 = TType == ChipType::OPL3;
     static constexpr bool kOpl4 = TType == ChipType::OPL4;
-    static constexpr bool kAdpcmA =
-        TType == ChipType::OPNA || TType == ChipType::OPNB || TType == ChipType::OPNBB;
+    static constexpr bool kRhythmRom = TType == ChipType::OPNA;
+    static constexpr bool kAdpcmA = TType == ChipType::OPNB || TType == ChipType::OPNBB;
     // ROM/RAM 選択ビットを持つのは OPNA と Y8950。OPNB/OPNBB の ADPCM-B は刻みが固定
     static constexpr bool kAdpcmBRomMode = TType == ChipType::OPNA || TType == ChipType::Y8950;
     static constexpr bool kAdpcmB = kAdpcmBRomMode ||
@@ -589,10 +681,11 @@ public:
 
     bool hasMemory(ChipMemoryType type) const override {
         switch (type) {
+            case ChipMemoryType::RHYTHM:          return kRhythmRom;
             case ChipMemoryType::ADPCM_A:         return kAdpcmA;
             case ChipMemoryType::ADPCM_B:         return kAdpcmB;
-            case ChipMemoryType::PCM:             return kOpl4;
             case ChipMemoryType::ADPCM_B_ROMMODE: return kAdpcmBRomMode;
+            case ChipMemoryType::PCM:             return kOpl4;
         }
         return false;
     }
@@ -647,6 +740,7 @@ public:
 private:
     void bindMemory() {
         if constexpr (kAdpcmBRomMode) m_iface.bindAdpcmBRegs(&m_chip.adpcmBRegs());
+        if constexpr (kRhythmRom) m_iface.setAdpcmAMemory(ChipMemoryType::RHYTHM);
     }
 
     // コンストラクタの末尾と、OPN 系で prescale が変わったときに呼ぶ

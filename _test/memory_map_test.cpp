@@ -1,19 +1,24 @@
 // memory_map_test.cpp
 // 外部メモリの割り当て (FmChip.h の MemoryYmfmInterface と FmEngine の
-// mapMemory / setMemory / getMemorySize) の回帰テスト。
+// mapMemory / setMemory / getMemorySize / memoryCount / memoryName / findMemory)
+// の回帰テスト。
 //
-//   accept : 全チップ × 全メモリ種別で、mapMemory が受け付ける組み合わせ。
+//   accept : 全チップ × 全メモリ種別で、mapMemory と setMemory が受け付ける
+//            組み合わせ (チップが持つ種別だけ)。外部メモリの列挙と名前からの
+//            検索が、FmEngineApi の仕様の表の名前と一致すること。チップが持たない
+//            メモリの名前、大文字小文字の違う名前、nullptr を拒否すること。
 //            範囲の検査 (size 0、2^32 越え、重なり、隣接)、未知の access、
 //            nullptr での取り外し、getMemorySize が大きさの合計を返すこと。
-//            setMemory が ADPCM_B_ROMMODE と範囲外の種別を拒否し、それまでの
-//            割り当てを [0, size) に置き換えること
+//            setMemory がそれまでの割り当てを [0, size) に置き換えること
 //   route  : MemoryYmfmInterface 単体で、ymfm のアクセス種別と ROM/RAM 選択ビット
 //            から、どのブロックのどのバイトを読み書きするか。ブロックの境界、
-//            割り当ての無い番地、ROM のブロックへの書き込み、ACCESS_IO
+//            割り当ての無い番地、ROM のブロックへの書き込み、ACCESS_IO。
+//            ACCESS_ADPCM_A の振り向け先 (ADPCM_A / RHYTHM)
 //   play   : 実際のチップ (OPNA / Y8950 / OPNB) で ADPCM-B を外部メモリから
 //            再生し、選択ビットに応じた側のブロックだけが読まれること。何も
 //            割り当てない場合と出力を比べ、読まれるべき側に割り当てると変わり、
-//            反対側に割り当てても1サンプルも変わらないことを見る。RAM の
+//            反対側に割り当てても1サンプルも変わらないことを見る。OPNA のリズムが
+//            RHYTHM を、OPNB の ADPCM-A が ADPCM_A を読むこと。RAM の
 //            ブロックは複製されず、生成の合間に書き換えると出力が変わること
 //   store  : レジスタ経由の転送 (ADPCM-B の録音モード、OPL4 のメモリアクセス
 //            モード) で、チップの書き込みが RAM のブロックにその場で入り、ROM の
@@ -28,6 +33,8 @@
 #include "test_clocks.h"
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <vector>
 
 static int  g_fail = 0;
@@ -50,32 +57,95 @@ constexpr auto RAM = ChipMemoryAccess::RAM;
 // =========================================================
 //  accept
 // =========================================================
+// 名前は FmEngineApi の仕様の表のもの。chipMemoryName() から作ると、名前を
+// 取り違えても試験が一緒に動いてしまうので、ここに書く
+struct MemSpec {
+    ChipMemoryType type;
+    const char*    name;
+};
+
 static void testAccept() {
-    // bit n = ChipMemoryType の n 番
-    constexpr uint32_t A = 1u << 1, B = 1u << 2, P = 1u << 3, R = 1u << 4;
-    struct Row { ChipType type; uint32_t mask; };
+    const MemSpec rhythm{ChipMemoryType::RHYTHM, "RHYTHM"};
+    const MemSpec adpcmA{ChipMemoryType::ADPCM_A, "ADPCM_A"};
+    const MemSpec adpcmB{ChipMemoryType::ADPCM_B, "ADPCM_B"};
+    const MemSpec adpcmBRom{ChipMemoryType::ADPCM_B_ROMMODE, "ADPCM_B_ROMMODE"};
+    const MemSpec pcm{ChipMemoryType::PCM, "PCM"};
+    struct Row { ChipType type; std::vector<MemSpec> mems; };
     const Row rows[] = {
-        {ChipType::Y8950, B | R}, {ChipType::OPL,   0}, {ChipType::OPL2,  0},
-        {ChipType::OPL3,  0},     {ChipType::OPL4,  P}, {ChipType::OPN,   0},
-        {ChipType::OPNA,  A | B | R}, {ChipType::OPNB, A | B}, {ChipType::OPNBB, A | B},
-        {ChipType::OPN2,  0},     {ChipType::OPM,   0}, {ChipType::OPLL,  0},
-        {ChipType::OPLLP, 0},     {ChipType::OPLLX, 0}, {ChipType::OPZ,   0},
-        {ChipType::VRC7,  0},
+        {ChipType::Y8950, {adpcmB, adpcmBRom}},
+        {ChipType::OPL,   {}}, {ChipType::OPL2,  {}}, {ChipType::OPL3, {}},
+        {ChipType::OPL4,  {pcm}},
+        {ChipType::OPN,   {}},
+        {ChipType::OPNA,  {rhythm, adpcmB, adpcmBRom}},
+        {ChipType::OPNB,  {adpcmA, adpcmB}},
+        {ChipType::OPNBB, {adpcmA, adpcmB}},
+        {ChipType::OPN2,  {}}, {ChipType::OPM,   {}}, {ChipType::OPLL, {}},
+        {ChipType::OPLLP, {}}, {ChipType::OPLLX, {}}, {ChipType::OPZ,  {}},
+        {ChipType::VRC7,  {}},
     };
+    // どのチップのメモリでもない名前。大文字小文字を区別すること、部位の名前を
+    // 受け付けないことを見る
+    const std::vector<const char*> strangers = {"", "adpcm_b", "Pcm", "FM_MEM_PCM", "PCM ", "SSG", "ROM"};
+
     std::vector<uint8_t> buf(16);
     for (const Row& row : rows) {
         FmEngine eng(48000);
         const uint32_t id = eng.addChip(row.type, testClock(row.type));
-        uint32_t mapped = 0, unmapped = 0;
-        // 0 と kChipMemoryTypeEnd は範囲外の番号
-        for (uint32_t t = 0; t <= kChipMemoryTypeEnd; ++t) {
+        // bit n = ChipMemoryType の n 番
+        uint32_t want = 0;
+        for (const MemSpec& s : row.mems) want |= 1u << static_cast<uint32_t>(s.type);
+        uint32_t mapped = 0, unmapped = 0, set = 0;
+        // kChipMemoryTypeCount は範囲外の番号
+        for (uint32_t t = 0; t <= kChipMemoryTypeCount; ++t) {
             const auto type = static_cast<ChipMemoryType>(t);
             if (eng.mapMemory(id, type, 0, buf.data(), 16, ROM)) mapped |= 1u << t;
             if (eng.mapMemory(id, type, 0, nullptr, 16, ROM))    unmapped |= 1u << t;
+            if (eng.setMemory(id, type, buf.data(), 16))         set |= 1u << t;
         }
-        std::snprintf(msg, sizeof msg, "accept %-16s map=0x%02X unmap=0x%02X (expect 0x%02X)",
-                      eng.getChipName(id), mapped, unmapped, row.mask);
-        check(mapped == row.mask && unmapped == row.mask, msg);
+        std::snprintf(msg, sizeof msg, "accept %-16s map=0x%02X unmap=0x%02X set=0x%02X (expect 0x%02X)",
+                      eng.getChipName(id), mapped, unmapped, set, want);
+        check(mapped == want && unmapped == want && set == want, msg);
+
+        // 列挙: 数と名前の集合が表と一致し、2回目も同じ順序で、範囲外は nullptr
+        std::string listed;
+        bool namesOk = eng.memoryCount(id) == row.mems.size();
+        for (uint32_t i = 0; i < eng.memoryCount(id); ++i) {
+            const char* n = eng.memoryName(id, i);
+            listed += std::string(i ? "," : "") + (n ? n : "(null)");
+            const bool known = n && std::any_of(row.mems.begin(), row.mems.end(),
+                [&](const MemSpec& s) { return std::strcmp(s.name, n) == 0; });
+            bool unique = true;
+            for (uint32_t j = 0; j < i; ++j)
+                unique = unique && n && std::strcmp(eng.memoryName(id, j), n) != 0;
+            namesOk = namesOk && known && unique && eng.memoryName(id, i) == n;
+        }
+        namesOk = namesOk && eng.memoryName(id, eng.memoryCount(id)) == nullptr;
+        std::snprintf(msg, sizeof msg, "names  %-16s [%s]", eng.getChipName(id), listed.c_str());
+        check(namesOk, msg);
+
+        // 検索: 表の名前はその種別を返し、チップが持たないメモリの名前は拒否する
+        std::string badFind;
+        for (const MemSpec& s : {rhythm, adpcmA, adpcmB, adpcmBRom, pcm}) {
+            const bool mine = std::any_of(row.mems.begin(), row.mems.end(),
+                [&](const MemSpec& m) { return m.type == s.type; });
+            ChipMemoryType found = static_cast<ChipMemoryType>(kChipMemoryTypeCount);
+            const bool got = eng.findMemory(id, s.name, found);
+            if (got != mine || (got && found != s.type)) badFind += std::string(" ") + s.name;
+        }
+        ChipMemoryType found = static_cast<ChipMemoryType>(kChipMemoryTypeCount);
+        for (const char* n : strangers)
+            if (eng.findMemory(id, n, found)) badFind += std::string(" '") + n + "'";
+        if (eng.findMemory(id, nullptr, found)) badFind += " nullptr";
+        std::snprintf(msg, sizeof msg, "find   %-16s wrong at [%s ]", eng.getChipName(id), badFind.c_str());
+        check(badFind.empty(), msg);
+    }
+
+    {
+        FmEngine eng(48000);
+        const uint32_t id = eng.addChip(ChipType::OPNA, testClock(ChipType::OPNA));
+        ChipMemoryType found = ChipMemoryType::RHYTHM;
+        check(eng.memoryCount(id + 1) == 0 && eng.memoryName(id + 1, 0) == nullptr &&
+              !eng.findMemory(id + 1, "RHYTHM", found), "unknown chip_id has no memories");
     }
 
     {
@@ -105,26 +175,14 @@ static void testAccept() {
         check(eng.mapMemory(id, PCM, 0x1000, a.data(), 0x200, ROM), "  the range can be mapped again");
         check(eng.mapMemory(id, PCM, 0x8000, nullptr, 0x100, ROM), "unmap where nothing is mapped");
 
-        check(!eng.setMemory(id, ChipMemoryType::ADPCM_B_ROMMODE, a.data(), 1), "setMemory rejects ADPCM_B_ROMMODE");
-        check(!eng.setMemory(id, static_cast<ChipMemoryType>(0), a.data(), 1), "setMemory rejects type 0");
-        check(!eng.setMemory(id, static_cast<ChipMemoryType>(kChipMemoryTypeEnd), a.data(), 1),
-              "setMemory rejects type past the end");
         check(!eng.setMemory(id, PCM, nullptr, 1), "setMemory rejects nullptr");
         check(!eng.setMemory(id, PCM, a.data(), 0), "setMemory rejects size 0");
         check(!eng.setMemory(id + 1, PCM, a.data(), 1), "setMemory rejects unknown chip_id");
+        check(eng.getMemorySize(id, PCM) == 0x10 + 0x300, "  a rejected setMemory leaves the blocks");
         check(eng.setMemory(id, PCM, a.data(), 0x80) && eng.getMemorySize(id, PCM) == 0x80,
               "setMemory replaces every block");
         check(!eng.mapMemory(id, PCM, 0x7F, b.data(), 1, ROM) &&
               eng.mapMemory(id, PCM, 0x80, b.data(), 1, ROM), "  with [0, size)");
-    }
-
-    {
-        FmEngine eng(48000);
-        const uint32_t id = eng.addChip(ChipType::OPN2, testClock(ChipType::OPN2));
-        std::vector<uint8_t> a(16);
-        check(eng.setMemory(id, ChipMemoryType::ADPCM_B, a.data(), 16) &&
-              eng.getMemorySize(id, ChipMemoryType::ADPCM_B) == 16,
-              "setMemory accepts a type the chip does not have");
     }
 }
 
@@ -178,6 +236,17 @@ static void testRoute() {
     unbound.map(ChipMemoryType::ADPCM_B,         0, ram.data(), 0x100, ROM);
     unbound.map(ChipMemoryType::ADPCM_B_ROMMODE, 0, rom.data(), 0x100, ROM);
     check(unbound.ymfm_external_read(B, 5) == 0x05, "without bound registers ADPCM-B reads ADPCM_B");
+
+    // m には RHYTHM を割り当てていないので、振り向けると 0 を読む
+    unbound.map(ChipMemoryType::RHYTHM,  0, rom.data(), 0x100, ROM);
+    unbound.map(ChipMemoryType::ADPCM_A, 0, a.data(),   0x10,  ROM);
+    check(unbound.ymfm_external_read(ymfm::ACCESS_ADPCM_A, 3) == 0x43,
+          "ACCESS_ADPCM_A reads ADPCM_A unless redirected");
+    unbound.setAdpcmAMemory(ChipMemoryType::RHYTHM);
+    m.setAdpcmAMemory(ChipMemoryType::RHYTHM);
+    check(unbound.ymfm_external_read(ymfm::ACCESS_ADPCM_A, 3) == 0x83 &&
+          rd(ymfm::ACCESS_ADPCM_A, 3) == 0,
+          "  redirected to RHYTHM it reads RHYTHM and not ADPCM_A");
 }
 
 // =========================================================
@@ -221,6 +290,24 @@ static std::vector<W> opnbPlay() {
         {0, 0x19, 0xFF}, {0, 0x1A, 0xFF},
         {0, 0x1B, 0xFF},
         {0, 0x10, 0x90},
+    };
+}
+
+// OPNA のリズム 6 音を同時に鳴らす。番地は内蔵 ROM の 8KB の中に固定で入っている
+static std::vector<W> opnaRhythm() {
+    return {
+        {0, 0x11, 0x3F},   // total level
+        {0, 0x10, 0x3F},   // key on
+    };
+}
+
+// OPNB の ADPCM-A ch0 で、番地 0 から 8KB (256 バイト刻みで end=0x001F) を鳴らす
+static std::vector<W> opnbAdpcmA() {
+    return {
+        {1, 0x01, 0x3F},                    // total level
+        {1, 0x10, 0x00}, {1, 0x18, 0x00},   // start
+        {1, 0x20, 0x1F}, {1, 0x28, 0x00},   // end
+        {1, 0x00, 0x01},                    // key on
     };
 }
 
@@ -277,6 +364,14 @@ static void testPlay() {
     checkSide("OPNB  reads ADPCM_B with the ROM bit", ChipType::OPNB,  opnbPlay(),       ramSide, nullptr);
     checkSide("OPNA  setMemory(ADPCM_B) is the RAM-mode memory", ChipType::OPNA, opnaPlay(true),
               romSide, &legacy);
+    const Mapping legacyRom{ChipMemoryType::ADPCM_B_ROMMODE, true};
+    checkSide("OPNA  setMemory(ADPCM_B_ROMMODE) is the ROM-mode memory", ChipType::OPNA, opnaPlay(true),
+              legacyRom, &legacy);
+
+    const Mapping rhythm{ChipMemoryType::RHYTHM, false};
+    const Mapping adpcmA{ChipMemoryType::ADPCM_A, false};
+    checkSide("OPNA  rhythm reads RHYTHM",   ChipType::OPNA, opnaRhythm(), rhythm, &ramSide);
+    checkSide("OPNB  ADPCM-A reads ADPCM_A", ChipType::OPNB, opnbAdpcmA(), adpcmA, &ramSide);
 
     // RAM のブロックは複製されない。生成の合間に書き換えると、次の生成から読まれる
     {

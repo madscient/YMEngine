@@ -10,8 +10,10 @@
 //            だけが出ること
 //   chip   : 部位を持たないチップにチップのゲインが掛かり、部位のゲインは
 //            使われないこと
-//   accept : 全チップ × 全部位で、受け付ける組み合わせと既定値。getPartMask() が
-//            受け付ける部位と一致すること
+//   accept : 全チップ × 全部位で、受け付ける組み合わせと既定値。部位の列挙
+//            (partCount / partName) と名前からの検索 (findPart) が、FmEngineApi の
+//            仕様の表の名前と一致すること。ほかのチップの部位の名前、大文字小文字の
+//            違う名前、nullptr を拒否すること
 //   engine : FmEngine 経由で、チップのゲインと部位のゲインが掛かること。
 //            各部位が実際にその端子の音を出すこと (C/D にだけ出したチャンネルが
 //            A/B 側から聞こえないこと、など)。route は ymfm の出力の並びを前提に
@@ -24,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <functional>
 #include <initializer_list>
 #include <string>
@@ -283,21 +286,31 @@ static void testChipGain() {
 // =========================================================
 //  accept
 // =========================================================
+// 名前は FmEngineApi の仕様の表のもの。chipPartName() から作ると、名前を
+// 取り違えても試験が一緒に動いてしまうので、ここに書く
+struct PartSpec {
+    ChipPart    part;
+    const char* name;
+};
+
 struct AcceptCase {
     const char*           name;
     ChipType              type;
-    std::vector<ChipPart> parts;
+    std::vector<PartSpec> parts;
 };
 
 static void testAccept() {
-    const std::vector<ChipPart> opn  = {ChipPart::OPN_FM, ChipPart::OPN_SSG};
-    const std::vector<ChipPart> opll = {ChipPart::OPLL_MELODY, ChipPart::OPLL_RHYTHM};
+    const std::vector<PartSpec> opn  = {{ChipPart::OPN_FM, "FM"}, {ChipPart::OPN_SSG, "SSG"}};
+    const std::vector<PartSpec> opll = {{ChipPart::OPLL_MELODY, "MELODY"}, {ChipPart::OPLL_RHYTHM, "RHYTHM"}};
+    const std::vector<PartSpec> opl3 = {{ChipPart::OPL3_AB, "AB"}, {ChipPart::OPL3_CD, "CD"}};
+    const std::vector<PartSpec> opl4 = {{ChipPart::OPL4_DO0, "DO0"}, {ChipPart::OPL4_DO1, "DO1"},
+                                        {ChipPart::OPL4_DO2, "DO2"}};
     const AcceptCase cases[] = {
         {"Y8950", ChipType::Y8950, {}},
         {"OPL",   ChipType::OPL,   {}},
         {"OPL2",  ChipType::OPL2,  {}},
-        {"OPL3",  ChipType::OPL3,  {ChipPart::OPL3_AB, ChipPart::OPL3_CD}},
-        {"OPL4",  ChipType::OPL4,  {ChipPart::OPL4_DO0, ChipPart::OPL4_DO1, ChipPart::OPL4_DO2}},
+        {"OPL3",  ChipType::OPL3,  opl3},
+        {"OPL4",  ChipType::OPL4,  opl4},
         {"OPN",   ChipType::OPN,   opn},
         {"OPNA",  ChipType::OPNA,  opn},
         {"OPNB",  ChipType::OPNB,  opn},
@@ -310,14 +323,22 @@ static void testAccept() {
         {"OPZ",   ChipType::OPZ,   {}},
         {"VRC7",  ChipType::VRC7,  opll},
     };
+    // どのチップの部位でもない名前。大文字小文字を区別すること、チップ名を
+    // 付けた名前や外部メモリの名前を受け付けないことを見る
+    const std::vector<const char*> strangers = {"", "fm", "Ssg", "OPN_FM", "FM ", "ADPCM_B", "DO3"};
+
     for (const AcceptCase& c : cases) {
         FmEngine eng(48000);
         const uint32_t id = eng.addChip(c.type, testClock(c.type));
+        auto has = [&](ChipPart part) {
+            return std::any_of(c.parts.begin(), c.parts.end(),
+                               [&](const PartSpec& s) { return s.part == part; });
+        };
         std::string bad;
         // kChipPartCount 番 (範囲外) も拒否されること
         for (uint32_t p = 0; p <= kChipPartCount; ++p) {
             const ChipPart part = static_cast<ChipPart>(p);
-            const bool want = std::find(c.parts.begin(), c.parts.end(), part) != c.parts.end();
+            const bool want = has(part);
             float l = -1.0f, r = -1.0f;
             const bool got = eng.getPartGain(id, part, l, r);
             const bool defOk = !want || (l == defaultPartGain(part) && r == defaultPartGain(part));
@@ -333,18 +354,50 @@ static void testAccept() {
             c.name, c.parts.size(), bad.c_str());
         check(bad.empty(), msg);
 
-        uint32_t want = 0;
-        for (ChipPart p : c.parts) want |= 1u << at(p);
-        uint32_t mask = 0xFFFFFFFFu;
-        const bool ok = eng.getPartMask(id, mask);
-        std::snprintf(msg, sizeof msg, "partMask %s: 0x%03X (expect 0x%03X)", c.name, mask, want);
-        check(ok && mask == want, msg);
+        // 列挙: 数と名前の集合が表と一致し、2回目も同じ順序で、範囲外は nullptr
+        std::string listed;
+        bool namesOk = eng.partCount(id) == c.parts.size();
+        for (uint32_t i = 0; i < eng.partCount(id); ++i) {
+            const char* n = eng.partName(id, i);
+            listed += std::string(i ? "," : "") + (n ? n : "(null)");
+            const bool known = n && std::any_of(c.parts.begin(), c.parts.end(),
+                [&](const PartSpec& s) { return std::strcmp(s.name, n) == 0; });
+            bool unique = true;
+            for (uint32_t j = 0; j < i; ++j)
+                unique = unique && n && std::strcmp(eng.partName(id, j), n) != 0;
+            namesOk = namesOk && known && unique && eng.partName(id, i) == n;
+        }
+        namesOk = namesOk && eng.partName(id, eng.partCount(id)) == nullptr;
+        std::snprintf(msg, sizeof msg, "names %s: [%s]", c.name, listed.c_str());
+        check(namesOk, msg);
+
+        // 検索: 表の名前はその部位を返し、ほかのチップの部位の名前は拒否する
+        std::string badFind;
+        for (const AcceptCase& other : cases) {
+            for (const PartSpec& s : other.parts) {
+                const bool want = std::any_of(c.parts.begin(), c.parts.end(),
+                    [&](const PartSpec& mine) { return std::strcmp(mine.name, s.name) == 0; });
+                ChipPart found = static_cast<ChipPart>(kChipPartCount);
+                if (eng.findPart(id, s.name, found) != want) badFind += std::string(" ") + s.name;
+            }
+        }
+        for (const PartSpec& s : c.parts) {
+            ChipPart found = static_cast<ChipPart>(kChipPartCount);
+            if (!eng.findPart(id, s.name, found) || found != s.part) badFind += std::string(" ") + s.name;
+        }
+        ChipPart found = static_cast<ChipPart>(kChipPartCount);
+        for (const char* n : strangers)
+            if (eng.findPart(id, n, found)) badFind += std::string(" '") + n + "'";
+        if (eng.findPart(id, nullptr, found)) badFind += " nullptr";
+        std::snprintf(msg, sizeof msg, "find %s: wrong at [%s ]", c.name, badFind.c_str());
+        check(badFind.empty(), msg);
     }
 
     FmEngine eng(48000);
     const uint32_t id = eng.addChip(ChipType::OPNA, testClock(ChipType::OPNA));
-    uint32_t mask = 0;
-    check(!eng.getPartMask(id + 1, mask), "partMask unknown chip_id rejected");
+    ChipPart found = ChipPart::OPN_FM;
+    check(eng.partCount(id + 1) == 0 && eng.partName(id + 1, 0) == nullptr &&
+          !eng.findPart(id + 1, "FM", found), "unknown chip_id has no parts");
 }
 
 // =========================================================

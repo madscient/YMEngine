@@ -2,6 +2,210 @@
 
 開発経緯の記録。現在の仕様は `README.md` と `README_ymfm.md` を参照。
 
+## 部位と外部メモリを名前で指定する
+
+FmEngineApi の仕様の改訂（FMEngineTest `20c4923`）に追従した。部位と外部メモリは
+名前の文字列で指定し、チップが持つものはエンジンに問い合わせて列挙する。
+`FmPart`、`FmMemoryType`、`FmEngine_GetPartMask`、`FmEngine_GetMemorySize` は
+無くなった。ヘッダの正本は FMEngineTest の `include/FmEngineApi.h` に移り、
+`src/FmEngineApi.h` はその写しになった。
+
+前提（仕様と同じ）：番号で指定する形でビルドした呼び出し側を、この DLL と
+組み合わせて使わないこと。`FmEngine_SetPartGain` / `FmEngine_GetPartGain` /
+`FmEngine_SetMemory` / `FmEngine_SetMemoryEx` は、名前が同じまま第3引数が番号から
+文字列に変わった。組み合わせると、DLL は番号をポインタとして読む。
+
+### 変更
+
+- `src/FmEngineApi.h` を正本の写しに差し替えた。**確認済み**：
+  `git hash-object src/FmEngineApi.h` が、FMEngineTest の
+  `git rev-parse 20c4923:include/FmEngineApi.h` と同じ `206f723` を返す
+- C API に `FmEngine_GetPartCount` / `FmEngine_GetPartName` /
+  `FmEngine_GetMemoryCount` / `FmEngine_GetMemoryName` を足した。
+  `FmEngine_SetPartGain` / `FmEngine_GetPartGain` / `FmEngine_SetMemory` /
+  `FmEngine_SetMemoryEx` は名前を受け取る。`FmEngine_GetPartMask` と
+  `FmEngine_GetMemorySize` は定義ごと消した（`FMENGINE_API` が付いた定義は、
+  `.def` から外してもエクスポートされるため）
+- OPNA のリズム音の内蔵 ROM は `RHYTHM`。C++ 側に `ChipMemoryType::RHYTHM` を
+  足し、OPNA は `ADPCM_A` を持たなくなった。ymfm は OPNA のリズムを OPNB の
+  ADPCM-A と同じ `ACCESS_ADPCM_A` で読むので、`MemoryYmfmInterface` に
+  振り向け先（`setAdpcmAMemory()`）を持たせ、OPNA だけ `RHYTHM` に向けた
+- C++ 側に、列挙型から名前を返す `chipPartName()` / `chipMemoryName()` と、
+  チップが持つものの列挙・検索（`FmChip` と `FmEngine` の `partCount()` /
+  `partName()` / `findPart()` / `memoryCount()` / `memoryName()` /
+  `findMemory()`）を足した。C API は、入口で名前を列挙型に直してから今までの
+  関数を呼ぶ
+- `FmEngine::getPartMask()` を消した
+- `ChipMemoryType` を 0 始まりの連番に振り直した（`RHYTHM`=0、`ADPCM_A`=1、
+  `ADPCM_B`=2、`ADPCM_B_ROMMODE`=3、`PCM`=4。`kChipMemoryTypeEnd` は
+  `kChipMemoryTypeCount` になった）。番号を C の定数に揃える理由が無くなった
+- README の、仕様書とテストツールへのリンクを直した。今までは実在しない
+  リポジトリを指していた
+
+### 呼び出し側から見える挙動の変化
+
+仕様に合わせた結果として変わるもの。
+
+- OPNA のリズムの ROM を `ADPCM_A` で渡すと `FM_ERR_INVALID_ARG`。`RHYTHM` で渡す
+- `FmEngine_SetMemory` は、チップが持たないメモリの名前を `FM_ERR_INVALID_ARG` で
+  拒否する。今までは、チップが持たない種別も受け付けていた（チップは読まない）
+- `FmEngine_SetMemory` に `ADPCM_B_ROMMODE` を渡せる。今までは
+  `FmEngine_SetMemoryEx` 専用だった。仕様は「列挙した名前は、どれも
+  `FmEngine_SetMemory` に渡せる」とする
+- 割り当てたブロックの大きさの合計を、C API からは取れなくなった
+
+ROM を渡さない使い方では、出力は変わらない（下の確認）。
+
+### 仕様に書かれておらず、こちらで決めたこと
+
+どれも変えるときは、関数の条件1か所と、テストの該当行、README の該当行で済む
+（C++ の名前を変える場合は、ヘッダ2本とテスト、README_ymfm に及ぶ）。
+
+- 列挙の順序は `ChipPart` / `ChipMemoryType` の番号順（OPNA の外部メモリは
+  `RHYTHM`、`ADPCM_B`、`ADPCM_B_ROMMODE`）。仕様は順序を定めず、同じ chip_id に
+  同じ順序で返すことだけを求める
+- `FmEngine_SetMemory` の `data` が NULL のときと `size` が 0 のときは、今までどおり
+  `FM_ERR_INVALID_ARG`。仕様は今回も定めていない
+- `FmEngine_SetMemoryEx` の、`base + size` が 2^32 を越える場合と未知の `access` は、
+  今までどおり `FM_ERR_INVALID_ARG`。`FM_ERR_UNAVAILABLE` は返さない。正本の
+  ヘッダの戻り値の一覧には載らないので、README に書いた
+- NULL のハンドルには、数は 0、名前は NULL、設定と取得は `FM_ERR_INVALID_ARG`
+- C++ の API は列挙型のまま残した。`generate()` が部位のゲインを配列の添字で
+  引くので、列挙型は内部に要る
+- `FmEngine::getMemorySize()` は C++ に残した。`memory_map_test` が、取り外しで
+  ブロックが外れたことを見るのに使う
+- `FmEngine::setMemory()` も、チップが持たない種別を拒否する（C API と揃えた）
+- DLL のバージョン（2.0.0）は変えていない
+
+前提：部位と外部メモリの名前が、チップの中で一意であること。同じ名前を2つ持つ
+チップを足すと、`findPart()` / `findMemory()` は番号の若い方だけを返す。
+`part_gain_test` / `memory_map_test` / `c_api_test` の names の行は、列挙した
+名前が重なると落ちる。
+
+### 見送った案
+
+- C++ の API も名前で受け取る（`setPartGain(id, "SSG", ...)`）。理由：C++ の
+  呼び出し側は列挙型で書け、綴りの誤りをコンパイル時に見つけられる。名前から
+  引きたい場合は `findPart()` / `findMemory()` がある
+- OPNA のリズムを、C++ では `ChipMemoryType::ADPCM_A` のままにして、名前だけ
+  `RHYTHM` にする。理由：同じメモリの呼び名が C と C++ で食い違い、OPNA の
+  `hasMemory(ADPCM_A)` が true のままになる
+- `c_api_test` を、DLL を作らずに `FmEngineApi.cpp` と一緒にビルドして走らせる。
+  理由：正本のヘッダは、Windows では `dllexport` か `dllimport` のどちらかにしか
+  ならない。実行ファイルに入れると、実行ファイルがインポートライブラリを吐く。
+  `.def` とエクスポートも見られない
+- `.def` とヘッダの食い違いを CMake で検査する。理由：`.def` にあって定義が
+  無ければリンクが落ち、定義があれば `.def` に無くてもエクスポートされる。残る
+  穴（消したはずの関数の定義が残り、エクスポートされ続ける）は `c_api_test` の
+  symbols が見る
+
+### 仕様側の記録と食い違うところ
+
+FMEngineTest `20c4923` の `docs/CHANGELOG.md` は、変更前の状態として「チップが
+そのメモリを持たないときの `FmEngine_SetMemory` の戻り値は、YMEngine と
+FMgenEngine が `FM_ERR_INVALID_ARG`」とする。YMEngine `7d8ed2d` の
+`FmEngine_SetMemory` は、この場合に `FM_OK` を返していた（コードで確認：
+`FmEngine::setMemory()` はチップが持つかを見ず、`memory_map_test` に
+「setMemory accepts a type the chip does not have」の行があった。
+`FM_ERR_INVALID_ARG` を返していたのは `FmEngine_SetMemoryEx`）。今回の変更で
+拒否するようになった。FMEngineTest の文書には手を入れていない。
+
+### 確認
+
+`_test/c_api_test.cpp` を追加した。ビルドした DLL を実行時にロードし、C API だけを
+呼ぶ。`part_gain_test` と `memory_map_test` には、列挙と検索、`RHYTHM` の経路、
+`setMemory()` の受け付けを足した。期待する名前は、3本とも仕様書の表を書き写して
+ある（`chipPartName()` / `chipMemoryName()` からは作っていない）。
+
+**確認済み**（MSVC 19.51 と g++ 10.2 (Debian 11) でビルドして実行、6本とも
+全件通過）：
+
+- `c_api_test`（MSVC は CMake でビルドした DLL、g++ は `g++ -shared` で直接
+  ビルドした共有ライブラリに対して）：
+  - ヘッダが宣言する 20 関数がすべてエクスポートされ、`FmEngine_GetPartMask` と
+    `FmEngine_GetMemorySize` は無い
+  - 全16チップで、列挙した部位の名前と既定値、外部メモリの名前が、仕様書の表と
+    一致する。名前で設定したゲインを読み戻せる。チップが持たない名前（ほかの
+    チップの部位と外部メモリの名前、大文字小文字の違う名前、空文字列など）、
+    NULL、未知の chip_id、NULL のハンドルを拒否し、拒否した呼び出しはほかの
+    部位の値を変えない
+  - 列挙した外部メモリの名前は、どれも `FmEngine_SetMemory` と
+    `FmEngine_SetMemoryEx` に渡せる。重なり、隣接、取り外し（`access` を見ない）、
+    size 0、2^32 越え、未知の `access`、`data` が NULL
+  - OPNA の SSG のトーンは、`FM` を 0 にしても変わらず、`SSG` を L=0.5 / R=0 に
+    すると L が約半分・R が 0 になる
+  - OPNA のリズムは、`RHYTHM` に 0x77 の 8KB を渡すと、何も渡さない場合と
+    4,630 サンプル（4,800 中）食い違い、`ADPCM_B` に渡しても 0。ROM モードの
+    ADPCM-B は、`ADPCM_B_ROMMODE` に `FmEngine_SetMemory` で渡すと 1,888 サンプル
+    食い違い、`ADPCM_B` では 0
+  - Y8950 のレジスタ経由の転送は、`FM_ACCESS_RAM` のブロックに入り、
+    `FM_ACCESS_ROM` のブロックには入らない
+- `memory_map_test`：`MemoryYmfmInterface` 単体で、`ACCESS_ADPCM_A` は振り向け
+  なければ `ADPCM_A` を、`RHYTHM` に振り向ければ `RHYTHM` を読む。OPNA のリズムは
+  `RHYTHM` に割り当てると 4,628 サンプル、OPNB の ADPCM-A は `ADPCM_A` に割り当てると
+  4,798 サンプル食い違う（どちらも `ADPCM_B` に割り当てても 0）
+- `keyoff_retrigger_test` / `opn_split_test` / `chip_clock_test` は変えていない
+
+試験が効いていることの確認（**確認済み**、MSVC）：`src/` の写しを1か所ずつ壊して
+ビルドし、落ちることを見た。
+
+| 壊し方 | `part_gain_test` | `memory_map_test` | `c_api_test` |
+|---|---|---|---|
+| `FM` と `SSG` の名前を入れ替える | 4 | 0 | 1 |
+| OPNA で `ACCESS_ADPCM_A` を振り向けない | 0 | 1 | 1 |
+| OPNA が `ADPCM_A` を持ったままにする | 0 | 3 | 2 |
+| `setMemory()` がチップの持たない種別を受け付ける | 0 | 16 | 0 |
+| `ADPCM_B_ROMMODE` の綴りを変える | 0 | 4 | 6 |
+| C API の `SetPartGain` で L と R を入れ替える | 0 | 0 | 11 |
+| `FmEngine_GetMemorySize` の定義を残す | 0 | 0 | 1 |
+| `findPart()` が `hasPart()` を見ない | 16 | 0 | 0 |
+| `findMemory()` が `hasMemory()` を見ない | 0 | 16 | 0 |
+| C API の `SetMemoryEx` が `access` を無視する | 0 | 0 | 6 |
+| C API の `SetMemory` が名前を無視して `ADPCM_B` に割り当てる | 0 | 0 | 7 |
+| 取り外しでも `access` を検査する | 0 | 0 | 5 |
+
+数字は落ちた行の数。`c_api_test` が 0 の3行は、C API の入口と `FmEngine` の中で
+同じことを二重に検査している項目で、片方を外しても C API の結果は変わらない。
+壊していない写しでは3本とも全件通る。変更前のソースからビルドした DLL
+（リポジトリの `build/` に残っていたもの。どのコミットかは確かめていない）に
+`c_api_test` を掛けると、列挙の4関数が無く、消した2関数が残っているとして落ちる。
+
+DLL：CMake（NMake Makefiles、MSVC 19.51、Release）でビルドが通り、dumpbin で
+エクスポートが仕様の 20 個であることを見た（**確認済み**）。警告 C4005 と C4324 は、
+今回変えていない行から出ている（`FmEngineApi.cpp` の `#define FMENGINE_EXPORTS` と
+`FmEngine.h` の `SpscQueue`）。
+
+仕様側のテストツール（**確認済み**）：FMEngineTest の `build/` にあったビルド済みの
+`FMEngineTest.exe` で `patches/all.json` を WAV に書き出した。exe がどのソースから
+ビルドされたかは確かめていない（更新時刻は `20c4923` のコミットより後。走らせた
+時点の FMEngineTest の HEAD と作業ツリーは見ていない）。外部メモリを名前で列挙する
+版であることは、次の表示から分かる。この DLL では、外部メモリを列挙して、OPNA の `RHYTHM` と
+OPNB/OPNBB の `ADPCM_A`・`ADPCM_B` に ROM ファイルを探し（置いていないので
+not found）、OPL4 の `PCM` と OPNA/Y8950 の `ADPCM_B`・`ADPCM_B_ROMMODE` を
+`[MEM]` の行に出した。変更前の DLL（上と同じもの）では
+「`FmEngine_GetMemoryCount` is not exported」の断りを出した。2つの WAV
+（16 チップ、183 秒、無音ではない）はバイト一致した。
+
+**未検証**：
+
+- 実際の ROM イメージを渡したときの音。試験は 0x77 で埋めたデータとの差で見ている
+- Linux での CMake のビルド（試した Linux 環境の cmake が 3.18 で、`CMakeLists.txt` の
+  求める 3.20 に足りない）。上の g++ の共有ライブラリは、`-fvisibility=hidden` を
+  `FmEngineApi.cpp` にだけ付けて直接ビルドしたもので、CMake のビルドとは
+  エクスポートが違う（ymfm のシンボルも出る）
+- g++ 11.3 と macOS
+- C から（`/TC` や gcc で）このヘッダを include した呼び出し。ヘッダそのものの
+  確認は FMEngineTest 側にある
+
+### 気づいたが手を付けていないこと
+
+- DLL のバージョンは 2.0.0 のまま。同じ関数名で引数の意味が変わったので、
+  バージョンで新旧を見分けたい場合は `FmEngineApi.rc` と `CMakeLists.txt` の
+  2か所を変える。仕様は `FmEngine_GetPartCount` / `FmEngine_GetMemoryCount` の
+  有無で見分けるとしている
+- 警告 C4005（`FMENGINE_EXPORTS` を `FmEngineApi.cpp` と CMake の両方で定義して
+  いる）
+
 ## FmEngine_AddChip の clock=0（既定のクロック）をやめる
 
 FmEngineApi の仕様の改訂（FMEngineTest `866f4a3`）に追従した。`FmEngine_AddChip`

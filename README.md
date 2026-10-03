@@ -7,7 +7,7 @@ ymfm が対応する16種のチップをサポートし、チップ名文字列 
 
 SSG/PSG や PCM 音源など ymfm がカバーしないチップはスコープ外です。それらを組み合わせる場合はアプリケーション側の責任で別途統合してください。
 
-テストツールおよび API のドキュメントは **[FmEngineApiTest](https://github.com/your-org/FmEngineApiTest)** を参照してください。
+FmEngineApi の仕様書とテストツールは **[FMEngineTest](https://github.com/madscient/FMEngineTest)** にあります。`src/FmEngineApi.h` は、そこにあるヘッダの写しです。
 
 ## ファイル構成
 
@@ -19,7 +19,7 @@ YMEngine/
 ├── src/
 │   ├── FmChip.h           ymfm ラッパー・LinearResampler・ChipEntry テーブル
 │   ├── FmEngine.h         複数チップ管理・SPSC キュー・ゲイン
-│   ├── FmEngineApi.h  ★  DLL 公開用 C ファサード (宣言)
+│   ├── FmEngineApi.h  ★  FmEngineApi の C インターフェース (宣言)
 │   ├── FmEngineApi.cpp★  DLL 公開用 C ファサード (実装)
 │   ├── FmEngineApi.def★  MSVC エクスポート定義
 │   └── FmEngineApi.rc ★  DLL バージョン情報リソース
@@ -28,7 +28,7 @@ YMEngine/
 ```
 
 `★` は DLL のビルドに直接関係するファイルです。  
-`FmEngineApi.h` だけを include すれば利用できます。
+`FmEngineApi.h` だけを include すれば、C と C++ のどちらからでも利用できます。
 
 ## セットアップ
 
@@ -124,38 +124,44 @@ OPN, OPNA, OPNB, OPNBB の FM と SSG は、それぞれ本来のサンプルレ
 
 ## 部位ごとのゲイン
 
-チップによっては、音を複数の端子から別々に出します。実機ではそれらをボード上の回路でミックスしたり、一部の端子だけを配線したりするため、音量バランスは機種によって異なります。`FmEngine_SetPartGain` で部位ごとにゲインを設定できます。
+チップによっては、音を複数の端子から別々に出します。この出力のひとつひとつを部位と呼びます。実機ではそれらをボード上の回路でミックスしたり、一部の端子だけを配線したりするため、音量バランスは機種によって異なります。`FmEngine_SetPartGain` で部位ごとにゲインを設定できます。
+
+部位は名前の文字列で指定します (大文字小文字を区別します)。
 
 ```c
-FmEngine_SetPartGain(engine, opna_id, FM_PART_OPN_SSG, 0.5f, 0.5f);  // SSG を -6 dB
-FmEngine_SetPartGain(engine, opl3_id, FM_PART_OPL3_CD, 1.0f, 1.0f);  // C/D も鳴らす
+FmEngine_SetPartGain(engine, opna_id, "SSG", 0.5f, 0.5f);  // SSG を -6 dB
+FmEngine_SetPartGain(engine, opl3_id, "CD", 1.0f, 1.0f);   // C/D も鳴らす
 ```
 
-| 部位 | 対象チップ | 内容 | 既定値 |
+| 対象チップ | 部位の名前 | 内容 | 既定値 |
 |---|---|---|---|
-| `FM_PART_OPN_FM`      | OPN, OPNA, OPNB, OPNBB | FM 部 (ADPCM・リズムを含む) | 1.0 |
-| `FM_PART_OPN_SSG`     | OPN, OPNA, OPNB, OPNBB | SSG 部 | 1.0 |
-| `FM_PART_OPLL_MELODY` | OPLL, OPLLP, OPLLX, VRC7 | メロディ | 1.0 |
-| `FM_PART_OPLL_RHYTHM` | OPLL, OPLLP, OPLLX, VRC7 | リズム | 1.0 |
-| `FM_PART_OPL3_AB`     | OPL3 | 出力 A (L) / B (R) | 1.0 |
-| `FM_PART_OPL3_CD`     | OPL3 | 出力 C (L) / D (R) | 0 |
-| `FM_PART_OPL4_DO0`    | OPL4 | DO0 (FM の C/D) | 0 |
-| `FM_PART_OPL4_DO1`    | OPL4 | DO1 (AWM の C/D) | 0 |
-| `FM_PART_OPL4_DO2`    | OPL4 | DO2 (FM の A/B と AWM の A/B のミックス) | 1.0 |
+| OPN, OPNA, OPNB, OPNBB | `FM` | FM 部 (ADPCM・リズムを含む) | 1.0 |
+| OPN, OPNA, OPNB, OPNBB | `SSG` | SSG 部 | 1.0 |
+| OPLL, OPLLP, OPLLX, VRC7 | `MELODY` | メロディ | 1.0 |
+| OPLL, OPLLP, OPLLX, VRC7 | `RHYTHM` | リズム | 1.0 |
+| OPL3 | `AB` | 出力 A (L) / B (R) | 1.0 |
+| OPL3 | `CD` | 出力 C (L) / D (R) | 0 |
+| OPL4 | `DO0` | DO0 (FM の C/D) | 0 |
+| OPL4 | `DO1` | DO1 (AWM の C/D) | 0 |
+| OPL4 | `DO2` | DO2 (FM の A/B と AWM の A/B のミックス) | 1.0 |
 
-実際に掛かるゲインは、`FmEngine_SetGain` で設定したチップ全体のゲインと部位のゲインの積です。チップが持たない部位を指定すると `FM_ERR_INVALID_ARG` を返します。出力が1系統のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) は部位を持たないので、`FmEngine_SetGain` を使ってください。
+実際に掛かるゲインは、`FmEngine_SetGain` で設定したチップ全体のゲインと部位のゲインの積です。部位の名前はチップごとに独立で、チップが持たない部位の名前や `NULL` を渡すと `FM_ERR_INVALID_ARG` を返します。出力が1系統のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) は部位を持たないので、`FmEngine_SetGain` を使ってください。
 
-チップが持つ部位は `FmEngine_GetPartMask` で調べられます。bit n が `FmPart` の n 番に当たり、部位を持たないチップでは 0 です。
+チップが持つ部位は `FmEngine_GetPartCount` / `FmEngine_GetPartName` で列挙できます。部位を持たないチップでは、数が 0 です。
 
 ```c
-uint32_t mask = 0;
-FmEngine_GetPartMask(engine, opna_id, &mask);
-if (mask & (1u << FM_PART_OPN_SSG)) {
-    // SSG のゲインを設定できる
+uint32_t n = FmEngine_GetPartCount(engine, opna_id);
+for (uint32_t i = 0; i < n; ++i) {
+    const char* name = FmEngine_GetPartName(engine, opna_id, i);
+    float l, r;
+    FmEngine_GetPartGain(engine, opna_id, name, &l, &r);
+    printf("%s: L=%.2f R=%.2f\n", name, l, r);
 }
 ```
 
-C/D 側 (`FM_PART_OPL3_CD`, `FM_PART_OPL4_DO0`, `FM_PART_OPL4_DO1`) の既定値が 0 なのは、FM の出力先を A/B/C/D 全部にしたチャンネルが A/B と C/D に同じ音を出し、混ぜると二重に足されるためです。
+名前の文字列は `FmEngine_Destroy` が戻るまで有効です。設定ファイルなどに部位を書き残すときは、列挙の順番 (`index`) ではなく名前を使ってください。
+
+C/D 側 (OPL3 の `CD`、OPL4 の `DO0` と `DO1`) の既定値が 0 なのは、FM の出力先を A/B/C/D 全部にしたチャンネルが A/B と C/D に同じ音を出し、混ぜると二重に足されるためです。
 
 ## ネイティブサンプルレート
 
@@ -171,38 +177,59 @@ C/D 側 (`FM_PART_OPL3_CD`, `FM_PART_OPL4_DO0`, `FM_PART_OPL4_DO1`) の既定値
 
 ADPCM と PCM を持つチップは、アプリケーションが用意したメモリのブロックを読み書きします。ブロックは複製せずに参照するので、割り当てを外すか `FmEngine_Destroy` が戻るまで解放しないでください。割り当てはオーディオストリームを始める前に行ってください (スレッドセーフではありません)。
 
-| `FmMemoryType` | チップ | 内容 |
-|---|---|---|
-| `FM_MEM_ADPCM_A`         | OPNA | リズム音の内蔵 ROM の内容 |
-| `FM_MEM_ADPCM_A`         | OPNB, OPNBB | ADPCM-A のメモリ |
-| `FM_MEM_ADPCM_B`         | OPNA, Y8950 | ADPCM-B の ROM/RAM 選択ビットが RAM のときにアクセスするメモリ |
-| `FM_MEM_ADPCM_B`         | OPNB, OPNBB | ADPCM-B のメモリ |
-| `FM_MEM_ADPCM_B_ROMMODE` | OPNA, Y8950 | ADPCM-B の ROM/RAM 選択ビットが ROM のときにアクセスするメモリ |
-| `FM_MEM_PCM`             | OPL4 | PCM のメモリ |
+外部メモリは名前の文字列で指定します (大文字小文字を区別します)。
 
-OPNA と Y8950 は、ROM/RAM 選択ビット (OPNA は port1 の `0x01` の bit0、Y8950 は `0x08` の bit0) で、ROM モードと RAM モードの別々のメモリにアクセスします。ROM モードで鳴らすデータは `FM_MEM_ADPCM_B_ROMMODE` に割り当ててください。`FM_MEM_ADPCM_B` に割り当てたデータは RAM モードでだけ読まれます。
+| 対象チップ | 外部メモリの名前 | 内容 |
+|---|---|---|
+| OPNA | `RHYTHM` | リズム音の内蔵 ROM の内容 |
+| OPNA, Y8950 | `ADPCM_B` | ADPCM-B の ROM/RAM 選択ビットが RAM のときにアクセスするメモリ |
+| OPNA, Y8950 | `ADPCM_B_ROMMODE` | ADPCM-B の ROM/RAM 選択ビットが ROM のときにアクセスするメモリ |
+| OPNB, OPNBB | `ADPCM_A` | ADPCM-A のメモリ |
+| OPNB, OPNBB | `ADPCM_B` | ADPCM-B のメモリ |
+| OPL4 | `PCM` | PCM のメモリ |
+
+外部メモリの名前はチップごとに独立で、チップが持たないメモリの名前や `NULL` を渡すと `FM_ERR_INVALID_ARG` を返します。
+
+OPNA と Y8950 は、ROM/RAM 選択ビット (OPNA は port1 の `0x01` の bit0、Y8950 は `0x08` の bit0) で、ROM モードと RAM モードの別々のメモリにアクセスします。ROM モードで鳴らすデータは `ADPCM_B_ROMMODE` に割り当ててください。`ADPCM_B` に割り当てたデータは RAM モードでだけ読まれます。
+
+チップが持つ外部メモリは `FmEngine_GetMemoryCount` / `FmEngine_GetMemoryName` で列挙できます。外部メモリを持たないチップでは、数が 0 です。列挙した名前は、どれも `FmEngine_SetMemory` と `FmEngine_SetMemoryEx` に渡せます。
+
+```c
+uint32_t n = FmEngine_GetMemoryCount(engine, chip_id);
+for (uint32_t i = 0; i < n; ++i) {
+    const char* name = FmEngine_GetMemoryName(engine, chip_id, i);
+    const uint8_t* image;
+    uint32_t       size;
+    // find_image: アプリケーションが持つ ROM イメージを、チップ名とメモリの名前で探す
+    if (find_image(chip_name, name, &image, &size))
+        FmEngine_SetMemory(engine, chip_id, name, image, size);
+}
+```
+
+名前の文字列は `FmEngine_Destroy` が戻るまで有効です。設定ファイルなどに外部メモリを書き残すときは、列挙の順番 (`index`) ではなく名前を使ってください。
 
 ### FmEngine_SetMemoryEx
 
 ```c
 // Y8950: RAM モードのメモリに 32KB の RAM、ROM モードのメモリに ROM イメージ
-FmEngine_SetMemoryEx(engine, y8950_id, FM_MEM_ADPCM_B, 0, ram, 32768, FM_ACCESS_RAM);
-FmEngine_SetMemoryEx(engine, y8950_id, FM_MEM_ADPCM_B_ROMMODE, 0, rom, rom_size, FM_ACCESS_ROM);
+FmEngine_SetMemoryEx(engine, y8950_id, "ADPCM_B", 0, ram, 32768, FM_ACCESS_RAM);
+FmEngine_SetMemoryEx(engine, y8950_id, "ADPCM_B_ROMMODE", 0, rom, rom_size, FM_ACCESS_ROM);
 ```
 
 - `[base, base + size)` に `data` を割り当てます。番地 `base + i` のバイトが `data[i]` です。範囲が重ならなければ、1つのメモリに複数のブロックを並べられます (OPL4 の ROM と SRAM など)。
 - 割り当ての無い番地を読むと 0 で、書き込みは捨てます。
-- `data` に `NULL` を渡すと、`[base, base + size)` と重なるブロックをすべて外します。
+- `data` に `NULL` を渡すと、`[base, base + size)` と重なるブロックをすべて外します (`access` は見ません)。
 - `FM_ACCESS_RAM` のブロックには、チップの書き込み (レジスタ経由の転送) をその場で書きます。`FM_ACCESS_ROM` のブロックへの書き込みは捨てます。
-- ROM/RAM 選択ビットが ROM の間にレジスタ経由で転送したデータは、`FM_MEM_ADPCM_B_ROMMODE` に書き込みます。そこに割り当てたブロックが `FM_ACCESS_RAM` なら、ブロックに入ります。
+- ROM/RAM 選択ビットが ROM の間にレジスタ経由で転送したデータは、`ADPCM_B_ROMMODE` に書き込みます。そこに割り当てたブロックが `FM_ACCESS_RAM` なら、ブロックに入ります。
 - 番地はチップが出すアドレスで、1番地が1バイトです。Y8950 の RAM のビット単位の並び (8個の D-RAM への振り分け) は再現せず、チップが読み書きするバイトを番地の順に並べます。
-- 未知の chip_id、チップが持たない `mem_type`、`size` が 0、`base + size` が 2^32 を越える、既存のブロックと範囲が重なる、未知の `access` のときは `FM_ERR_INVALID_ARG` を返します。
+- 未知の chip_id、チップが持たないメモリの名前、名前が `NULL`、`size` が 0、`base + size` が 2^32 を越える、既存のブロックと範囲が重なる、未知の `access` のときは `FM_ERR_INVALID_ARG` を返します。
+- `FM_ACCESS_ROM` のブロックも複製しません。`FM_ERR_UNAVAILABLE` は返しません。
 
-### FmEngine_SetMemory / FmEngine_GetMemorySize
+### FmEngine_SetMemory
 
-`FmEngine_SetMemory` は、`mem_type` のメモリを `[0, size)` の `data` だけにします (それまでのブロックは外れます)。チップからの書き込みは捨てます。`FM_MEM_ADPCM_B_ROMMODE` は受け付けません。
+`FmEngine_SetMemory` は、名前で指定したメモリを `[0, size)` の `data` だけにします (それまでのブロックは外れます)。チップからの書き込みは捨て、`data` には書き込みません。
 
-`FmEngine_GetMemorySize` は、割り当てたブロックの大きさの合計を返します。
+未知の chip_id、チップが持たないメモリの名前、名前が `NULL`、`data` が `NULL`、`size` が 0 のときは `FM_ERR_INVALID_ARG` を返し、それまでの割り当ては変えません。
 
 ### 書き込みが反映される時点
 

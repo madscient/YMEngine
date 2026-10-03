@@ -13,7 +13,7 @@ DLL 経由で使う場合は [README.md](README.md) を参照してください�
 src/
 ├── FmChip.h        ymfm ラッパー・LinearResampler (チップ抽象化)
 ├── FmEngine.h      複数チップ管理 + SPSC キュー + ゲイン
-├── FmEngineApi.h   DLL 公開用 C ファサード (宣言)
+├── FmEngineApi.h   FmEngineApi の C インターフェース (宣言)
 └── FmEngineApi.cpp DLL 公開用 C ファサード (実装)
 ```
 
@@ -98,13 +98,26 @@ prescale は `0x2D`〜`0x2F` への書き込みで切り替わり、そのたび
 
 ## 出力の部位
 
-`ChipPart` はチップが別々の端子から出す出力で、番号はチップをまたいで重なりません。`FmChip::hasPart()` はそのチップの部位にだけ true を返し、出力が1本のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) はどの部位にも false を返します。`FmEngine::getPartMask()` は、チップが持つ部位をビットマスク (bit n = `ChipPart` の n 番) で返します。部位ごとの意味と既定値は README.md の「部位ごとのゲイン」を参照してください。既定値は `defaultPartGain()` が返します。
+`ChipPart` はチップが別々の端子から出す出力で、番号はチップをまたいで重なりません。`FmChip::hasPart()` はそのチップの部位にだけ true を返し、出力が1本のチップ (OPL, OPL2, Y8950, OPN2, OPM, OPZ) はどの部位にも false を返します。部位ごとの意味と既定値は README.md の「部位ごとのゲイン」を参照してください。既定値は `defaultPartGain()` が返します。
 
 OPN 系以外で部位を持つチップは、ymfm の出力を部位ごとに別々に出力レートへ変換し、ゲインを掛けてから L/R に混ぜます。リサンプラのチャンネル数は OPLL 系が2 (メロディ、リズム)、OPL3 が4 (A/B/C/D)、OPL4 が6 (DO2、DO0、DO1 の各 L/R) です。
 
 `FmEngine` は `FmChip::generate()` に `PartGains` を渡します。`l[]`/`r[]` はチップのゲインと部位のゲインの積、`chip_l`/`chip_r` はチップのゲインだけで、部位を持たないチップが使います。
 
-C API の `FmPart` は `ChipPart` にキャストして渡すので、番号を揃えてあります。`FmEngineApi.cpp` の `static_assert` で照合しています。
+### 部位の名前
+
+C API は部位を名前の文字列で受け取ります。`chipPartName()` が `ChipPart` ごとの名前 (`OPN_SSG` なら `"SSG"`) を返します。名前はチップの中でだけ一意で、別のチップの部位が同じ名前を持ってもかまいません。
+
+```cpp
+uint32_t n = engine.partCount(opnaId);              // チップが持つ部位の数
+const char* name = engine.partName(opnaId, 0);      // ChipPart の番号順。範囲外は nullptr
+
+ChipPart part;
+if (engine.findPart(opnaId, "SSG", part))           // チップが持つ部位の中から名前で探す
+    engine.setPartGain(opnaId, part, 0.5f, 0.5f);
+```
+
+`findPart()` は、チップが持たない部位の名前、`nullptr`、未知の chip_id に false を返します。C API の `FmEngine_SetPartGain` / `FmEngine_GetPartGain` は、これで名前を `ChipPart` に直してから `setPartGain()` / `getPartGain()` を呼びます。
 
 ## ymfm チップのコンストラクタ特殊化
 
@@ -150,14 +163,15 @@ ADPCM・PCM を持つチップは、ymfm の `ymfm_external_read()` / `ymfm_exte
 
 ### メモリ種別
 
-`ChipMemoryType` / `ChipMemoryAccess` は C API の `FmMemoryType` / `FmMemoryAccess` と番号を揃えてあり、`FmEngineApi.cpp` の `static_assert` で照合しています。
+C API は外部メモリを名前の文字列で受け取ります。`chipMemoryName()` が `ChipMemoryType` ごとの名前を返します。`ChipMemoryAccess` は C API の `FmMemoryAccess` と番号を揃えてあり、`FmEngineApi.cpp` の `static_assert` で照合しています。
 
-| `ChipMemoryType` | `FmMemoryType` | ymfm のアクセス | 対象チップ |
+| `ChipMemoryType` | C API での名前 | ymfm のアクセス | 対象チップ |
 |---|---|---|---|
-| `ADPCM_A`         | `FM_MEM_ADPCM_A`         | `ACCESS_ADPCM_A` | OPNA, OPNB, OPNBB |
-| `ADPCM_B`         | `FM_MEM_ADPCM_B`         | `ACCESS_ADPCM_B` (OPNA/Y8950 は RAM モードのとき) | OPNA, OPNB, OPNBB, Y8950 |
-| `PCM`             | `FM_MEM_PCM`             | `ACCESS_PCM` | OPL4 |
-| `ADPCM_B_ROMMODE` | `FM_MEM_ADPCM_B_ROMMODE` | `ACCESS_ADPCM_B` (OPNA/Y8950 が ROM モードのとき) | OPNA, Y8950 |
+| `RHYTHM`          | `RHYTHM`          | `ACCESS_ADPCM_A` (OPNA のリズム) | OPNA |
+| `ADPCM_A`         | `ADPCM_A`         | `ACCESS_ADPCM_A` | OPNB, OPNBB |
+| `ADPCM_B`         | `ADPCM_B`         | `ACCESS_ADPCM_B` (OPNA/Y8950 は RAM モードのとき) | OPNA, OPNB, OPNBB, Y8950 |
+| `ADPCM_B_ROMMODE` | `ADPCM_B_ROMMODE` | `ACCESS_ADPCM_B` (OPNA/Y8950 が ROM モードのとき) | OPNA, Y8950 |
+| `PCM`             | `PCM`             | `ACCESS_PCM` | OPL4 |
 
 `FmChip::hasMemory()` は、そのチップが持つ種別にだけ true を返します。
 
@@ -171,17 +185,24 @@ engine.mapMemory(y8950Id, ChipMemoryType::ADPCM_B_ROMMODE, 0, rom, romSize, Chip
 // C API の FmEngine_SetMemory と同じ。type のメモリを [0, size) の data だけにする
 engine.setMemory(opnbId, ChipMemoryType::ADPCM_A, romA, romASize);
 
-// 割り当てたブロックの大きさの合計
+// 割り当てたブロックの大きさの合計 (C API には無い)
 uint32_t sz = engine.getMemorySize(opnbId, ChipMemoryType::ADPCM_A);
+
+// 列挙と、名前からの検索。部位と同じ形
+uint32_t n = engine.memoryCount(opnbId);
+const char* name = engine.memoryName(opnbId, 0);    // ChipMemoryType の番号順。範囲外は nullptr
+ChipMemoryType type;
+bool found = engine.findMemory(opnbId, "ADPCM_B", type);
 ```
 
-`mapMemory()` と `setMemory()` は、引数が誤っていれば false を返します (C API の `FM_ERR_INVALID_ARG`)。どちらもスレッドセーフではないので、オーディオスレッドで `generate()` を始める前に呼んでください。
+`mapMemory()` と `setMemory()` は、引数が誤っていれば false を返します (C API の `FM_ERR_INVALID_ARG`)。チップが持たない種別も false です。どちらもスレッドセーフではないので、オーディオスレッドで `generate()` を始める前に呼んでください。
 
 ### 内部実装 (`MemoryYmfmInterface`)
 
 - 種別ごとにブロックの一覧を持ち、ymfm のアクセスのたびに番地を含むブロックを探します。割り当ての無い番地は 0 を読み、書き込みは捨てます。`ACCESS_IO` (SSG の I/O ポートなど) はどのメモリにも当てません
 - ROM のブロックは書き込み先を持たないので、チップの書き込みは捨てます
 - OPNA と Y8950 は、構築時に `bindAdpcmBRegs()` で ADPCM-B のレジスタを結び付けます。`ACCESS_ADPCM_B` のたびに ROM/RAM 選択ビット (`rom_ram()`) を見て、`ADPCM_B_ROMMODE` と `ADPCM_B` のどちらかを選びます。ymfm はこのビットでアドレスの刻みを変えるだけで、メモリは1つの空間として扱うためです。上流の `m_adpcm_b` は protected なので、`detail::Ym2608Split` と `detail::Y8950Mem` が `adpcmBRegs()` で見せています
+- OPNA は、構築時に `setAdpcmAMemory()` で `ACCESS_ADPCM_A` を `RHYTHM` に振り向けます。ymfm は OPNA のリズムを OPNB の ADPCM-A と同じアクセス種別で読むためです
 
 ## ライセンス
 
