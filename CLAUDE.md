@@ -6,6 +6,8 @@ AI 向けの作業メモ。人間向けの文書は `README.md`（DLL 利用者�
 ## 文書の置き場所
 
 - `doc/CHANGELOG.md` — 開発経緯。方針の前提、見送った案、確認結果を書く
+- `doc/UPSTREAM.md` — 上流の ymfm に挙げた issue の記録と追い方。issue の様子を
+  聞かれたときと、`extern/ymfm` を更新するときに読み、見た結果を書き戻す
 - 回帰テストと、その実行方法はこのファイルに書く。README からは参照しない
 
 ## FmEngineApi のヘッダと仕様
